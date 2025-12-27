@@ -1,0 +1,1087 @@
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Like, Repository } from 'typeorm';
+import { Student } from './entities/student.entity';
+import { Assessment } from './entities/assessment.entity';
+import { ReportCard } from './entities/report-card.entity';
+import { Subject } from './entities/subject.entity';
+import { GradeConfig } from './entities/grade-config.entity';
+import { Class } from './entities/class.entity';
+
+@Injectable()
+export class StudentsService {
+  constructor(
+    @InjectRepository(Student)
+    private studentRepository: Repository<Student>,
+    @InjectRepository(Assessment)
+    private assessmentRepository: Repository<Assessment>,
+    @InjectRepository(ReportCard)
+    private reportCardRepository: Repository<ReportCard>,
+    @InjectRepository(Subject)
+    private subjectRepository: Repository<Subject>,
+    @InjectRepository(GradeConfig)
+    private gradeConfigRepository: Repository<GradeConfig>,
+    @InjectRepository(Class)
+    private classRepository: Repository<Class>,
+  ) { }
+
+  async findByExamNumber(examNumber: string) {
+    const student = await this.studentRepository.findOne({
+      where: { examNumber: examNumber.toUpperCase() },
+      relations: ['assessments', 'assessments.subject', 'reportCards', 'class'],
+    });
+
+    if (!student) {
+      throw new NotFoundException(`Student ${examNumber} not found`);
+    }
+
+    const activeGradeConfig = await this.getActiveGradeConfiguration();
+
+    return this.formatStudentData(student, activeGradeConfig);
+  }
+
+  async getActiveGradeConfiguration() {
+    const config = await this.gradeConfigRepository.findOne({
+      where: { is_active: true }
+    });
+
+    if (!config) {
+      return {
+        id: 'default',
+        configuration_name: 'Default (Average All)',
+        calculation_method: 'average_all',
+        weight_qa1: 33.33,
+        weight_qa2: 33.33,
+        weight_end_of_term: 33.34,
+        is_active: true,
+      };
+    }
+
+    return config;
+  }
+
+  private formatStudentData(student: Student, gradeConfig: any) {
+    const subjectMap = {};
+
+    student.assessments?.forEach((asm) => {
+      const subjectName = asm.subject?.name || 'Unknown';
+      if (!subjectMap[subjectName]) {
+        subjectMap[subjectName] = {
+          name: subjectName,
+          qa1: 0,
+          qa2: 0,
+          endOfTerm: 0,
+          grade: 'N/A',
+        };
+      }
+
+      if (asm.assessmentType === 'qa1') {
+        subjectMap[subjectName].qa1 = asm.score;
+      } else if (asm.assessmentType === 'qa2') {
+        subjectMap[subjectName].qa2 = asm.score;
+      } else if (asm.assessmentType === 'end_of_term') {
+        subjectMap[subjectName].endOfTerm = asm.score;
+        subjectMap[subjectName].grade = asm.grade;
+      }
+    });
+
+    Object.values(subjectMap).forEach((subject: any) => {
+      subject.finalScore = this.calculateFinalScore(subject, gradeConfig);
+      subject.grade = this.calculateGrade(subject.finalScore);
+    });
+
+    const activeReport = student.reportCards?.[0] || {};
+
+    const className = student.class ? student.class.name : 'Unknown';
+    const term = student.class ? student.class.term : 'Term 1, 2024/2025';
+    const academicYear = student.class ? student.class.academic_year : '2024/2025';
+
+    const response: any = {
+      id: student.id,
+      name: student.name,
+      examNumber: student.examNumber,
+      class: className,
+      term: term,
+      academicYear: academicYear,
+      photo: student.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+      subjects: Object.values(subjectMap),
+      attendance: {
+        present: activeReport.daysPresent || 0,
+        absent: activeReport.daysAbsent || 0,
+        late: activeReport.daysLate || 0,
+      },
+      classRank: activeReport.classRank || 0,
+      qa1Rank: activeReport.qa1Rank || 0,
+      qa2Rank: activeReport.qa2Rank || 0,
+      totalStudents: activeReport.totalStudents || 0,
+      teacherRemarks: activeReport.teacherRemarks || 'No remarks available.',
+      gradeConfiguration: gradeConfig,
+    };
+
+    response.assessmentStats = this.calculateAssessmentStats(response, gradeConfig);
+
+    return response;
+  }
+
+  private calculateFinalScore(subject: any, gradeConfig: any): number {
+    switch (gradeConfig.calculation_method) {
+      case 'average_all':
+        return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+
+      case 'end_of_term_only':
+        return subject.endOfTerm;
+
+      case 'weighted_average':
+        return (subject.qa1 * gradeConfig.weight_qa1 +
+          subject.qa2 * gradeConfig.weight_qa2 +
+          subject.endOfTerm * gradeConfig.weight_end_of_term) / 100;
+
+      default:
+        return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+    }
+  }
+
+  private calculateAssessmentStats(studentData: any, gradeConfig: any) {
+    const subjects = studentData.subjects;
+
+    const qa1Average = subjects.reduce((sum, s) => sum + s.qa1, 0) / subjects.length;
+    const qa2Average = subjects.reduce((sum, s) => sum + s.qa2, 0) / subjects.length;
+    const endOfTermAverage = subjects.reduce((sum, s) => sum + s.endOfTerm, 0) / subjects.length;
+
+    const qa1Grade = this.calculateGrade(qa1Average);
+    const qa2Grade = this.calculateGrade(qa2Average);
+    const endOfTermGrade = this.calculateGrade(endOfTermAverage);
+
+    let overallAverage = (qa1Average + qa2Average + endOfTermAverage) / 3;
+    if (gradeConfig) {
+      overallAverage = this.calculateFinalScore(
+        { qa1: qa1Average, qa2: qa2Average, endOfTerm: endOfTermAverage },
+        gradeConfig
+      );
+    }
+
+    return {
+      qa1: {
+        classRank: studentData.qa1Rank || 0,
+        termAverage: parseFloat(qa1Average.toFixed(1)),
+        overallGrade: qa1Grade,
+      },
+      qa2: {
+        classRank: studentData.qa2Rank || 0,
+        termAverage: parseFloat(qa2Average.toFixed(1)),
+        overallGrade: qa2Grade,
+      },
+      endOfTerm: {
+        classRank: studentData.classRank,
+        termAverage: parseFloat(endOfTermAverage.toFixed(1)),
+        overallGrade: endOfTermGrade,
+        attendance: studentData.attendance
+      },
+      overall: {
+        termAverage: parseFloat(overallAverage.toFixed(1)),
+        calculationMethod: gradeConfig?.calculation_method || 'average_all'
+      }
+    };
+  }
+
+  async findAll() {
+    return this.studentRepository.find({
+      relations: ['class'],
+      order: { examNumber: 'ASC' },
+    });
+  }
+
+  async findAllSubjects() {
+    return this.subjectRepository.find({
+      order: { name: 'ASC' },
+      select: ['id', 'name'],
+    });
+  }
+
+  // async create(studentData: any) {
+  //   const classEntity = await this.classRepository.findOne({
+  //     where: { id: studentData.class_id }
+  //   });
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class ${studentData.class_id} not found`);
+  //   }
+
+  //   const studentCount = await this.studentRepository.count({
+  //     where: { class: { id: studentData.class_id } }
+  //   });
+
+  //   const classCode = classEntity.name
+  //     .replace(/[^a-zA-Z0-9]/g, '')
+  //     .toUpperCase()
+  //     .substring(0, 6);
+  //   const nextNumber = studentCount + 1;
+  //   const examNumber = `${classCode}-${nextNumber.toString().padStart(3, '0')}`;
+
+  //   const student = this.studentRepository.create({
+  //     name: studentData.name,
+  //     examNumber: examNumber,
+  //     class: classEntity,
+  //     photoUrl: studentData.photo_url,
+  //   });
+
+  //   return this.studentRepository.save(student);
+  // }
+
+  // async create(studentData: any) {
+  //   const classEntity = await this.classRepository.findOne({
+  //     where: { id: studentData.class_id }
+  //   });
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class ${studentData.class_id} not found`);
+  //   }
+
+  //   // Get current year (e.g., 2025)
+  //   const currentYear = new Date().getFullYear().toString().slice(-2); // "25"
+
+  //   // Find highest exam number starting with this year
+  //   const allStudents = await this.studentRepository.find({
+  //     select: ['examNumber'],
+  //     where: {
+  //       examNumber: Like(`${currentYear}%`) // Find exam numbers starting with current year
+  //     },
+  //     order: { examNumber: 'DESC' },
+  //     take: 1
+  //   });
+
+  //   let nextNumber = 1;
+  //   if (allStudents.length > 0 && allStudents[0].examNumber) {
+  //     // Extract the number part (e.g., "001" from "25001")
+  //     const lastExamNumber = allStudents[0].examNumber;
+  //     const lastNumberStr = lastExamNumber.slice(2); // Remove "25" from "25001" -> "001"
+  //     const lastNumber = parseInt(lastNumberStr) || 0;
+  //     nextNumber = lastNumber + 1;
+  //   }
+
+  //   // Format: YY + 3-digit number (e.g., "25001", "25002")
+  //   const examNumber = `${currentYear}${nextNumber.toString().padStart(3, '0')}`;
+
+  //   const student = this.studentRepository.create({
+  //     name: studentData.name,
+  //     examNumber: examNumber,
+  //     class: classEntity,
+  //     photoUrl: studentData.photo_url,
+  //   });
+
+  //   return this.studentRepository.save(student);
+  // }
+
+  async create(studentData: any) {
+    const classEntity = await this.classRepository.findOne({
+      where: { id: studentData.class_id }
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${studentData.class_id} not found`);
+    }
+
+    // Get current year (e.g., 2025 -> "25")
+    const currentYear = new Date().getFullYear().toString().slice(-2);
+
+    // Extract class number from class name (e.g., "Standard 8" -> "8")
+    const classNumberMatch = classEntity.name.match(/\d+/);
+    const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
+
+    // Find highest exam number for this year-class combination
+    const prefix = `${currentYear}-${classNumber}`; // e.g., "25-8"
+
+    const allStudents = await this.studentRepository.find({
+      select: ['examNumber'],
+      where: {
+        examNumber: Like(`${prefix}%`) // Find "25-8XXX"
+      },
+      order: { examNumber: 'DESC' },
+      take: 1
+    });
+
+    let nextNumber = 1;
+    if (allStudents.length > 0 && allStudents[0].examNumber) {
+      // Extract number from "25-8001" -> "001"
+      const lastExamNumber = allStudents[0].examNumber;
+      const lastNumberStr = lastExamNumber.slice(prefix.length + 1); // Remove "25-8"
+      const lastNumber = parseInt(lastNumberStr) || 0;
+      nextNumber = lastNumber + 1;
+    }
+
+    // Format: YY-CLASS-3DIGIT (e.g., "25-8001", "25-8002")
+    const examNumber = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+
+    const student = this.studentRepository.create({
+      name: studentData.name,
+      examNumber: examNumber,
+      class: classEntity,
+      photoUrl: studentData.photo_url,
+    });
+
+    return this.studentRepository.save(student);
+  }
+
+  async update(id: string, updates: any) {
+    const student = await this.studentRepository.findOne({
+      where: { id },
+      relations: ['class']
+    });
+
+    if (!student) {
+      throw new NotFoundException(`Student ${id} not found`);
+    }
+
+    const allowedUpdates = ['name', 'photoUrl'];
+
+    if (updates.class_id) {
+      const classEntity = await this.classRepository.findOne({
+        where: { id: updates.class_id }
+      });
+
+      if (!classEntity) {
+        throw new NotFoundException(`Class ${updates.class_id} not found`);
+      }
+      student.class = classEntity;
+    }
+
+    allowedUpdates.forEach(field => {
+      if (updates[field] !== undefined) {
+        student[field] = updates[field];
+      }
+    });
+
+    return this.studentRepository.save(student);
+  }
+
+  async remove(id: string) {
+    const student = await this.studentRepository.findOne({ where: { id } });
+    if (!student) {
+      throw new NotFoundException(`Student ${id} not found`);
+    }
+    return this.studentRepository.remove(student);
+  }
+
+  async getStudentAssessments(studentId: string) {
+    return this.assessmentRepository.find({
+      where: { student: { id: studentId } },
+      relations: ['subject'],
+      order: { subject: { name: 'ASC' } },
+    });
+  }
+
+  async getStudentReportCard(studentId: string, term: string) {
+    return this.reportCardRepository.findOne({
+      where: {
+        student: { id: studentId },
+        term,
+      },
+    });
+  }
+
+  async upsertAssessment(assessmentData: any) {
+    const data = {
+      student: { id: assessmentData.student_id || assessmentData.studentId },
+      subject: { id: assessmentData.subject_id || assessmentData.subjectId },
+      assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
+      score: assessmentData.score,
+      grade: assessmentData.grade,
+    };
+
+    const existing = await this.assessmentRepository.findOne({
+      where: {
+        student: { id: data.student.id },
+        subject: { id: data.subject.id },
+        assessmentType: data.assessmentType,
+      },
+    });
+
+    if (existing) {
+      Object.assign(existing, {
+        score: data.score,
+        grade: data.grade,
+      });
+      return this.assessmentRepository.save(existing);
+    } else {
+      const assessment = this.assessmentRepository.create(data);
+      return this.assessmentRepository.save(assessment);
+    }
+  }
+
+  // async upsertReportCard(reportCardData: any) {
+  //   const data = {
+  //     student: { id: reportCardData.student_id || reportCardData.studentId },
+  //     term: reportCardData.term,
+  //     classRank: reportCardData.class_rank || reportCardData.classRank || 0,
+  //     qa1Rank: reportCardData.qa1_rank || reportCardData.qa1Rank || 0,
+  //     qa2Rank: reportCardData.qa2_rank || reportCardData.qa2Rank || 0,
+  //     totalStudents: reportCardData.total_students || reportCardData.totalStudents || 0,
+  //     daysPresent: reportCardData.days_present || reportCardData.daysPresent || 0,
+  //     daysAbsent: reportCardData.days_absent || reportCardData.daysAbsent || 0,
+  //     daysLate: reportCardData.days_late || reportCardData.daysLate || 0,
+  //     teacherRemarks: reportCardData.teacher_remarks || reportCardData.teacherRemarks || '',
+  //   };
+
+  //   const existing = await this.reportCardRepository.findOne({
+  //     where: {
+  //       student: { id: data.student.id },
+  //       term: data.term,
+  //     },
+  //   });
+
+  //   if (existing) {
+  //     Object.assign(existing, data);
+  //     return this.reportCardRepository.save(existing);
+  //   } else {
+  //     const reportCard = this.reportCardRepository.create(data);
+  //     return this.reportCardRepository.save(reportCard);
+  //   }
+  // }
+
+
+  async upsertReportCard(reportCardData: any) {
+    const data = {
+      student: { id: reportCardData.student_id || reportCardData.studentId },
+      term: reportCardData.term,
+      daysPresent: reportCardData.days_present || reportCardData.daysPresent || 0,
+      daysAbsent: reportCardData.days_absent || reportCardData.daysAbsent || 0,
+      daysLate: reportCardData.days_late || reportCardData.daysLate || 0,
+      teacherRemarks: reportCardData.teacher_remarks || reportCardData.teacherRemarks || '',
+    };
+
+    // Only set ranks if provided (for auto-ranking, don't send them)
+    if (reportCardData.class_rank !== undefined) {
+      data['classRank'] = reportCardData.class_rank;
+    }
+    if (reportCardData.qa1_rank !== undefined) {
+      data['qa1Rank'] = reportCardData.qa1_rank;
+    }
+    if (reportCardData.qa2_rank !== undefined) {
+      data['qa2Rank'] = reportCardData.qa2_rank;
+    }
+    if (reportCardData.total_students !== undefined) {
+      data['totalStudents'] = reportCardData.total_students;
+    }
+
+    const existing = await this.reportCardRepository.findOne({
+      where: {
+        student: { id: data.student.id },
+        term: data.term,
+      },
+    });
+
+    if (existing) {
+      Object.assign(existing, data);
+      return this.reportCardRepository.save(existing);
+    } else {
+      const reportCard = this.reportCardRepository.create(data);
+      return this.reportCardRepository.save(reportCard);
+    }
+  }
+
+  async createSubject(subjectData: { name: string }) {
+    const subject = this.subjectRepository.create(subjectData);
+    return this.subjectRepository.save(subject);
+  }
+
+  async deleteSubject(id: string) {
+    const subject = await this.subjectRepository.findOne({ where: { id } });
+    if (!subject) {
+      throw new NotFoundException(`Subject ${id} not found`);
+    }
+    return this.subjectRepository.remove(subject);
+  }
+
+  calculateGrade(score: number): string {
+    if (score >= 80) return 'A';
+    if (score >= 70) return 'B';
+    if (score >= 60) return 'C';
+    if (score >= 50) return 'D';
+    return 'F';
+  }
+
+  async getAllGradeConfigurations() {
+    return this.gradeConfigRepository.find({
+      order: { is_active: 'DESC', created_at: 'DESC' }
+    });
+  }
+
+  async createGradeConfiguration(data: Partial<GradeConfig>) {
+    const config = this.gradeConfigRepository.create(data);
+    return this.gradeConfigRepository.save(config);
+  }
+
+  async updateGradeConfiguration(id: string, updates: Partial<GradeConfig>) {
+    const config = await this.gradeConfigRepository.findOne({ where: { id } });
+    if (!config) {
+      throw new NotFoundException(`Grade configuration ${id} not found`);
+    }
+
+    Object.assign(config, updates);
+    return this.gradeConfigRepository.save(config);
+  }
+
+  async setActiveConfiguration(id: string) {
+    await this.gradeConfigRepository.update({ is_active: true }, { is_active: false });
+
+    const config = await this.gradeConfigRepository.findOne({ where: { id } });
+    if (!config) {
+      throw new NotFoundException(`Grade configuration ${id} not found`);
+    }
+
+    config.is_active = true;
+    return this.gradeConfigRepository.save(config);
+  }
+
+  // --- NEW CLASS METHODS ---
+  async findAllClasses() {
+    return this.classRepository.find({
+      order: { created_at: 'DESC' },
+      relations: ['students'],
+    });
+  }
+
+  // async createClass(classData: { name: string; academic_year: string; term: string }) {
+  //   const classCode = classData.name
+  //     .replace(/[^a-zA-Z0-9]/g, '')
+  //     .toUpperCase()
+  //     .substring(0, 6) +
+  //     '-' +
+  //     classData.academic_year.replace('/', '-') +
+  //     '-' +
+  //     classData.term.replace(' ', '').substring(0, 2).toUpperCase();
+
+  //   const classEntity = this.classRepository.create({
+  //     ...classData,
+  //     class_code: classCode,
+  //   });
+
+  //   return this.classRepository.save(classEntity);
+  // }
+
+  async createClass(classData: { name: string; academic_year: string; term: string }) {
+    // First, check if a class with same name, year, and term already exists
+    const existingClass = await this.classRepository.findOne({
+      where: {
+        name: classData.name,
+        academic_year: classData.academic_year,
+        term: classData.term
+      }
+    });
+
+    if (existingClass) {
+      throw new ConflictException(
+        `Class "${classData.name}" already exists for ${classData.academic_year} ${classData.term}`
+      );
+    }
+
+    // Generate unique code with a random suffix
+    const nameCode = classData.name
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+      .substring(0, 4);
+
+    const classNumber = classData.name.match(/\d+/)?.[0] || '00';
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+    const classCode = `${nameCode}${classNumber}-${classData.academic_year.replace('/', '-')}-${classData.term.substring(0, 2).toUpperCase()}-${randomSuffix}`;
+
+    const classEntity = this.classRepository.create({
+      ...classData,
+      class_code: classCode,
+    });
+
+    return this.classRepository.save(classEntity);
+  }
+
+  async deleteClass(id: string) {
+    const classEntity = await this.classRepository.findOne({
+      where: { id },
+      relations: ['students']
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${id} not found`);
+    }
+
+    if (classEntity.students && classEntity.students.length > 0) {
+      throw new NotFoundException(`Cannot delete class with students. Delete students first.`);
+    }
+
+    return this.classRepository.remove(classEntity);
+  }
+
+  async getClassStudents(classId: string) {
+    const classEntity = await this.classRepository.findOne({
+      where: { id: classId },
+      relations: ['students'],
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${classId} not found`);
+    }
+
+    return classEntity.students || [];
+  }
+  //NEW CODE
+  async calculateAndUpdateRanks(classId: string, term: string) {
+    const classEntity = await this.classRepository.findOne({
+      where: { id: classId },
+      relations: ['students'],
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${classId} not found`);
+    }
+
+    const studentIds = classEntity.students.map(s => s.id);
+    const results: any[] = [];
+
+    for (const studentId of studentIds) {
+      const assessments = await this.assessmentRepository.find({
+        where: {
+          student: { id: studentId },
+          assessmentType: In(['qa1', 'qa2', 'end_of_term'])
+        },
+        relations: ['subject']
+      });
+
+      const qa1Total = assessments
+        .filter(a => a.assessmentType === 'qa1')
+        .reduce((sum, a) => sum + a.score, 0);
+
+      const qa2Total = assessments
+        .filter(a => a.assessmentType === 'qa2')
+        .reduce((sum, a) => sum + a.score, 0);
+
+      const endTermTotal = assessments
+        .filter(a => a.assessmentType === 'end_of_term')
+        .reduce((sum, a) => sum + a.score, 0);
+
+      const qa1Subjects = assessments.filter(a => a.assessmentType === 'qa1' && a.score > 0).length;
+      const qa2Subjects = assessments.filter(a => a.assessmentType === 'qa2' && a.score > 0).length;
+      const endTermSubjects = assessments.filter(a => a.assessmentType === 'end_of_term' && a.score > 0).length;
+
+      const qa1Avg = qa1Subjects > 0 ? qa1Total / qa1Subjects : 0;
+      const qa2Avg = qa2Subjects > 0 ? qa2Total / qa2Subjects : 0;
+      const endTermAvg = endTermSubjects > 0 ? endTermTotal / endTermSubjects : 0;
+
+      results.push({
+        studentId,
+        qa1Avg,
+        qa2Avg,
+        endTermAvg,
+      });
+    }
+
+    const qa1Ranked = [...results]
+      .filter(r => r.qa1Avg > 0)
+      .sort((a, b) => b.qa1Avg - a.qa1Avg);
+
+    const qa2Ranked = [...results]
+      .filter(r => r.qa2Avg > 0)
+      .sort((a, b) => b.qa2Avg - a.qa2Avg);
+
+    const endTermRanked = [...results]
+      .filter(r => r.endTermAvg > 0)
+      .sort((a, b) => b.endTermAvg - a.endTermAvg);
+
+    for (const studentId of studentIds) {
+      let reportCard = await this.reportCardRepository.findOne({
+        where: {
+          student: { id: studentId },
+          term,
+        },
+      });
+
+      if (!reportCard) {
+        reportCard = this.reportCardRepository.create({
+          student: { id: studentId },
+          term,
+          totalStudents: studentIds.length,
+        });
+      }
+
+      const studentResult = results.find(r => r.studentId === studentId);
+      if (studentResult) {
+        const qa1Index = qa1Ranked.findIndex(r => r.studentId === studentId);
+        reportCard.qa1Rank = qa1Index >= 0 ? qa1Index + 1 : 0;
+
+        const qa2Index = qa2Ranked.findIndex(r => r.studentId === studentId);
+        reportCard.qa2Rank = qa2Index >= 0 ? qa2Index + 1 : 0;
+
+        const endTermIndex = endTermRanked.findIndex(r => r.studentId === studentId);
+        reportCard.classRank = endTermIndex >= 0 ? endTermIndex + 1 : 0;
+
+        reportCard.totalStudents = studentIds.length;
+      }
+
+      await this.reportCardRepository.save(reportCard);
+    }
+
+    return { message: 'Ranks calculated and updated successfully' };
+  }
+}
+
+
+// import { Injectable, NotFoundException } from '@nestjs/common';
+// import { InjectRepository } from '@nestjs/typeorm';
+// import { Repository } from 'typeorm';
+// import { Student } from './entities/student.entity';
+// import { Assessment } from './entities/assessment.entity';
+// import { ReportCard } from './entities/report-card.entity';
+// import { Subject } from './entities/subject.entity';
+// import { GradeConfig } from './entities/grade-config.entity';
+
+// @Injectable()
+// export class StudentsService {
+//   constructor(
+//     @InjectRepository(Student)
+//     private studentRepository: Repository<Student>,
+//     @InjectRepository(Assessment)
+//     private assessmentRepository: Repository<Assessment>,
+//     @InjectRepository(ReportCard)
+//     private reportCardRepository: Repository<ReportCard>,
+//     @InjectRepository(Subject)
+//     private subjectRepository: Repository<Subject>,
+//     @InjectRepository(GradeConfig)
+//     private gradeConfigRepository: Repository<GradeConfig>,
+//   ) { }
+
+//   async findByExamNumber(examNumber: string) {
+//     const student = await this.studentRepository.findOne({
+//       where: { examNumber: examNumber.toUpperCase() },
+//       relations: ['assessments', 'assessments.subject', 'reportCards'],
+//     });
+
+//     if (!student) {
+//       throw new NotFoundException(`Student ${examNumber} not found`);
+//     }
+
+//     const activeGradeConfig = await this.getActiveGradeConfiguration();
+
+//     return this.formatStudentData(student, activeGradeConfig);
+//   }
+
+//   async getActiveGradeConfiguration() {
+//     const config = await this.gradeConfigRepository.findOne({
+//       where: { is_active: true }
+//     });
+
+//     if (!config) {
+//       return {
+//         id: 'default',
+//         configuration_name: 'Default (Average All)',
+//         calculation_method: 'average_all',
+//         weight_qa1: 33.33,
+//         weight_qa2: 33.33,
+//         weight_end_of_term: 33.34,
+//         is_active: true,
+//       };
+//     }
+
+//     return config;
+//   }
+
+//   private formatStudentData(student: Student, gradeConfig: any) {
+//     const subjectMap = {};
+
+//     student.assessments?.forEach((asm) => {
+//       const subjectName = asm.subject?.name || 'Unknown';
+//       if (!subjectMap[subjectName]) {
+//         subjectMap[subjectName] = {
+//           name: subjectName,
+//           qa1: 0,
+//           qa2: 0,
+//           endOfTerm: 0,
+//           grade: 'N/A',
+//         };
+//       }
+
+//       if (asm.assessmentType === 'qa1') {
+//         subjectMap[subjectName].qa1 = asm.score;
+//       } else if (asm.assessmentType === 'qa2') {
+//         subjectMap[subjectName].qa2 = asm.score;
+//       } else if (asm.assessmentType === 'end_of_term') {
+//         subjectMap[subjectName].endOfTerm = asm.score;
+//         subjectMap[subjectName].grade = asm.grade;
+//       }
+//     });
+
+//     Object.values(subjectMap).forEach((subject: any) => {
+//       subject.finalScore = this.calculateFinalScore(subject, gradeConfig);
+//       subject.grade = this.calculateGrade(subject.finalScore);
+//     });
+
+//     const activeReport = student.reportCards?.[0] || {};
+
+//     const response: any = {
+//       id: student.id,
+//       name: student.name,
+//       examNumber: student.examNumber,
+//       class: student.class,
+//       term: student.term,
+//       photo: student.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+//       subjects: Object.values(subjectMap),
+//       attendance: {
+//         present: activeReport.daysPresent || 0,
+//         absent: activeReport.daysAbsent || 0,
+//         late: activeReport.daysLate || 0,
+//       },
+//       classRank: activeReport.classRank || 0,
+//       qa1Rank: activeReport.qa1Rank || 0,     // ← ADDED
+//       qa2Rank: activeReport.qa2Rank || 0,     // ← ADDED
+//       totalStudents: activeReport.totalStudents || 0,
+//       teacherRemarks: activeReport.teacherRemarks || 'No remarks available.',
+//       gradeConfiguration: gradeConfig,
+//     };
+
+//     response.assessmentStats = this.calculateAssessmentStats(response, gradeConfig);
+
+//     return response;
+//   }
+
+//   private calculateFinalScore(subject: any, gradeConfig: any): number {
+//     switch (gradeConfig.calculation_method) {
+//       case 'average_all':
+//         return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+
+//       case 'end_of_term_only':
+//         return subject.endOfTerm;
+
+//       case 'weighted_average':
+//         return (subject.qa1 * gradeConfig.weight_qa1 +
+//           subject.qa2 * gradeConfig.weight_qa2 +
+//           subject.endOfTerm * gradeConfig.weight_end_of_term) / 100;
+
+//       default:
+//         return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+//     }
+//   }
+
+//   private calculateAssessmentStats(studentData: any, gradeConfig: any) {
+//     const subjects = studentData.subjects;
+
+//     // Calculate averages
+//     const qa1Average = subjects.reduce((sum, s) => sum + s.qa1, 0) / subjects.length;
+//     const qa2Average = subjects.reduce((sum, s) => sum + s.qa2, 0) / subjects.length;
+//     const endOfTermAverage = subjects.reduce((sum, s) => sum + s.endOfTerm, 0) / subjects.length;
+
+//     // Calculate overall grades for each assessment
+//     const qa1Grade = this.calculateGrade(qa1Average);
+//     const qa2Grade = this.calculateGrade(qa2Average);
+//     const endOfTermGrade = this.calculateGrade(endOfTermAverage);
+
+//     // Overall average
+//     let overallAverage = (qa1Average + qa2Average + endOfTermAverage) / 3;
+//     if (gradeConfig) {
+//       overallAverage = this.calculateFinalScore(
+//         { qa1: qa1Average, qa2: qa2Average, endOfTerm: endOfTermAverage },
+//         gradeConfig
+//       );
+//     }
+
+//     return {
+//       qa1: {
+//         classRank: studentData.qa1Rank || 0, // Use QA1 rank
+//         termAverage: parseFloat(qa1Average.toFixed(1)),
+//         overallGrade: qa1Grade, // ADD OVERALL GRADE FOR QA1
+//         // NO ATTENDANCE FIELD AT ALL
+//       },
+//       qa2: {
+//         classRank: studentData.qa2Rank || 0, // Use QA2 rank
+//         termAverage: parseFloat(qa2Average.toFixed(1)),
+//         overallGrade: qa2Grade, // ADD OVERALL GRADE FOR QA2
+//         // NO ATTENDANCE FIELD AT ALL
+//       },
+//       endOfTerm: {
+//         classRank: studentData.classRank, // Overall rank from report card
+//         termAverage: parseFloat(endOfTermAverage.toFixed(1)),
+//         overallGrade: endOfTermGrade, // ADD OVERALL GRADE FOR END OF TERM
+//         attendance: studentData.attendance // Keep attendance only for End of Term
+//       },
+//       overall: {
+//         termAverage: parseFloat(overallAverage.toFixed(1)),
+//         calculationMethod: gradeConfig?.calculation_method || 'average_all'
+//       }
+//     };
+//   }
+//   async findAll() {
+//     return this.studentRepository.find({
+//       order: { examNumber: 'ASC' },
+//     });
+//   }
+
+//   async findAllSubjects() {
+//     return this.subjectRepository.find({
+//       order: { name: 'ASC' },
+//       select: ['id', 'name'],
+//     });
+//   }
+
+//   async create(studentData: any) {
+//     const student = this.studentRepository.create({
+//       ...studentData,
+//       examNumber: studentData.examNumber?.toUpperCase() || studentData.exam_number?.toUpperCase(),
+//     });
+//     return this.studentRepository.save(student);
+//   }
+
+//   async update(id: string, updates: any) {
+//     const student = await this.studentRepository.findOne({ where: { id } });
+//     if (!student) {
+//       throw new NotFoundException(`Student ${id} not found`);
+//     }
+
+//     const allowedUpdates = ['name', 'class', 'term', 'photoUrl'];
+//     allowedUpdates.forEach(field => {
+//       if (updates[field] !== undefined) {
+//         student[field] = updates[field];
+//       }
+//     });
+
+//     return this.studentRepository.save(student);
+//   }
+
+//   async remove(id: string) {
+//     const student = await this.studentRepository.findOne({ where: { id } });
+//     if (!student) {
+//       throw new NotFoundException(`Student ${id} not found`);
+//     }
+//     return this.studentRepository.remove(student);
+//   }
+
+//   async getStudentAssessments(studentId: string) {
+//     return this.assessmentRepository.find({
+//       where: { student: { id: studentId } },
+//       relations: ['subject'],
+//       order: { subject: { name: 'ASC' } },
+//     });
+//   }
+
+//   async getStudentReportCard(studentId: string, term: string) {
+//     return this.reportCardRepository.findOne({
+//       where: {
+//         student: { id: studentId },
+//         term,
+//       },
+//     });
+//   }
+
+//   async upsertAssessment(assessmentData: any) {
+//     const data = {
+//       student: { id: assessmentData.student_id || assessmentData.studentId },
+//       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
+//       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
+//       score: assessmentData.score,
+//       grade: assessmentData.grade,
+//     };
+
+//     const existing = await this.assessmentRepository.findOne({
+//       where: {
+//         student: { id: data.student.id },
+//         subject: { id: data.subject.id },
+//         assessmentType: data.assessmentType,
+//       },
+//     });
+
+//     if (existing) {
+//       Object.assign(existing, {
+//         score: data.score,
+//         grade: data.grade,
+//       });
+//       return this.assessmentRepository.save(existing);
+//     } else {
+//       const assessment = this.assessmentRepository.create(data);
+//       return this.assessmentRepository.save(assessment);
+//     }
+//   }
+
+
+//   async upsertReportCard(reportCardData: any) {
+//     const data = {
+//       student: { id: reportCardData.student_id || reportCardData.studentId },
+//       term: reportCardData.term,
+//       classRank: reportCardData.class_rank || reportCardData.classRank || 0,
+//       // ADD THESE 2 LINES:
+//       qa1Rank: reportCardData.qa1_rank || reportCardData.qa1Rank || 0,
+//       qa2Rank: reportCardData.qa2_rank || reportCardData.qa2Rank || 0,
+//       totalStudents: reportCardData.total_students || reportCardData.totalStudents || 0,
+//       daysPresent: reportCardData.days_present || reportCardData.daysPresent || 0,
+//       daysAbsent: reportCardData.days_absent || reportCardData.daysAbsent || 0,
+//       daysLate: reportCardData.days_late || reportCardData.daysLate || 0,
+//       teacherRemarks: reportCardData.teacher_remarks || reportCardData.teacherRemarks || '',
+//     };
+
+//     const existing = await this.reportCardRepository.findOne({
+//       where: {
+//         student: { id: data.student.id },
+//         term: data.term,
+//       },
+//     });
+
+//     if (existing) {
+//       Object.assign(existing, data);
+//       return this.reportCardRepository.save(existing);
+//     } else {
+//       const reportCard = this.reportCardRepository.create(data);
+//       return this.reportCardRepository.save(reportCard);
+//     }
+//   }
+
+//   async createSubject(subjectData: { name: string }) {
+//     const subject = this.subjectRepository.create(subjectData);
+//     return this.subjectRepository.save(subject);
+//   }
+
+//   async deleteSubject(id: string) {
+//     const subject = await this.subjectRepository.findOne({ where: { id } });
+//     if (!subject) {
+//       throw new NotFoundException(`Subject ${id} not found`);
+//     }
+//     return this.subjectRepository.remove(subject);
+//   }
+
+//   calculateGrade(score: number): string {
+//     if (score >= 80) return 'A';
+//     if (score >= 70) return 'B';
+//     if (score >= 60) return 'C';
+//     if (score >= 50) return 'D';
+//     return 'F';
+//   }
+
+//   async getAllGradeConfigurations() {
+//     return this.gradeConfigRepository.find({
+//       order: { is_active: 'DESC', created_at: 'DESC' }
+//     });
+//   }
+
+//   async createGradeConfiguration(data: Partial<GradeConfig>) {
+//     const config = this.gradeConfigRepository.create(data);
+//     return this.gradeConfigRepository.save(config);
+//   }
+
+//   async updateGradeConfiguration(id: string, updates: Partial<GradeConfig>) {
+//     const config = await this.gradeConfigRepository.findOne({ where: { id } });
+//     if (!config) {
+//       throw new NotFoundException(`Grade configuration ${id} not found`);
+//     }
+
+//     Object.assign(config, updates);
+//     return this.gradeConfigRepository.save(config);
+//   }
+
+//   async setActiveConfiguration(id: string) {
+//     await this.gradeConfigRepository.update({ is_active: true }, { is_active: false });
+
+//     const config = await this.gradeConfigRepository.findOne({ where: { id } });
+//     if (!config) {
+//       throw new NotFoundException(`Grade configuration ${id} not found`);
+//     }
+
+//     config.is_active = true;
+//     return this.gradeConfigRepository.save(config);
+//   }
+// }
+
+
