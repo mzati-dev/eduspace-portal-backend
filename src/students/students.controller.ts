@@ -13,6 +13,12 @@ export class StudentsController {
     return this.studentsService.calculateAndUpdateRanks(body.class_id, body.term);
   }
 
+  // Add this to your StudentsController class
+  @Get('class/:classId/results')
+  async getClassResults(@Param('classId') classId: string) {
+    return this.studentsService.getClassResults(classId);
+  }
+
   @Get('results/:examNumber')
   async getStudentResults(@Param('examNumber') examNumber: string) {
     return this.studentsService.findByExamNumber(examNumber);

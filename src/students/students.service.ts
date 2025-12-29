@@ -40,6 +40,26 @@ export class StudentsService {
     return this.formatStudentData(student, activeGradeConfig);
   }
 
+  // async getActiveGradeConfiguration() {
+  //   const config = await this.gradeConfigRepository.findOne({
+  //     where: { is_active: true }
+  //   });
+
+  //   if (!config) {
+  //     return {
+  //       id: 'default',
+  //       configuration_name: 'Default (Average All)',
+  //       calculation_method: 'average_all',
+  //       weight_qa1: 33.33,
+  //       weight_qa2: 33.33,
+  //       weight_end_of_term: 33.34,
+  //       is_active: true,
+  //     };
+  //   }
+
+  //   return config;
+  // }
+
   async getActiveGradeConfiguration() {
     const config = await this.gradeConfigRepository.findOne({
       where: { is_active: true }
@@ -53,6 +73,7 @@ export class StudentsService {
         weight_qa1: 33.33,
         weight_qa2: 33.33,
         weight_end_of_term: 33.34,
+        pass_mark: 50,  // Add this line
         is_active: true,
       };
     }
@@ -81,13 +102,15 @@ export class StudentsService {
         subjectMap[subjectName].qa2 = asm.score;
       } else if (asm.assessmentType === 'end_of_term') {
         subjectMap[subjectName].endOfTerm = asm.score;
-        subjectMap[subjectName].grade = asm.grade;
+        // subjectMap[subjectName].grade = asm.grade;
+        subjectMap[subjectName].grade = this.calculateGrade(asm.score, gradeConfig);
       }
     });
 
     Object.values(subjectMap).forEach((subject: any) => {
       subject.finalScore = this.calculateFinalScore(subject, gradeConfig);
-      subject.grade = this.calculateGrade(subject.finalScore);
+      // subject.grade = this.calculateGrade(subject.finalScore);
+      subject.grade = this.calculateGrade(subject.finalScore, gradeConfig);
     });
 
     const activeReport = student.reportCards?.[0] || {};
@@ -148,9 +171,13 @@ export class StudentsService {
     const qa2Average = subjects.reduce((sum, s) => sum + s.qa2, 0) / subjects.length;
     const endOfTermAverage = subjects.reduce((sum, s) => sum + s.endOfTerm, 0) / subjects.length;
 
-    const qa1Grade = this.calculateGrade(qa1Average);
-    const qa2Grade = this.calculateGrade(qa2Average);
-    const endOfTermGrade = this.calculateGrade(endOfTermAverage);
+    // const qa1Grade = this.calculateGrade(qa1Average);
+    // const qa2Grade = this.calculateGrade(qa2Average);
+    // const endOfTermGrade = this.calculateGrade(endOfTermAverage);
+
+    const qa1Grade = this.calculateGrade(qa1Average, gradeConfig);
+    const qa2Grade = this.calculateGrade(qa2Average, gradeConfig);
+    const endOfTermGrade = this.calculateGrade(endOfTermAverage, gradeConfig);
 
     let overallAverage = (qa1Average + qa2Average + endOfTermAverage) / 3;
     if (gradeConfig) {
@@ -380,12 +407,15 @@ export class StudentsService {
   }
 
   async upsertAssessment(assessmentData: any) {
+    const activeConfig = await this.getActiveGradeConfiguration();
     const data = {
       student: { id: assessmentData.student_id || assessmentData.studentId },
       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
       score: assessmentData.score,
-      grade: assessmentData.grade,
+      // grade: assessmentData.grade,
+
+      grade: this.calculateGrade(assessmentData.score, activeConfig),
     };
 
     const existing = await this.assessmentRepository.findOne({
@@ -492,11 +522,22 @@ export class StudentsService {
     return this.subjectRepository.remove(subject);
   }
 
-  calculateGrade(score: number): string {
+  // calculateGrade(score: number): string {
+
+  //   if (score >= 80) return 'A';
+  //   if (score >= 70) return 'B';
+  //   if (score >= 60) return 'C';
+  //   if (score >= 50) return 'D';
+
+  //   return 'F';
+  // }
+
+  calculateGrade(score: number, gradeConfig?: any): string {
+    const passMark = gradeConfig?.pass_mark || 50;  // Now gradeConfig exists as a parameter
     if (score >= 80) return 'A';
     if (score >= 70) return 'B';
     if (score >= 60) return 'C';
-    if (score >= 50) return 'D';
+    if (score >= passMark) return 'D';
     return 'F';
   }
 
@@ -720,6 +761,65 @@ export class StudentsService {
     }
 
     return { message: 'Ranks calculated and updated successfully' };
+  }
+
+  async getClassResults(classId: string) {
+    const classEntity = await this.classRepository.findOne({
+      where: { id: classId },
+      relations: ['students'],
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${classId} not found`);
+    }
+
+    const activeGradeConfig = await this.getActiveGradeConfiguration();
+    const results: any[] = []; // FIXED: Add type annotation
+
+    for (const student of classEntity.students) {
+      // Get student data with assessments
+      const studentData = await this.findByExamNumber(student.examNumber);
+
+      if (studentData && studentData.subjects && studentData.subjects.length > 0) {
+        results.push({
+          id: student.id,
+          name: student.name,
+          examNumber: student.examNumber,
+          classRank: studentData.classRank || 0,
+          totalScore: studentData.subjects.reduce((sum, subject) => {
+            const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+            return sum + finalScore;
+          }, 0),
+          average: studentData.subjects.reduce((sum, subject) => {
+            const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+            return sum + finalScore;
+          }, 0) / studentData.subjects.length,
+          overallGrade: this.calculateGrade(
+            studentData.subjects.reduce((sum, subject) => {
+              const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+              return sum + finalScore;
+            }, 0) / studentData.subjects.length,
+            activeGradeConfig
+          ),
+          subjects: studentData.subjects.map(subject => ({
+            name: subject.name,
+            qa1: subject.qa1,
+            qa2: subject.qa2,
+            endOfTerm: subject.endOfTerm,
+            finalScore: subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3),
+            grade: subject.grade
+          }))
+        });
+      }
+    }
+
+    // Sort by average (descending) and assign ranks
+    results.sort((a, b) => b.average - a.average);
+    results.forEach((result, index) => {
+      result.rank = index + 1;
+    });
+
+    return results;
   }
 }
 

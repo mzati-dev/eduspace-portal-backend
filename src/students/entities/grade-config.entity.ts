@@ -29,6 +29,9 @@ export class GradeConfig {
     @Column({ type: 'int', default: 40 })
     weight_end_of_term: number;
 
+    @Column({ type: 'int', default: 50 })
+    pass_mark: number;
+
     @Column({ default: false })
     is_active: boolean;
 
