@@ -146,21 +146,139 @@ export class StudentsService {
     return response;
   }
 
+  // private formatStudentData(student: Student, gradeConfig: any) {
+  //   const subjectMap = {};
+
+  //   student.assessments?.forEach((asm) => {
+  //     const subjectName = asm.subject?.name || 'Unknown';
+  //     if (!subjectMap[subjectName]) {
+  //       subjectMap[subjectName] = {
+  //         name: subjectName,
+  //         qa1: null,        // ← CHANGE FROM 0 TO null
+  //         qa2: null,        // ← CHANGE FROM 0 TO null
+  //         endOfTerm: null,  // ← CHANGE FROM 0 TO null
+  //         grade: 'N/A',
+  //       };
+  //     }
+
+  //     if (asm.assessmentType === 'qa1') {
+  //       subjectMap[subjectName].qa1 = asm.score;
+  //     } else if (asm.assessmentType === 'qa2') {
+  //       subjectMap[subjectName].qa2 = asm.score;
+  //     } else if (asm.assessmentType === 'end_of_term') {
+  //       subjectMap[subjectName].endOfTerm = asm.score;
+  //     }
+  //   });
+
+  //   Object.values(subjectMap).forEach((subject: any) => {
+  //     // Only calculate if we have valid scores
+  //     const hasScores = [subject.qa1, subject.qa2, subject.endOfTerm].some(score => score !== null && score > 0);
+
+  //     if (hasScores) {
+  //       subject.finalScore = this.calculateFinalScore(subject, gradeConfig);
+  //       subject.grade = this.calculateGrade(subject.finalScore, gradeConfig);
+  //     } else {
+  //       subject.finalScore = null;
+  //       subject.grade = 'N/A';
+  //     }
+  //   });
+
+  //   const subjects = Object.values(subjectMap);
+
+  //   // Filter out subjects with no scores at all
+  //   const subjectsWithScores = subjects.filter((s: any) =>
+  //     s.qa1 !== null || s.qa2 !== null || s.endOfTerm !== null
+  //   );
+
+  //   const activeReport = student.reportCards?.[0] || {};
+  //   const className = student.class ? student.class.name : 'Unknown';
+  //   const term = student.class ? student.class.term : 'Term 1, 2024/2025';
+  //   const academicYear = student.class ? student.class.academic_year : '2024/2025';
+
+  //   const response: any = {
+  //     id: student.id,
+  //     name: student.name,
+  //     examNumber: student.examNumber,
+  //     class: className,
+  //     term: term,
+  //     academicYear: academicYear,
+  //     photo: student.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+  //     subjects: subjectsWithScores, // ← USE FILTERED SUBJECTS
+  //     attendance: {
+  //       present: activeReport.daysPresent || 0,
+  //       absent: activeReport.daysAbsent || 0,
+  //       late: activeReport.daysLate || 0,
+  //     },
+  //     classRank: activeReport.classRank || 0,
+  //     qa1Rank: activeReport.qa1Rank || 0,
+  //     qa2Rank: activeReport.qa2Rank || 0,
+  //     totalStudents: activeReport.totalStudents || 0,
+  //     teacherRemarks: activeReport.teacherRemarks || 'No remarks available.',
+  //     gradeConfiguration: gradeConfig,
+  //   };
+
+  //   response.assessmentStats = this.calculateAssessmentStats(response, gradeConfig);
+  //   return response;
+  // }
+
+  // private calculateFinalScore(subject: any, gradeConfig: any): number {
+  //   switch (gradeConfig.calculation_method) {
+  //     case 'average_all':
+  //       return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+
+  //     case 'end_of_term_only':
+  //       return subject.endOfTerm;
+
+  //     case 'weighted_average':
+  //       return (subject.qa1 * gradeConfig.weight_qa1 +
+  //         subject.qa2 * gradeConfig.weight_qa2 +
+  //         subject.endOfTerm * gradeConfig.weight_end_of_term) / 100;
+
+  //     default:
+  //       return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+  //   }
+  // }
+
   private calculateFinalScore(subject: any, gradeConfig: any): number {
+    // Convert null to 0 for calculations
+    const qa1 = subject.qa1 || 0;
+    const qa2 = subject.qa2 || 0;
+    const endOfTerm = subject.endOfTerm || 0;
+
     switch (gradeConfig.calculation_method) {
       case 'average_all':
-        return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+        // Count actual assessments (with scores > 0)
+        const assessments = [qa1, qa2, endOfTerm].filter(score => score > 0);
+        if (assessments.length === 0) return 0;
+        return assessments.reduce((sum, score) => sum + score, 0) / assessments.length;
 
       case 'end_of_term_only':
-        return subject.endOfTerm;
+        return endOfTerm > 0 ? endOfTerm : 0;
 
       case 'weighted_average':
-        return (subject.qa1 * gradeConfig.weight_qa1 +
-          subject.qa2 * gradeConfig.weight_qa2 +
-          subject.endOfTerm * gradeConfig.weight_end_of_term) / 100;
+        // Only include assessments with scores
+        let totalWeight = 0;
+        let weightedSum = 0;
+
+        if (qa1 > 0) {
+          weightedSum += qa1 * gradeConfig.weight_qa1;
+          totalWeight += gradeConfig.weight_qa1;
+        }
+        if (qa2 > 0) {
+          weightedSum += qa2 * gradeConfig.weight_qa2;
+          totalWeight += gradeConfig.weight_qa2;
+        }
+        if (endOfTerm > 0) {
+          weightedSum += endOfTerm * gradeConfig.weight_end_of_term;
+          totalWeight += gradeConfig.weight_end_of_term;
+        }
+
+        return totalWeight > 0 ? weightedSum / totalWeight : 0;
 
       default:
-        return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+        const defaultAssessments = [qa1, qa2, endOfTerm].filter(score => score > 0);
+        if (defaultAssessments.length === 0) return 0;
+        return defaultAssessments.reduce((sum, score) => sum + score, 0) / defaultAssessments.length;
     }
   }
 
@@ -211,6 +329,67 @@ export class StudentsService {
     };
   }
 
+  // private calculateAssessmentStats(studentData: any, gradeConfig: any) {
+  //   const subjects = studentData.subjects;
+
+  //   // Only include subjects with actual scores (> 0 and not null)
+  //   const subjectsWithQa1 = subjects.filter(s => s.qa1 > 0);
+  //   const subjectsWithQa2 = subjects.filter(s => s.qa2 > 0);
+  //   const subjectsWithEndOfTerm = subjects.filter(s => s.endOfTerm > 0);
+
+  //   const qa1Average = subjectsWithQa1.length > 0
+  //     ? subjectsWithQa1.reduce((sum, s) => sum + s.qa1, 0) / subjectsWithQa1.length
+  //     : 0;
+
+  //   const qa2Average = subjectsWithQa2.length > 0
+  //     ? subjectsWithQa2.reduce((sum, s) => sum + s.qa2, 0) / subjectsWithQa2.length
+  //     : 0;
+
+  //   const endOfTermAverage = subjectsWithEndOfTerm.length > 0
+  //     ? subjectsWithEndOfTerm.reduce((sum, s) => sum + s.endOfTerm, 0) / subjectsWithEndOfTerm.length
+  //     : 0;
+
+  //   const qa1Grade = qa1Average > 0 ? this.calculateGrade(qa1Average, gradeConfig) : 'N/A';
+  //   const qa2Grade = qa2Average > 0 ? this.calculateGrade(qa2Average, gradeConfig) : 'N/A';
+  //   const endOfTermGrade = endOfTermAverage > 0 ? this.calculateGrade(endOfTermAverage, gradeConfig) : 'N/A';
+
+  //   let overallAverage = 0;
+  //   const validAverages = [qa1Average, qa2Average, endOfTermAverage].filter(avg => avg > 0);
+  //   if (validAverages.length > 0) {
+  //     if (gradeConfig) {
+  //       overallAverage = this.calculateFinalScore(
+  //         { qa1: qa1Average, qa2: qa2Average, endOfTerm: endOfTermAverage },
+  //         gradeConfig
+  //       );
+  //     } else {
+  //       overallAverage = validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length;
+  //     }
+  //   }
+
+  //   return {
+  //     qa1: {
+  //       classRank: studentData.qa1Rank || 0,
+  //       termAverage: parseFloat(qa1Average.toFixed(1)),
+  //       overallGrade: qa1Grade,
+  //     },
+  //     qa2: {
+  //       classRank: studentData.qa2Rank || 0,
+  //       termAverage: parseFloat(qa2Average.toFixed(1)),
+  //       overallGrade: qa2Grade,
+  //     },
+  //     endOfTerm: {
+  //       classRank: studentData.classRank,
+  //       termAverage: parseFloat(endOfTermAverage.toFixed(1)),
+  //       overallGrade: endOfTermGrade,
+  //       attendance: studentData.attendance
+  //     },
+  //     overall: {
+  //       termAverage: parseFloat(overallAverage.toFixed(1)),
+  //       calculationMethod: gradeConfig?.calculation_method || 'average_all'
+  //     }
+  //   };
+  // }
+
   async findAll() {
     return this.studentRepository.find({
       relations: ['class'],
@@ -225,35 +404,35 @@ export class StudentsService {
     });
   }
 
-  // async create(studentData: any) {
-  //   const classEntity = await this.classRepository.findOne({
-  //     where: { id: studentData.class_id }
-  //   });
+  async create(studentData: any) {
+    const classEntity = await this.classRepository.findOne({
+      where: { id: studentData.class_id }
+    });
 
-  //   if (!classEntity) {
-  //     throw new NotFoundException(`Class ${studentData.class_id} not found`);
-  //   }
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${studentData.class_id} not found`);
+    }
 
-  //   const studentCount = await this.studentRepository.count({
-  //     where: { class: { id: studentData.class_id } }
-  //   });
+    const studentCount = await this.studentRepository.count({
+      where: { class: { id: studentData.class_id } }
+    });
 
-  //   const classCode = classEntity.name
-  //     .replace(/[^a-zA-Z0-9]/g, '')
-  //     .toUpperCase()
-  //     .substring(0, 6);
-  //   const nextNumber = studentCount + 1;
-  //   const examNumber = `${classCode}-${nextNumber.toString().padStart(3, '0')}`;
+    const classCode = classEntity.name
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+      .substring(0, 6);
+    const nextNumber = studentCount + 1;
+    const examNumber = `${classCode}-${nextNumber.toString().padStart(3, '0')}`;
 
-  //   const student = this.studentRepository.create({
-  //     name: studentData.name,
-  //     examNumber: examNumber,
-  //     class: classEntity,
-  //     photoUrl: studentData.photo_url,
-  //   });
+    const student = this.studentRepository.create({
+      name: studentData.name,
+      examNumber: examNumber,
+      class: classEntity,
+      photoUrl: studentData.photo_url,
+    });
 
-  //   return this.studentRepository.save(student);
-  // }
+    return this.studentRepository.save(student);
+  }
 
   // async create(studentData: any) {
   //   const classEntity = await this.classRepository.findOne({
@@ -299,55 +478,55 @@ export class StudentsService {
   //   return this.studentRepository.save(student);
   // }
 
-  async create(studentData: any) {
-    const classEntity = await this.classRepository.findOne({
-      where: { id: studentData.class_id }
-    });
+  // async create(studentData: any) {
+  //   const classEntity = await this.classRepository.findOne({
+  //     where: { id: studentData.class_id }
+  //   });
 
-    if (!classEntity) {
-      throw new NotFoundException(`Class ${studentData.class_id} not found`);
-    }
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class ${studentData.class_id} not found`);
+  //   }
 
-    // Get current year (e.g., 2025 -> "25")
-    const currentYear = new Date().getFullYear().toString().slice(-2);
+  //   // Get current year (e.g., 2025 -> "25")
+  //   const currentYear = new Date().getFullYear().toString().slice(-2);
 
-    // Extract class number from class name (e.g., "Standard 8" -> "8")
-    const classNumberMatch = classEntity.name.match(/\d+/);
-    const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
+  //   // Extract class number from class name (e.g., "Standard 8" -> "8")
+  //   const classNumberMatch = classEntity.name.match(/\d+/);
+  //   const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
 
-    // Find highest exam number for this year-class combination
-    const prefix = `${currentYear}-${classNumber}`; // e.g., "25-8"
+  //   // Find highest exam number for this year-class combination
+  //   const prefix = `${currentYear}-${classNumber}`; // e.g., "25-8"
 
-    const allStudents = await this.studentRepository.find({
-      select: ['examNumber'],
-      where: {
-        examNumber: Like(`${prefix}%`) // Find "25-8XXX"
-      },
-      order: { examNumber: 'DESC' },
-      take: 1
-    });
+  //   const allStudents = await this.studentRepository.find({
+  //     select: ['examNumber'],
+  //     where: {
+  //       examNumber: Like(`${prefix}%`) // Find "25-8XXX"
+  //     },
+  //     order: { examNumber: 'DESC' },
+  //     take: 1
+  //   });
 
-    let nextNumber = 1;
-    if (allStudents.length > 0 && allStudents[0].examNumber) {
-      // Extract number from "25-8001" -> "001"
-      const lastExamNumber = allStudents[0].examNumber;
-      const lastNumberStr = lastExamNumber.slice(prefix.length + 1); // Remove "25-8"
-      const lastNumber = parseInt(lastNumberStr) || 0;
-      nextNumber = lastNumber + 1;
-    }
+  //   let nextNumber = 1;
+  //   if (allStudents.length > 0 && allStudents[0].examNumber) {
+  //     // Extract number from "25-8001" -> "001"
+  //     const lastExamNumber = allStudents[0].examNumber;
+  //     const lastNumberStr = lastExamNumber.slice(prefix.length + 1); // Remove "25-8"
+  //     const lastNumber = parseInt(lastNumberStr) || 0;
+  //     nextNumber = lastNumber + 1;
+  //   }
 
-    // Format: YY-CLASS-3DIGIT (e.g., "25-8001", "25-8002")
-    const examNumber = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+  //   // Format: YY-CLASS-3DIGIT (e.g., "25-8001", "25-8002")
+  //   const examNumber = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
 
-    const student = this.studentRepository.create({
-      name: studentData.name,
-      examNumber: examNumber,
-      class: classEntity,
-      photoUrl: studentData.photo_url,
-    });
+  //   const student = this.studentRepository.create({
+  //     name: studentData.name,
+  //     examNumber: examNumber,
+  //     class: classEntity,
+  //     photoUrl: studentData.photo_url,
+  //   });
 
-    return this.studentRepository.save(student);
-  }
+  //   return this.studentRepository.save(student);
+  // }
 
   async update(id: string, updates: any) {
     const student = await this.studentRepository.findOne({
@@ -562,6 +741,18 @@ export class StudentsService {
     return this.gradeConfigRepository.save(config);
   }
 
+  // async setActiveConfiguration(id: string) {
+  //   await this.gradeConfigRepository.update({ is_active: true }, { is_active: false });
+
+  //   const config = await this.gradeConfigRepository.findOne({ where: { id } });
+  //   if (!config) {
+  //     throw new NotFoundException(`Grade configuration ${id} not found`);
+  //   }
+
+  //   config.is_active = true;
+  //   return this.gradeConfigRepository.save(config);
+  // }
+
   async setActiveConfiguration(id: string) {
     await this.gradeConfigRepository.update({ is_active: true }, { is_active: false });
 
@@ -571,7 +762,12 @@ export class StudentsService {
     }
 
     config.is_active = true;
-    return this.gradeConfigRepository.save(config);
+    await this.gradeConfigRepository.save(config);
+
+    // ADD THIS ONE LINE HERE ▼
+    await this.updateAllReportCardsWithNewGrades();
+
+    return config;
   }
 
   // --- NEW CLASS METHODS ---
@@ -820,6 +1016,65 @@ export class StudentsService {
     });
 
     return results;
+  }
+
+  async updateAllReportCardsWithNewGrades() {
+    // 1. Get all report cards
+    const reportCards = await this.reportCardRepository.find({
+      relations: ['student', 'student.assessments', 'student.assessments.subject']
+    });
+
+    // 2. Get active grade config
+    const gradeConfig = await this.getActiveGradeConfiguration();
+
+    // 3. Update each report card
+    for (const reportCard of reportCards) {
+      const student = reportCard.student;
+
+      // Group assessments by subject
+      const subjectMap = {};
+
+      student.assessments?.forEach((asm) => {
+        const subjectName = asm.subject?.name || 'Unknown';
+        if (!subjectMap[subjectName]) {
+          subjectMap[subjectName] = {
+            qa1: 0,
+            qa2: 0,
+            endOfTerm: 0,
+          };
+        }
+
+        if (asm.assessmentType === 'qa1') {
+          subjectMap[subjectName].qa1 = asm.score || 0;
+        } else if (asm.assessmentType === 'qa2') {
+          subjectMap[subjectName].qa2 = asm.score || 0;
+        } else if (asm.assessmentType === 'end_of_term') {
+          subjectMap[subjectName].endOfTerm = asm.score || 0;
+        }
+      });
+
+      // Calculate overall average
+      let totalScore = 0;
+      let subjectCount = 0;
+
+      Object.values(subjectMap).forEach((subject: any) => {
+        const finalScore = this.calculateFinalScore(subject, gradeConfig);
+        if (finalScore > 0) {
+          totalScore += finalScore;
+          subjectCount++;
+        }
+      });
+
+      const overallAverage = subjectCount > 0 ? totalScore / subjectCount : 0;
+
+      // Save to report card
+      reportCard.overallAverage = overallAverage;
+      reportCard.overallGrade = this.calculateGrade(overallAverage, gradeConfig);
+
+      await this.reportCardRepository.save(reportCard);
+    }
+
+    return { message: `Updated ${reportCards.length} report cards with new grade calculations` };
   }
 }
 

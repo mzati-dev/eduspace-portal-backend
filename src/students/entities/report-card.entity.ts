@@ -14,7 +14,6 @@ export class ReportCard {
     @Column({ default: 0 })
     classRank: number;
 
-    // ADD THESE 2 FIELDS:
     @Column({ default: 0 })
     qa1Rank: number;
 
@@ -39,6 +38,13 @@ export class ReportCard {
     @ManyToOne(() => Student, (student) => student.reportCards)
     student: Student;
 
+    // ADD THESE 2 NEW FIELDS ▼
+    @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+    overallAverage: number;
+
+    @Column({ type: 'varchar', length: 2, nullable: true })
+    overallGrade: string;
+
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
 
@@ -56,6 +62,13 @@ export class ReportCard {
 
 //     @Column({ default: 0 })
 //     classRank: number;
+
+//     // ADD THESE 2 FIELDS:
+//     @Column({ default: 0 })
+//     qa1Rank: number;
+
+//     @Column({ default: 0 })
+//     qa2Rank: number;
 
 //     @Column({ default: 0 })
 //     totalStudents: number;
@@ -81,3 +94,39 @@ export class ReportCard {
 //     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
 //     updatedAt: Date;
 // }
+
+// // @Entity('report_cards')
+// // export class ReportCard {
+// //     @PrimaryGeneratedColumn('uuid')
+// //     id: string;
+
+// //     @Column()
+// //     term: string;
+
+// //     @Column({ default: 0 })
+// //     classRank: number;
+
+// //     @Column({ default: 0 })
+// //     totalStudents: number;
+
+// //     @Column({ default: 0 })
+// //     daysPresent: number;
+
+// //     @Column({ default: 0 })
+// //     daysAbsent: number;
+
+// //     @Column({ default: 0 })
+// //     daysLate: number;
+
+// //     @Column({ type: 'text', nullable: true })
+// //     teacherRemarks: string;
+
+// //     @ManyToOne(() => Student, (student) => student.reportCards)
+// //     student: Student;
+
+// //     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+// //     createdAt: Date;
+
+// //     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+// //     updatedAt: Date;
+// // }
