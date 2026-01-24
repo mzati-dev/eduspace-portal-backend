@@ -5,7 +5,7 @@ import { Repository, MoreThan } from 'typeorm';
 import * as crypto from 'crypto';
 import { User } from '../users/user.entity';
 import { PasswordResetToken } from '../users/password-reset-token.entity';
-import { EmailService } from './email.service';
+// import { EmailService } from './email.service';
 import * as bcrypt from 'bcryptjs';
 import { School } from '../schools/entities/school.entity';
 import { TeachersService } from '../teachers/teachers.service'; // ADD THIS IMPORT
@@ -23,7 +23,7 @@ export class AuthService {
         @InjectRepository(Teacher) // ADD THIS
         private teacherRepository: Repository<Teacher>, // ADD THIS
         private jwtService: JwtService,
-        private emailService: EmailService,
+        // private emailService: EmailService,
 
     ) { }
 
@@ -208,11 +208,11 @@ export class AuthService {
         const savedUser = await this.usersRepository.save(user);
 
         // Send verification email
-        await this.emailService.sendVerificationEmail(
-            savedUser.email,
-            savedUser.fullName,
-            savedUser.emailVerificationToken!,
-        );
+        // await this.emailService.sendVerificationEmail(
+        //     savedUser.email,
+        //     savedUser.fullName,
+        //     savedUser.emailVerificationToken!,
+        // );
 
         const { password: _, ...result } = savedUser;
         return result;
@@ -261,11 +261,11 @@ export class AuthService {
         await this.resetTokenRepository.save(resetTokenEntity);
 
         // Send reset email
-        await this.emailService.sendPasswordResetEmail(
-            user.email,
-            user.fullName,
-            resetToken,
-        );
+        // await this.emailService.sendPasswordResetEmail(
+        //     user.email,
+        //     user.fullName,
+        //     resetToken,
+        // );
 
         return { message: 'Password reset email sent' };
     }
@@ -316,11 +316,11 @@ export class AuthService {
         await this.usersRepository.save(user);
 
         // Send verification email
-        await this.emailService.sendVerificationEmail(
-            user.email,
-            user.fullName,
-            user.emailVerificationToken,
-        );
+        // await this.emailService.sendVerificationEmail(
+        //     user.email,
+        //     user.fullName,
+        //     user.emailVerificationToken,
+        // );
 
         return { message: 'Verification email resent' };
     }

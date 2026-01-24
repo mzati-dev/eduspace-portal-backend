@@ -14,9 +14,10 @@ async function bootstrap() {
   const dataSource = app.get(DataSource);
   await createSuperAdmin(dataSource);
   // ========== END OF ADDED CODE ==========
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`🚀 Server ready at http://localhost:${port}`);
 
-  await app.listen(3000);
-  console.log(`🚀 Server ready at http://localhost:3000`);
 }
 
 // ========== START OF NEW FUNCTION ==========

@@ -19,23 +19,31 @@ import { TeachersModule } from './teachers/teachers.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('DATABASE_URL'),
-        // host: configService.get<string>('DB_HOST', 'localhost'),
-        // port: configService.get<number>('DB_PORT', 5432),
-        // username: configService.get<string>('DB_USERNAME', 'postgres'),
-        // password: configService.get<string>('DB_PASSWORD', 'wasi7122'),
-        // database: configService.get<string>('DB_NAME', 'parent_portal_db'),
-        // Automatically finds all your .entity.ts files
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        // Sync is true ONLY if NOT in production
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        logging: configService.get<string>('NODE_ENV') === 'development',
-        extra: {
-          ssl: { rejectUnauthorized: false }, // REQUIRED for Supabase
-        },
-      }),
+
+      useFactory: (configService: ConfigService) => {
+        const isProd = configService.get<string>('NODE_ENV') === 'production';
+
+        return {
+          type: 'postgres',
+          ...(isProd
+            ? {
+              url: configService.get<string>('DATABASE_URL'),
+            }
+            : {
+              host: configService.get<string>('DB_HOST', 'localhost'),
+              port: Number(configService.get<string>('DB_PORT', '5432')),
+              username: configService.get<string>('DB_USERNAME', 'postgres'),
+              password: configService.get<string>('DB_PASSWORD'),
+              database: configService.get<string>('DB_NAME', 'parent_portal_db'),
+            }),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: !isProd,
+          logging: !isProd,
+          extra: isProd
+            ? { ssl: { rejectUnauthorized: false } }
+            : {},
+        };
+      },
     }),
 
     StudentsModule,
