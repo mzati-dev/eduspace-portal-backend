@@ -25,7 +25,7 @@ async function createSuperAdmin(dataSource: DataSource) {
     const userRepository = dataSource.getRepository('User');
 
     const adminExists = await userRepository.findOne({
-      where: { email: 'admin@parentportal.com' }
+      where: { email: 'admin@eduspaceportal.com' }
     });
 
     if (adminExists) {
@@ -36,14 +36,14 @@ async function createSuperAdmin(dataSource: DataSource) {
     // Let TypeORM handle column names
     const admin = userRepository.create({
       fullName: 'Super Admin',
-      email: 'admin@parentportal.com',
+      email: 'admin@eduspaceportal.com',
       password: 'Admin@123', // Will be auto-hashed
       role: 'super_admin',
       isEmailVerified: true
     });
 
     await userRepository.save(admin);
-    console.log('✅ Super admin created: admin@parentportal.com / Admin@123');
+    console.log('✅ Super admin created: admin@eduspaceportal.com / Admin@123');
 
   } catch (error) {
     console.log('Error creating admin:', error.message);
