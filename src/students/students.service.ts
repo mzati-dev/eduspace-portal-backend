@@ -7,8 +7,8 @@ import { ReportCard } from './entities/report-card.entity';
 import { Subject } from './entities/subject.entity';
 import { GradeConfig } from './entities/grade-config.entity';
 import { Class } from './entities/class.entity';
-import { TeacherClassSubject } from 'src/teachers/entities/teacher-class-subject.entity';
-import { TeachersService } from 'src/teachers/teachers.service';
+import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.entity';
+import { TeachersService } from '../teachers/teachers.service';
 
 @Injectable()
 export class StudentsService {
