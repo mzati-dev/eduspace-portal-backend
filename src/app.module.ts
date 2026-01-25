@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config'; // Add ConfigService
 import { StudentsModule } from './students/students.module';
 import { AuthModule } from './auth/auth.module';
@@ -20,50 +20,30 @@ import { TeachersModule } from './teachers/teachers.module';
       imports: [ConfigModule],
       inject: [ConfigService],
 
-      useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
+      useFactory: (configService: ConfigService) => {
         const isProd = configService.get<string>('NODE_ENV') === 'production';
 
         return {
           type: 'postgres',
-          // Use URL for Prod, separate fields for Dev
-          url: isProd ? configService.get<string>('DATABASE_URL') : undefined,
-          host: isProd ? undefined : configService.get<string>('DB_HOST', 'localhost'),
-          port: isProd ? undefined : Number(configService.get<string>('DB_PORT', '5432')),
-          username: isProd ? undefined : configService.get<string>('DB_USERNAME', 'postgres'),
-          password: isProd ? undefined : configService.get<string>('DB_PASSWORD'),
-          database: isProd ? undefined : configService.get<string>('DB_NAME', 'parent_portal_db'),
-
+          ...(isProd
+            ? {
+              url: configService.get<string>('DATABASE_URL'),
+            }
+            : {
+              host: configService.get<string>('DB_HOST', 'localhost'),
+              port: Number(configService.get<string>('DB_PORT', '5432')),
+              username: configService.get<string>('DB_USERNAME', 'postgres'),
+              password: configService.get<string>('DB_PASSWORD'),
+              database: configService.get<string>('DB_NAME', 'parent_portal_db'),
+            }),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: true,
+          synchronize: !isProd,
           logging: !isProd,
-          extra: isProd ? { ssl: { rejectUnauthorized: false } } : {},
+          extra: isProd
+            ? { ssl: { rejectUnauthorized: false } }
+            : {},
         };
       },
-
-      // useFactory: (configService: ConfigService) => {
-      //   const isProd = configService.get<string>('NODE_ENV') === 'production';
-
-      //   return {
-      //     type: 'postgres',
-      //     ...(isProd
-      //       ? {
-      //         url: configService.get<string>('DATABASE_URL'),
-      //       }
-      //       : {
-      //         host: configService.get<string>('DB_HOST', 'localhost'),
-      //         port: Number(configService.get<string>('DB_PORT', '5432')),
-      //         username: configService.get<string>('DB_USERNAME', 'postgres'),
-      //         password: configService.get<string>('DB_PASSWORD'),
-      //         database: configService.get<string>('DB_NAME', 'parent_portal_db'),
-      //       }),
-      //     entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      //     synchronize: !isProd,
-      //     logging: !isProd,
-      //     extra: isProd
-      //       ? { ssl: { rejectUnauthorized: false } }
-      //       : {},
-      //   };
-      // },
     }),
 
     StudentsModule,
