@@ -65,4 +65,11 @@ export class SchoolsController {
     async restore(@Param('id', ParseUUIDPipe) id: string) {
         return this.schoolService.restoreSchool(id);
     }
+
+    @Delete(':id/permanent')
+    @ApiOperation({ summary: 'Permanently delete school and all related data (CASCADE)' })
+    @ApiResponse({ status: 200, description: 'School and all related data wiped successfully' })
+    async permanentDelete(@Param('id', ParseUUIDPipe) id: string) {
+        return this.schoolService.permanentlyDelete(id);
+    }
 }

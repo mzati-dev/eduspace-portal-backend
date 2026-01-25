@@ -1,5 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { TeacherClassSubject } from './teacher-class-subject.entity';
+import { School } from '../../schools/entities/school.entity';
 
 @Entity('teachers')
 export class Teacher {
@@ -14,6 +15,10 @@ export class Teacher {
 
     @Column()
     password: string;
+
+    @ManyToOne(() => School, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'school_id' })
+    school: School;
 
     @Column()
     school_id: string;

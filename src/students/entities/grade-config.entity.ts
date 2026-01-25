@@ -12,7 +12,7 @@ export class GradeConfig {
     // school_id: string;
 
     // ADD SCHOOL RELATION HERE
-    @ManyToOne(() => School, school => school.gradeConfigs, { nullable: true })
+    @ManyToOne(() => School, school => school.gradeConfigs, { nullable: true, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'school_id' })
     school?: School;
 

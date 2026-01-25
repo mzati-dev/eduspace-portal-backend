@@ -20,15 +20,15 @@ export class TeacherClassSubject {
     @Column({ name: 'subject_id' })
     subjectId: string;
 
-    @ManyToOne(() => Teacher, teacher => teacher.classSubjects)
+    @ManyToOne(() => Teacher, teacher => teacher.classSubjects, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'teacher_id' })
     teacher: Teacher;
 
-    @ManyToOne(() => Class)
+    @ManyToOne(() => Class, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'class_id' })
     class: Class;
 
-    @ManyToOne(() => Subject)
+    @ManyToOne(() => Subject, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'subject_id' })
     subject: Subject;
 

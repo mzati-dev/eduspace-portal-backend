@@ -18,7 +18,8 @@ export class Student {
     name: string;
 
     // CLASS RELATION
-    @ManyToOne(() => Class, (cls) => cls.students, { nullable: true })
+    @ManyToOne(() => Class, (cls) => cls.students,
+        { nullable: true, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'class_id' })
     class?: Class; // Make optional
 
@@ -29,7 +30,10 @@ export class Student {
     photoUrl: string;
 
     // SCHOOL RELATION - ADD THIS
-    @ManyToOne(() => School, school => school.students, { nullable: true })
+    @ManyToOne(() => School, school => school.students, {
+        nullable: true,
+        onDelete: 'CASCADE'
+    })
     @JoinColumn({ name: 'schoolId' })
     school?: School;
 

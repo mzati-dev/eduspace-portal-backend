@@ -34,7 +34,10 @@ export class User {
     // ========== END OF ADD ==========
 
     // ========== ADD SCHOOL RELATION HERE ==========
-    @ManyToOne(() => School, school => school.users, { nullable: true })
+    @ManyToOne(() => School, school => school.users, {
+        nullable: true,
+        onDelete: 'CASCADE'
+    })
     @JoinColumn({ name: 'schoolId' })
     school?: School;
 

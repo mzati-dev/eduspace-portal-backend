@@ -15,7 +15,10 @@ export class Subject {
     description: string;
 
     // ADD SCHOOL RELATION
-    @ManyToOne(() => School, school => school.subjects, { nullable: true })
+    @ManyToOne(() => School, school => school.subjects, {
+        nullable: true,
+        onDelete: 'CASCADE'
+    })
     @JoinColumn({ name: 'schoolId' })
     school?: School;
 

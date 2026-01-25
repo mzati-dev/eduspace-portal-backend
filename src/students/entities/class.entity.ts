@@ -23,14 +23,14 @@ export class Class {
     class_code: string;
 
     // ADD CLASS TEACHER RELATIONSHIP
-    @ManyToOne(() => Teacher, { nullable: true })
+    @ManyToOne(() => Teacher, { nullable: true, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'class_teacher_id' })
     classTeacher?: Teacher;
 
     @Column({ name: 'class_teacher_id', nullable: true })
     classTeacherId?: string;
 
-    @ManyToOne(() => School, school => school.classes, { nullable: true })
+    @ManyToOne(() => School, school => school.classes, { nullable: true, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'schoolId' })
     school?: School;
 

@@ -35,7 +35,9 @@ export class ReportCard {
     @Column({ type: 'text', nullable: true })
     teacherRemarks: string;
 
-    @ManyToOne(() => Student, (student) => student.reportCards)
+    @ManyToOne(() => Student, (student) => student.reportCards, {
+        onDelete: 'CASCADE'
+    })
     student: Student;
 
     // ADD THESE 2 NEW FIELDS ▼
