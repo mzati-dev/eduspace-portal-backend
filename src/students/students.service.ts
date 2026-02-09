@@ -28,7 +28,33 @@ export class StudentsService {
     private teachersService: TeachersService,
   ) { }
 
-  // ===== START MODIFIED: Added schoolId parameter =====
+  // // ===== START MODIFIED: Added schoolId parameter =====
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.assessments', 'assessments')
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
+  //     .leftJoinAndSelect('student.class', 'class')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+  //   // .where('student.examNumber = :examNumber', { examNumber: examNumber.toUpperCase() });
+
+  //   // if (schoolId) {
+  //   //   query.andWhere('student.schoolId = :schoolId', { schoolId });
+  //   // }
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+  //   // const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+  //   return this.formatStudentData(student, activeGradeConfig);
+  // }
+  // ===== END MODIFIED =====
+
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
       .createQueryBuilder('student')
@@ -37,11 +63,6 @@ export class StudentsService {
       .leftJoinAndSelect('student.reportCards', 'reportCards')
       .leftJoinAndSelect('student.class', 'class')
       .where('student.examNumber = :examNumber', { examNumber: examNumber })
-    // .where('student.examNumber = :examNumber', { examNumber: examNumber.toUpperCase() });
-
-    // if (schoolId) {
-    //   query.andWhere('student.schoolId = :schoolId', { schoolId });
-    // }
 
     const student = await query.getOne();
 
@@ -49,11 +70,29 @@ export class StudentsService {
       throw new NotFoundException(`Student ${examNumber} not found`);
     }
 
-    // const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
+    // 🔴🔴🔴 START ADDING HERE 🔴🔴🔴
+    // Recalculate ranks before returning data (only if student has a class)
+    if (student.class) {
+      // First, ensure ranks are calculated for the entire class
+      await this.calculateAndUpdateRanks(
+        student.class.id,
+        student.class.term || 'Term 1, 2024/2025',
+        student.schoolId
+      );
+
+      // Then reload the student's report card to get updated ranks
+      student.reportCards = await this.reportCardRepository.find({
+        where: {
+          student: { id: student.id },
+          term: student.class?.term || 'Term 1, 2024/2025' // Use optional chaining here
+        }
+      });
+    }
+    // 🔴🔴🔴 END ADDING HERE 🔴🔴🔴
+
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
     return this.formatStudentData(student, activeGradeConfig);
   }
-  // ===== END MODIFIED =====
 
   // ===== START MODIFIED: Added schoolId parameter =====
   async getActiveGradeConfiguration(schoolId?: string) {
@@ -528,15 +567,52 @@ export class StudentsService {
       },
     });
 
+    // if (existing) {
+    //   Object.assign(existing, {
+    //     score: data.score,
+    //     grade: data.grade,
+    //   });
+    //   return this.assessmentRepository.save(existing);
+    // } else {
+    //   const assessment = this.assessmentRepository.create(data); // NO CHANGE
+    //   return this.assessmentRepository.save(assessment);
+    // }
+
     if (existing) {
       Object.assign(existing, {
         score: data.score,
         grade: data.grade,
       });
-      return this.assessmentRepository.save(existing);
+      const result = await this.assessmentRepository.save(existing);
+
+      // Recalculate ranks after saving assessment
+      if (student.class) {
+        setTimeout(async () => {
+          await this.calculateAndUpdateRanks(
+            student.class!.id,
+            student.class!.term || 'Term 1, 2024/2025',
+            schoolId
+          );
+        }, 100);
+      }
+
+      return result;
     } else {
-      const assessment = this.assessmentRepository.create(data); // NO CHANGE
-      return this.assessmentRepository.save(assessment);
+      const assessment = this.assessmentRepository.create(data);
+      const result = await this.assessmentRepository.save(assessment);
+
+      // Recalculate ranks after saving assessment
+      if (student.class) {
+        setTimeout(async () => {
+          await this.calculateAndUpdateRanks(
+            student.class!.id,
+            student.class!.term || 'Term 1, 2024/2025',
+            schoolId
+          );
+        }, 100);
+      }
+
+      return result;
     }
   }
   // ===== END MODIFIED =====
@@ -828,80 +904,215 @@ export class StudentsService {
   // ===== END MODIFIED =====
 
   // ===== START MODIFIED: Added schoolId parameter =====
+  // async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
+  //   const query = this.classRepository
+  //     .createQueryBuilder('class')
+  //     .leftJoinAndSelect('class.students', 'students')
+  //     .where('class.id = :classId', { classId });
+
+  //   if (schoolId) {
+  //     query.andWhere('class.schoolId = :schoolId', { schoolId });
+  //   }
+
+  //   const classEntity = await query.getOne();
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class ${classId} not found`);
+  //   }
+
+  //   const studentIds = classEntity.students.map(s => s.id);
+  //   const results: any[] = [];
+
+  //   for (const studentId of studentIds) {
+  //     const assessments = await this.assessmentRepository.find({
+  //       where: {
+  //         student: { id: studentId },
+  //         assessmentType: In(['qa1', 'qa2', 'end_of_term'])
+  //       },
+  //       relations: ['subject']
+  //     });
+
+  //     const qa1Total = assessments
+  //       .filter(a => a.assessmentType === 'qa1')
+  //       .reduce((sum, a) => sum + a.score, 0);
+
+  //     const qa2Total = assessments
+  //       .filter(a => a.assessmentType === 'qa2')
+  //       .reduce((sum, a) => sum + a.score, 0);
+
+  //     const endTermTotal = assessments
+  //       .filter(a => a.assessmentType === 'end_of_term')
+  //       .reduce((sum, a) => sum + a.score, 0);
+
+  //     const qa1Subjects = assessments.filter(a => a.assessmentType === 'qa1' && a.score > 0).length;
+  //     const qa2Subjects = assessments.filter(a => a.assessmentType === 'qa2' && a.score > 0).length;
+  //     const endTermSubjects = assessments.filter(a => a.assessmentType === 'end_of_term' && a.score > 0).length;
+
+  //     const qa1Avg = qa1Subjects > 0 ? qa1Total / qa1Subjects : 0;
+  //     const qa2Avg = qa2Subjects > 0 ? qa2Total / qa2Subjects : 0;
+  //     const endTermAvg = endTermSubjects > 0 ? endTermTotal / endTermSubjects : 0;
+
+  //     results.push({
+  //       studentId,
+  //       qa1Avg,
+  //       qa2Avg,
+  //       endTermAvg,
+  //     });
+  //   }
+
+  //   const qa1Ranked = [...results]
+  //     .filter(r => r.qa1Avg > 0)
+  //     .sort((a, b) => b.qa1Avg - a.qa1Avg);
+
+  //   const qa2Ranked = [...results]
+  //     .filter(r => r.qa2Avg > 0)
+  //     .sort((a, b) => b.qa2Avg - a.qa2Avg);
+
+  //   const endTermRanked = [...results]
+  //     .filter(r => r.endTermAvg > 0)
+  //     .sort((a, b) => b.endTermAvg - a.endTermAvg);
+
+  //   for (const studentId of studentIds) {
+  //     let reportCard = await this.reportCardRepository.findOne({
+  //       where: {
+  //         student: { id: studentId },
+  //         term,
+  //       },
+  //     });
+
+  //     if (!reportCard) {
+  //       reportCard = this.reportCardRepository.create({
+  //         student: { id: studentId },
+  //         term,
+  //         totalStudents: studentIds.length,
+  //       });
+  //     }
+
+  //     const studentResult = results.find(r => r.studentId === studentId);
+  //     if (studentResult) {
+  //       const qa1Index = qa1Ranked.findIndex(r => r.studentId === studentId);
+  //       reportCard.qa1Rank = qa1Index >= 0 ? qa1Index + 1 : 0;
+
+  //       const qa2Index = qa2Ranked.findIndex(r => r.studentId === studentId);
+  //       reportCard.qa2Rank = qa2Index >= 0 ? qa2Index + 1 : 0;
+
+  //       const endTermIndex = endTermRanked.findIndex(r => r.studentId === studentId);
+  //       reportCard.classRank = endTermIndex >= 0 ? endTermIndex + 1 : 0;
+
+  //       reportCard.totalStudents = studentIds.length;
+  //     }
+
+  //     await this.reportCardRepository.save(reportCard);
+  //   }
+
+  //   return { message: 'Ranks calculated and updated successfully' };
+  // }
+  // ===== END MODIFIED =====
+
+
+
   async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
+    console.log(`--- STARTING RANK CALCULATION (Exact String Match) ---`);
+
+    // 1. Fetch Class
     const query = this.classRepository
       .createQueryBuilder('class')
       .leftJoinAndSelect('class.students', 'students')
       .where('class.id = :classId', { classId });
 
-    if (schoolId) {
-      query.andWhere('class.schoolId = :schoolId', { schoolId });
-    }
+    if (schoolId) query.andWhere('class.schoolId = :schoolId', { schoolId });
 
     const classEntity = await query.getOne();
+    if (!classEntity) throw new NotFoundException(`Class ${classId} not found`);
 
-    if (!classEntity) {
-      throw new NotFoundException(`Class ${classId} not found`);
-    }
-
-    const studentIds = classEntity.students.map(s => s.id);
+    const studentIds = classEntity.students.map((s) => s.id);
     const results: any[] = [];
 
+    // 2. Calculate Averages
     for (const studentId of studentIds) {
+      // Get assessments for THIS CLASS only
       const assessments = await this.assessmentRepository.find({
         where: {
           student: { id: studentId },
-          assessmentType: In(['qa1', 'qa2', 'end_of_term'])
+          class: { id: classId },
+          assessmentType: In(['qa1', 'qa2', 'end_of_term']),
         },
-        relations: ['subject']
       });
 
-      const qa1Total = assessments
-        .filter(a => a.assessmentType === 'qa1')
-        .reduce((sum, a) => sum + a.score, 0);
+      // Helper to calculate Average
+      const calculateAvg = (type: string) => {
+        const typeAssessments = assessments.filter(a => a.assessmentType === type);
+        // Only count subjects where score > 0 (or strictly present)
+        const validAssessments = typeAssessments.filter(a => a.score > 0);
 
-      const qa2Total = assessments
-        .filter(a => a.assessmentType === 'qa2')
-        .reduce((sum, a) => sum + a.score, 0);
+        const sum = validAssessments.reduce((acc, curr) => acc + curr.score, 0);
+        const count = validAssessments.length;
 
-      const endTermTotal = assessments
-        .filter(a => a.assessmentType === 'end_of_term')
-        .reduce((sum, a) => sum + a.score, 0);
-
-      const qa1Subjects = assessments.filter(a => a.assessmentType === 'qa1' && a.score > 0).length;
-      const qa2Subjects = assessments.filter(a => a.assessmentType === 'qa2' && a.score > 0).length;
-      const endTermSubjects = assessments.filter(a => a.assessmentType === 'end_of_term' && a.score > 0).length;
-
-      const qa1Avg = qa1Subjects > 0 ? qa1Total / qa1Subjects : 0;
-      const qa2Avg = qa2Subjects > 0 ? qa2Total / qa2Subjects : 0;
-      const endTermAvg = endTermSubjects > 0 ? endTermTotal / endTermSubjects : 0;
+        // Returns raw number
+        return count > 0 ? sum / count : 0;
+      };
 
       results.push({
         studentId,
-        qa1Avg,
-        qa2Avg,
-        endTermAvg,
+        qa1Raw: calculateAvg('qa1'),
+        qa2Raw: calculateAvg('qa2'),
+        endTermRaw: calculateAvg('end_of_term'),
       });
     }
 
-    const qa1Ranked = [...results]
-      .filter(r => r.qa1Avg > 0)
-      .sort((a, b) => b.qa1Avg - a.qa1Avg);
+    // 3. RANKING LOGIC (The "Nuclear" Option)
+    // We convert score to string "XX.XX" to guarantee equality
+    const applyDenseRanking = (items: any[], rawField: string) => {
 
-    const qa2Ranked = [...results]
-      .filter(r => r.qa2Avg > 0)
-      .sort((a, b) => b.qa2Avg - a.qa2Avg);
+      // Add a 'formatted' string field to each item for comparison
+      const itemsWithString = items.map(item => {
+        const raw = item[rawField];
+        return {
+          ...item,
+          // "toFixed(2)" turns 66.6666667 into string "66.67"
+          // This removes ALL floating point microscopic differences
+          formattedScore: parseFloat(raw.toFixed(2))
+        };
+      });
 
-    const endTermRanked = [...results]
-      .filter(r => r.endTermAvg > 0)
-      .sort((a, b) => b.endTermAvg - a.endTermAvg);
+      // Sort by the FORMATTED score (Descending)
+      itemsWithString.sort((a, b) => b.formattedScore - a.formattedScore);
 
+      const rankedMap = new Map<string, number>();
+      if (itemsWithString.length === 0) return rankedMap;
+
+      let currentRank = 1;
+      let previousScore = itemsWithString[0].formattedScore;
+
+      // Assign Rank 1 to first student
+      rankedMap.set(itemsWithString[0].studentId, currentRank);
+
+      for (let i = 1; i < itemsWithString.length; i++) {
+        const item = itemsWithString[i];
+        const currentScore = item.formattedScore;
+
+        // COMPARE: Is "85.50" different from "85.50"?
+        if (currentScore < previousScore) {
+          currentRank++; // Different score -> Rank increases (1, 1, 2)
+        }
+        // If equal, Rank stays same (1, 1)
+
+        rankedMap.set(item.studentId, currentRank);
+        previousScore = currentScore;
+      }
+
+      return rankedMap;
+    };
+
+    // Calculate Ranks
+    const qa1Ranks = applyDenseRanking(results, 'qa1Raw');
+    const qa2Ranks = applyDenseRanking(results, 'qa2Raw');
+    const endTermRanks = applyDenseRanking(results, 'endTermRaw');
+
+    // 4. Update Database
     for (const studentId of studentIds) {
       let reportCard = await this.reportCardRepository.findOne({
-        where: {
-          student: { id: studentId },
-          term,
-        },
+        where: { student: { id: studentId }, term },
       });
 
       if (!reportCard) {
@@ -912,26 +1123,255 @@ export class StudentsService {
         });
       }
 
-      const studentResult = results.find(r => r.studentId === studentId);
-      if (studentResult) {
-        const qa1Index = qa1Ranked.findIndex(r => r.studentId === studentId);
-        reportCard.qa1Rank = qa1Index >= 0 ? qa1Index + 1 : 0;
-
-        const qa2Index = qa2Ranked.findIndex(r => r.studentId === studentId);
-        reportCard.qa2Rank = qa2Index >= 0 ? qa2Index + 1 : 0;
-
-        const endTermIndex = endTermRanked.findIndex(r => r.studentId === studentId);
-        reportCard.classRank = endTermIndex >= 0 ? endTermIndex + 1 : 0;
-
-        reportCard.totalStudents = studentIds.length;
-      }
+      reportCard.qa1Rank = qa1Ranks.get(studentId) || 0;
+      reportCard.qa2Rank = qa2Ranks.get(studentId) || 0;
+      reportCard.classRank = endTermRanks.get(studentId) || 0;
+      reportCard.totalStudents = studentIds.length;
 
       await this.reportCardRepository.save(reportCard);
     }
 
-    return { message: 'Ranks calculated and updated successfully' };
+    console.log(`--- FINISHED: Ranks updated using 2-decimal Fixed Comparison ---`);
+    return { message: 'Ranks calculated successfully' };
   }
-  // ===== END MODIFIED =====
+
+  // async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
+  //   const query = this.classRepository
+  //     .createQueryBuilder('class')
+  //     .leftJoinAndSelect('class.students', 'students')
+  //     .where('class.id = :classId', { classId });
+
+  //   if (schoolId) {
+  //     query.andWhere('class.schoolId = :schoolId', { schoolId });
+  //   }
+
+  //   const classEntity = await query.getOne();
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class ${classId} not found`);
+  //   }
+
+  //   const studentIds = classEntity.students.map(s => s.id);
+  //   const results: any[] = [];
+
+  //   for (const studentId of studentIds) {
+  //     const assessments = await this.assessmentRepository.find({
+  //       where: {
+  //         student: { id: studentId },
+  //         assessmentType: In(['qa1', 'qa2', 'end_of_term'])
+  //       },
+  //       relations: ['subject']
+  //     });
+
+  //     const qa1Total = assessments
+  //       .filter(a => a.assessmentType === 'qa1')
+  //       .reduce((sum, a) => sum + a.score, 0);
+
+  //     const qa2Total = assessments
+  //       .filter(a => a.assessmentType === 'qa2')
+  //       .reduce((sum, a) => sum + a.score, 0);
+
+  //     const endTermTotal = assessments
+  //       .filter(a => a.assessmentType === 'end_of_term')
+  //       .reduce((sum, a) => sum + a.score, 0);
+
+  //     const qa1Subjects = assessments.filter(a => a.assessmentType === 'qa1' && a.score > 0).length;
+  //     const qa2Subjects = assessments.filter(a => a.assessmentType === 'qa2' && a.score > 0).length;
+  //     const endTermSubjects = assessments.filter(a => a.assessmentType === 'end_of_term' && a.score > 0).length;
+
+  //     const qa1Avg = qa1Subjects > 0 ? qa1Total / qa1Subjects : 0;
+  //     const qa2Avg = qa2Subjects > 0 ? qa2Total / qa2Subjects : 0;
+  //     const endTermAvg = endTermSubjects > 0 ? endTermTotal / endTermSubjects : 0;
+
+  //     results.push({
+  //       studentId,
+  //       qa1Avg,
+  //       qa2Avg,
+  //       endTermAvg,
+  //     });
+  //   }
+
+  //   // Helper function for dense ranking (tie handling)
+  //   // const applyDenseRanking = (items: any[], scoreField: string) => {
+  //   //   // Sort by score descending
+  //   //   const sorted = [...items]
+  //   //     .filter(item => item[scoreField] > 0)
+  //   //     .sort((a, b) => b[scoreField] - a[scoreField]);
+
+  //   //   // Apply dense ranking
+  //   //   let rank = 1;
+  //   //   let previousScore = null;
+  //   //   let skipCount = 0;
+
+  //   //   const rankedItems = new Map<string, number>();
+
+  //   //   for (let i = 0; i < sorted.length; i++) {
+  //   //     const item = sorted[i];
+
+  //   //     if (previousScore !== null && item[scoreField] === previousScore) {
+  //   //       // Tie: Same rank as previous student
+  //   //       skipCount++;
+  //   //       rankedItems.set(item.studentId, rank);
+  //   //     } else {
+  //   //       // New score: Update rank
+  //   //       rank += skipCount;
+  //   //       skipCount = 0;
+  //   //       rankedItems.set(item.studentId, rank);
+  //   //     }
+
+  //   //     previousScore = item[scoreField];
+  //   //   }
+
+  //   //   return rankedItems;
+  //   // };
+
+  //   // Helper function for dense ranking (tie handling) - SIMPLE CORRECT VERSION
+  //   //   const applyDenseRanking = (items: any[], scoreField: string) => {
+  //   //     // Sort by score descending
+  //   //     const sorted = [...items]
+  //   //       .filter(item => item[scoreField] > 0)
+  //   //       .sort((a, b) => b[scoreField] - a[scoreField]);
+
+  //   //     const rankedItems = new Map<string, number>();
+
+  //   //     if (sorted.length === 0) return rankedItems;
+
+  //   //     let currentRank = 1;
+  //   //     let previousScore = sorted[0][scoreField];
+
+  //   //     // First student gets rank 1
+  //   //     rankedItems.set(sorted[0].studentId, currentRank);
+
+  //   //     for (let i = 1; i < sorted.length; i++) {
+  //   //       const item = sorted[i];
+  //   //       const currentScore = item[scoreField];
+
+  //   //       if (currentScore !== previousScore) {
+  //   //         // Different score: increase rank by 1
+  //   //         currentRank++;  // ✅ FIXED: Changed from i + 1 to currentRank++
+  //   //       }
+  //   //       // Same score: keep same rank
+
+  //   //       rankedItems.set(item.studentId, currentRank);
+  //   //       previousScore = currentScore;
+  //   //     }
+
+  //   //     return rankedItems;
+  //   //   };
+
+  //   //   // Calculate ranks with tie handling
+  //   //   const qa1Ranks = applyDenseRanking(results, 'qa1Avg');
+  //   //   const qa2Ranks = applyDenseRanking(results, 'qa2Avg');
+  //   //   const endTermRanks = applyDenseRanking(results, 'endTermAvg');
+
+  //   //   // Update report cards with correct ranks
+  //   //   for (const studentId of studentIds) {
+  //   //     let reportCard = await this.reportCardRepository.findOne({
+  //   //       where: {
+  //   //         student: { id: studentId },
+  //   //         term,
+  //   //       },
+  //   //     });
+
+  //   //     if (!reportCard) {
+  //   //       reportCard = this.reportCardRepository.create({
+  //   //         student: { id: studentId },
+  //   //         term,
+  //   //         totalStudents: studentIds.length,
+  //   //       });
+  //   //     }
+
+  //   //     const studentResult = results.find(r => r.studentId === studentId);
+  //   //     if (studentResult) {
+  //   //       // Get ranks with tie handling (returns 0 if no valid score)
+  //   //       reportCard.qa1Rank = qa1Ranks.get(studentId) || 0;
+  //   //       reportCard.qa2Rank = qa2Ranks.get(studentId) || 0;
+  //   //       reportCard.classRank = endTermRanks.get(studentId) || 0;
+  //   //       reportCard.totalStudents = studentIds.length;
+  //   //     }
+
+  //   //     await this.reportCardRepository.save(reportCard);
+  //   //   }
+
+  //   //   return { message: 'Ranks calculated and updated successfully with tie handling' };
+  //   // }
+
+  //   // Helper function for dense ranking (tie handling) - FIXED WITH ROUNDING
+  //   const applyDenseRanking = (items: any[], scoreField: string) => {
+  //     // HELPER: Round to 2 decimal places to fix floating point errors
+  //     // This ensures 85.00001 and 84.99999 are both treated as 85.00
+  //     const roundScore = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+  //     // Sort by score descending
+  //     const sorted = [...items]
+  //       .filter(item => item[scoreField] > 0)
+  //       .sort((a, b) => b[scoreField] - a[scoreField]);
+
+  //     const rankedItems = new Map<string, number>();
+
+  //     if (sorted.length === 0) return rankedItems;
+
+  //     let currentRank = 1;
+  //     // Initialize previousScore using the rounded value of the first item
+  //     let previousScore = roundScore(sorted[0][scoreField]);
+
+  //     // First student gets rank 1
+  //     rankedItems.set(sorted[0].studentId, currentRank);
+
+  //     for (let i = 1; i < sorted.length; i++) {
+  //       const item = sorted[i];
+  //       // Round the current score before comparing
+  //       const currentScore = roundScore(item[scoreField]);
+
+  //       if (currentScore !== previousScore) {
+  //         // Different score: increase rank by 1 (Dense Ranking 1, 1, 2)
+  //         currentRank++;
+  //       }
+  //       // If scores are equal (after rounding), rank stays the same
+
+  //       rankedItems.set(item.studentId, currentRank);
+  //       previousScore = currentScore;
+  //     }
+
+  //     return rankedItems;
+  //   };
+
+  //   // Calculate ranks with tie handling
+  //   const qa1Ranks = applyDenseRanking(results, 'qa1Avg');
+  //   const qa2Ranks = applyDenseRanking(results, 'qa2Avg');
+  //   const endTermRanks = applyDenseRanking(results, 'endTermAvg');
+
+  //   // Update report cards with correct ranks
+  //   for (const studentId of studentIds) {
+  //     let reportCard = await this.reportCardRepository.findOne({
+  //       where: {
+  //         student: { id: studentId },
+  //         term,
+  //       },
+  //     });
+
+  //     if (!reportCard) {
+  //       reportCard = this.reportCardRepository.create({
+  //         student: { id: studentId },
+  //         term,
+  //         totalStudents: studentIds.length,
+  //       });
+  //     }
+
+  //     const studentResult = results.find(r => r.studentId === studentId);
+  //     if (studentResult) {
+  //       // Get ranks with tie handling (returns 0 if no valid score)
+  //       reportCard.qa1Rank = qa1Ranks.get(studentId) || 0;
+  //       reportCard.qa2Rank = qa2Ranks.get(studentId) || 0;
+  //       reportCard.classRank = endTermRanks.get(studentId) || 0;
+  //       reportCard.totalStudents = studentIds.length;
+  //     }
+
+  //     await this.reportCardRepository.save(reportCard);
+  //   }
+
+  //   return { message: 'Ranks calculated and updated successfully with tie handling' };
+  // }
 
   // // ===== START MODIFIED: Added schoolId parameter =====
   // async getClassResults(classId: string, schoolId?: string) {
@@ -1119,12 +1559,42 @@ export class StudentsService {
       }
     }
 
-    results.sort((a, b) => b.average - a.average);
-    results.forEach((result, index) => {
-      result.rank = index + 1;
-    });
+    // results.sort((a, b) => b.average - a.average);
+    // results.forEach((result, index) => {
+    //   result.rank = index + 1;
+    // });
 
+    results.sort((a, b) => b.average - a.average);
+
+    // Apply dense ranking
+    let currentRank = 1;
+    let previousAverage = results.length > 0 ? results[0].average : null;
+
+    for (let i = 0; i < results.length; i++) {
+      if (i > 0 && Math.abs(results[i].average - previousAverage) > 0.01) {
+        currentRank++;
+      }
+      results[i].rank = currentRank;
+      previousAverage = results[i].average;
+    }
     return results;
+
+
+    // REPLACE WITH THIS (11 lines):
+    // results.sort((a, b) => b.average - a.average);
+
+    // // Apply dense ranking
+    // let currentRank = 1;
+    // let previousAverage = results.length > 0 ? results[0].average : null;
+
+    // for (let i = 0; i < results.length; i++) {
+    //   if (i > 0 && Math.abs(results[i].average - previousAverage) > 0.01) {
+    //     currentRank++;
+    //   }
+    //   results[i].rank = currentRank;
+    //   previousAverage = results[i].average;
+    // }
+    // return results;
   }
   // ===== END MODIFIED =====
 
