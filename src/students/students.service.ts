@@ -29,32 +29,6 @@ export class StudentsService {
   ) { }
 
   // // ===== START MODIFIED: Added schoolId parameter =====
-  async findByExamNumber(examNumber: string, schoolId?: string) {
-    const query = this.studentRepository
-      .createQueryBuilder('student')
-      .leftJoinAndSelect('student.assessments', 'assessments')
-      .leftJoinAndSelect('assessments.subject', 'subject')
-      .leftJoinAndSelect('student.reportCards', 'reportCards')
-      .leftJoinAndSelect('student.class', 'class')
-      .where('student.examNumber = :examNumber', { examNumber: examNumber })
-    // .where('student.examNumber = :examNumber', { examNumber: examNumber.toUpperCase() });
-
-    // if (schoolId) {
-    //   query.andWhere('student.schoolId = :schoolId', { schoolId });
-    // }
-
-    const student = await query.getOne();
-
-    if (!student) {
-      throw new NotFoundException(`Student ${examNumber} not found`);
-    }
-
-    // const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
-    const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
-    return this.formatStudentData(student, activeGradeConfig);
-  }
-  // ===== END MODIFIED =====
-
   // async findByExamNumber(examNumber: string, schoolId?: string) {
   //   const query = this.studentRepository
   //     .createQueryBuilder('student')
@@ -63,6 +37,11 @@ export class StudentsService {
   //     .leftJoinAndSelect('student.reportCards', 'reportCards')
   //     .leftJoinAndSelect('student.class', 'class')
   //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+  //   // .where('student.examNumber = :examNumber', { examNumber: examNumber.toUpperCase() });
+
+  //   // if (schoolId) {
+  //   //   query.andWhere('student.schoolId = :schoolId', { schoolId });
+  //   // }
 
   //   const student = await query.getOne();
 
@@ -70,29 +49,50 @@ export class StudentsService {
   //     throw new NotFoundException(`Student ${examNumber} not found`);
   //   }
 
-  //   // 🔴🔴🔴 START ADDING HERE 🔴🔴🔴
-  //   // Recalculate ranks before returning data (only if student has a class)
-  //   if (student.class) {
-  //     // First, ensure ranks are calculated for the entire class
-  //     await this.calculateAndUpdateRanks(
-  //       student.class.id,
-  //       student.class.term || 'Term 1, 2024/2025',
-  //       student.schoolId
-  //     );
-
-  //     // Then reload the student's report card to get updated ranks
-  //     student.reportCards = await this.reportCardRepository.find({
-  //       where: {
-  //         student: { id: student.id },
-  //         term: student.class?.term || 'Term 1, 2024/2025' // Use optional chaining here
-  //       }
-  //     });
-  //   }
-  //   // 🔴🔴🔴 END ADDING HERE 🔴🔴🔴
-
+  //   // const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
   //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
   //   return this.formatStudentData(student, activeGradeConfig);
   // }
+  // ===== END MODIFIED =====
+
+  async findByExamNumber(examNumber: string, schoolId?: string) {
+    const query = this.studentRepository
+      .createQueryBuilder('student')
+      .leftJoinAndSelect('student.assessments', 'assessments')
+      .leftJoinAndSelect('assessments.subject', 'subject')
+      .leftJoinAndSelect('student.reportCards', 'reportCards')
+      .leftJoinAndSelect('student.class', 'class')
+      .where('student.examNumber = :examNumber', { examNumber: examNumber })
+
+    const student = await query.getOne();
+
+    if (!student) {
+      throw new NotFoundException(`Student ${examNumber} not found`);
+    }
+
+    // 🔴🔴🔴 START ADDING HERE 🔴🔴🔴
+    // Recalculate ranks before returning data (only if student has a class)
+    if (student.class) {
+      // First, ensure ranks are calculated for the entire class
+      await this.calculateAndUpdateRanks(
+        student.class.id,
+        student.class.term || 'Term 1, 2024/2025',
+        student.schoolId
+      );
+
+      // Then reload the student's report card to get updated ranks
+      student.reportCards = await this.reportCardRepository.find({
+        where: {
+          student: { id: student.id },
+          term: student.class?.term || 'Term 1, 2024/2025' // Use optional chaining here
+        }
+      });
+    }
+    // 🔴🔴🔴 END ADDING HERE 🔴🔴🔴
+
+    const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+    return this.formatStudentData(student, activeGradeConfig);
+  }
 
   // ===== START MODIFIED: Added schoolId parameter =====
   async getActiveGradeConfiguration(schoolId?: string) {
@@ -901,83 +901,110 @@ export class StudentsService {
 
     return classEntity.students || [];
   }
-  // ===== END MODIFIED =====
 
-  // ===== START MODIFIED: Added schoolId parameter =====
+
   // async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
+  //   console.log(`--- STARTING RANK CALCULATION (Exact String Match) ---`);
+
+  //   // 1. Fetch Class
   //   const query = this.classRepository
   //     .createQueryBuilder('class')
   //     .leftJoinAndSelect('class.students', 'students')
   //     .where('class.id = :classId', { classId });
 
-  //   if (schoolId) {
-  //     query.andWhere('class.schoolId = :schoolId', { schoolId });
-  //   }
+  //   if (schoolId) query.andWhere('class.schoolId = :schoolId', { schoolId });
 
   //   const classEntity = await query.getOne();
+  //   if (!classEntity) throw new NotFoundException(`Class ${classId} not found`);
 
-  //   if (!classEntity) {
-  //     throw new NotFoundException(`Class ${classId} not found`);
-  //   }
-
-  //   const studentIds = classEntity.students.map(s => s.id);
+  //   const studentIds = classEntity.students.map((s) => s.id);
   //   const results: any[] = [];
 
+  //   // 2. Calculate Averages
   //   for (const studentId of studentIds) {
+  //     // Get assessments for THIS CLASS only
   //     const assessments = await this.assessmentRepository.find({
   //       where: {
   //         student: { id: studentId },
-  //         assessmentType: In(['qa1', 'qa2', 'end_of_term'])
+  //         class: { id: classId },
+  //         assessmentType: In(['qa1', 'qa2', 'end_of_term']),
   //       },
-  //       relations: ['subject']
   //     });
 
-  //     const qa1Total = assessments
-  //       .filter(a => a.assessmentType === 'qa1')
-  //       .reduce((sum, a) => sum + a.score, 0);
+  //     // Helper to calculate Average
+  //     const calculateAvg = (type: string) => {
+  //       const typeAssessments = assessments.filter(a => a.assessmentType === type);
+  //       // Only count subjects where score > 0 (or strictly present)
+  //       const validAssessments = typeAssessments.filter(a => a.score > 0);
 
-  //     const qa2Total = assessments
-  //       .filter(a => a.assessmentType === 'qa2')
-  //       .reduce((sum, a) => sum + a.score, 0);
+  //       const sum = validAssessments.reduce((acc, curr) => acc + curr.score, 0);
+  //       const count = validAssessments.length;
 
-  //     const endTermTotal = assessments
-  //       .filter(a => a.assessmentType === 'end_of_term')
-  //       .reduce((sum, a) => sum + a.score, 0);
-
-  //     const qa1Subjects = assessments.filter(a => a.assessmentType === 'qa1' && a.score > 0).length;
-  //     const qa2Subjects = assessments.filter(a => a.assessmentType === 'qa2' && a.score > 0).length;
-  //     const endTermSubjects = assessments.filter(a => a.assessmentType === 'end_of_term' && a.score > 0).length;
-
-  //     const qa1Avg = qa1Subjects > 0 ? qa1Total / qa1Subjects : 0;
-  //     const qa2Avg = qa2Subjects > 0 ? qa2Total / qa2Subjects : 0;
-  //     const endTermAvg = endTermSubjects > 0 ? endTermTotal / endTermSubjects : 0;
+  //       // Returns raw number
+  //       return count > 0 ? sum / count : 0;
+  //     };
 
   //     results.push({
   //       studentId,
-  //       qa1Avg,
-  //       qa2Avg,
-  //       endTermAvg,
+  //       qa1Raw: calculateAvg('qa1'),
+  //       qa2Raw: calculateAvg('qa2'),
+  //       endTermRaw: calculateAvg('end_of_term'),
   //     });
   //   }
 
-  //   const qa1Ranked = [...results]
-  //     .filter(r => r.qa1Avg > 0)
-  //     .sort((a, b) => b.qa1Avg - a.qa1Avg);
+  //   // 3. RANKING LOGIC (The "Nuclear" Option)
+  //   // We convert score to string "XX.XX" to guarantee equality
+  //   const applyDenseRanking = (items: any[], rawField: string) => {
 
-  //   const qa2Ranked = [...results]
-  //     .filter(r => r.qa2Avg > 0)
-  //     .sort((a, b) => b.qa2Avg - a.qa2Avg);
+  //     // Add a 'formatted' string field to each item for comparison
+  //     const itemsWithString = items.map(item => {
+  //       const raw = item[rawField];
+  //       return {
+  //         ...item,
+  //         // "toFixed(2)" turns 66.6666667 into string "66.67"
+  //         // This removes ALL floating point microscopic differences
+  //         formattedScore: parseFloat(raw.toFixed(2))
+  //       };
+  //     });
 
-  //   const endTermRanked = [...results]
-  //     .filter(r => r.endTermAvg > 0)
-  //     .sort((a, b) => b.endTermAvg - a.endTermAvg);
+  //     // Sort by the FORMATTED score (Descending)
+  //     itemsWithString.sort((a, b) => b.formattedScore - a.formattedScore);
 
+  //     const rankedMap = new Map<string, number>();
+  //     if (itemsWithString.length === 0) return rankedMap;
+
+  //     let currentRank = 1;
+  //     let previousScore = itemsWithString[0].formattedScore;
+
+  //     // Assign Rank 1 to first student
+  //     rankedMap.set(itemsWithString[0].studentId, currentRank);
+
+  //     for (let i = 1; i < itemsWithString.length; i++) {
+  //       const item = itemsWithString[i];
+  //       const currentScore = item.formattedScore;
+
+  //       // COMPARE: Is "85.50" different from "85.50"?
+  //       if (currentScore < previousScore) {
+  //         currentRank++; // Different score -> Rank increases (1, 1, 2)
+  //       }
+  //       // If equal, Rank stays same (1, 1)
+
+  //       rankedMap.set(item.studentId, currentRank);
+  //       previousScore = currentScore;
+  //     }
+
+  //     return rankedMap;
+  //   };
+
+  //   // Calculate Ranks
+  //   const qa1Ranks = applyDenseRanking(results, 'qa1Raw');
+  //   const qa2Ranks = applyDenseRanking(results, 'qa2Raw');
+  //   const endTermRanks = applyDenseRanking(results, 'endTermRaw');
+
+  //   // 4. Update Database
   //   for (const studentId of studentIds) {
   //     let reportCard = await this.reportCardRepository.findOne({
-  //       where: {
-  //         student: { id: studentId },
-  //         term,
-  //       },
+  //       where: { student: { id: studentId }, term },
   //     });
 
   //     if (!reportCard) {
@@ -988,31 +1015,20 @@ export class StudentsService {
   //       });
   //     }
 
-  //     const studentResult = results.find(r => r.studentId === studentId);
-  //     if (studentResult) {
-  //       const qa1Index = qa1Ranked.findIndex(r => r.studentId === studentId);
-  //       reportCard.qa1Rank = qa1Index >= 0 ? qa1Index + 1 : 0;
-
-  //       const qa2Index = qa2Ranked.findIndex(r => r.studentId === studentId);
-  //       reportCard.qa2Rank = qa2Index >= 0 ? qa2Index + 1 : 0;
-
-  //       const endTermIndex = endTermRanked.findIndex(r => r.studentId === studentId);
-  //       reportCard.classRank = endTermIndex >= 0 ? endTermIndex + 1 : 0;
-
-  //       reportCard.totalStudents = studentIds.length;
-  //     }
+  //     reportCard.qa1Rank = qa1Ranks.get(studentId) || 0;
+  //     reportCard.qa2Rank = qa2Ranks.get(studentId) || 0;
+  //     reportCard.classRank = endTermRanks.get(studentId) || 0;
+  //     reportCard.totalStudents = studentIds.length;
 
   //     await this.reportCardRepository.save(reportCard);
   //   }
 
-  //   return { message: 'Ranks calculated and updated successfully' };
+  //   console.log(`--- FINISHED: Ranks updated using 2-decimal Fixed Comparison ---`);
+  //   return { message: 'Ranks calculated successfully' };
   // }
-  // ===== END MODIFIED =====
-
-
 
   async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
-    console.log(`--- STARTING RANK CALCULATION (Exact String Match) ---`);
+    console.log(`--- STARTING RANK CALCULATION (Consistent with getClassResults) ---`);
 
     // 1. Fetch Class
     const query = this.classRepository
@@ -1025,114 +1041,160 @@ export class StudentsService {
     const classEntity = await query.getOne();
     if (!classEntity) throw new NotFoundException(`Class ${classId} not found`);
 
-    const studentIds = classEntity.students.map((s) => s.id);
-    const results: any[] = [];
+    const students = classEntity.students;
+    const studentResults: any[] = [];
 
-    // 2. Calculate Averages
-    for (const studentId of studentIds) {
+    // 2. Calculate Averages for EACH STUDENT (same logic as getClassResults)
+    for (const student of students) {
       // Get assessments for THIS CLASS only
       const assessments = await this.assessmentRepository.find({
         where: {
-          student: { id: studentId },
+          student: { id: student.id },
           class: { id: classId },
           assessmentType: In(['qa1', 'qa2', 'end_of_term']),
         },
+        relations: ['subject']
       });
 
-      // Helper to calculate Average
-      const calculateAvg = (type: string) => {
-        const typeAssessments = assessments.filter(a => a.assessmentType === type);
-        // Only count subjects where score > 0 (or strictly present)
-        const validAssessments = typeAssessments.filter(a => a.score > 0);
+      // Build subjects from assessments (same as getClassResults)
+      const subjectMap = new Map<string, any>();
 
-        const sum = validAssessments.reduce((acc, curr) => acc + curr.score, 0);
-        const count = validAssessments.length;
+      assessments.forEach(asm => {
+        const subjectName = asm.subject?.name || 'Unknown';
 
-        // Returns raw number
-        return count > 0 ? sum / count : 0;
-      };
+        if (!subjectMap.has(subjectName)) {
+          subjectMap.set(subjectName, {
+            qa1: 0,
+            qa2: 0,
+            endOfTerm: 0,
+          });
+        }
 
-      results.push({
-        studentId,
-        qa1Raw: calculateAvg('qa1'),
-        qa2Raw: calculateAvg('qa2'),
-        endTermRaw: calculateAvg('end_of_term'),
+        const subjectData = subjectMap.get(subjectName);
+        if (asm.assessmentType === 'qa1') {
+          subjectData.qa1 = asm.score || 0;
+        } else if (asm.assessmentType === 'qa2') {
+          subjectMap.get(subjectName).qa2 = asm.score || 0;
+        } else if (asm.assessmentType === 'end_of_term') {
+          subjectMap.get(subjectName).endOfTerm = asm.score || 0;
+        }
       });
-    }
 
-    // 3. RANKING LOGIC (The "Nuclear" Option)
-    // We convert score to string "XX.XX" to guarantee equality
-    const applyDenseRanking = (items: any[], rawField: string) => {
+      const subjects = Array.from(subjectMap.values());
 
-      // Add a 'formatted' string field to each item for comparison
-      const itemsWithString = items.map(item => {
-        const raw = item[rawField];
+      // Get active grade config
+      const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
+
+      // Calculate final scores and grades (same as getClassResults)
+      const enhancedSubjects = subjects.map(subject => {
+        const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
         return {
-          ...item,
-          // "toFixed(2)" turns 66.6666667 into string "66.67"
-          // This removes ALL floating point microscopic differences
-          formattedScore: parseFloat(raw.toFixed(2))
+          ...subject,
+          finalScore,
+          grade: this.calculateGrade(finalScore, activeGradeConfig)
         };
       });
 
-      // Sort by the FORMATTED score (Descending)
-      itemsWithString.sort((a, b) => b.formattedScore - a.formattedScore);
+      // Calculate average (same as getClassResults)
+      const totalScore = enhancedSubjects.reduce((sum, subject) => sum + subject.finalScore, 0);
+      const average = enhancedSubjects.length > 0 ? totalScore / enhancedSubjects.length : 0;
 
-      const rankedMap = new Map<string, number>();
-      if (itemsWithString.length === 0) return rankedMap;
+      // Only include students who have at least one valid assessment
+      const hasValidScores = enhancedSubjects.some(subject =>
+        subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0
+      );
 
+      if (hasValidScores) {
+        studentResults.push({
+          studentId: student.id,
+          average,
+          qa1Avg: enhancedSubjects.reduce((sum, s) => sum + s.qa1, 0) / enhancedSubjects.length,
+          qa2Avg: enhancedSubjects.reduce((sum, s) => sum + s.qa2, 0) / enhancedSubjects.length,
+          endTermAvg: enhancedSubjects.reduce((sum, s) => sum + s.endOfTerm, 0) / enhancedSubjects.length,
+        });
+      }
+    }
+
+    // 3. DENSE RANKING (Must match getClassResults logic EXACTLY)
+    const calculateRanks = (items: any[], scoreField: string): Map<string, number> => {
+      const rankMap = new Map<string, number>();
+
+      // Sort by score descending (same as getClassResults)
+      const sorted = [...items]
+        .sort((a, b) => b[scoreField] - a[scoreField]);
+
+      if (sorted.length === 0) return rankMap;
+
+      // Apply DENSE ranking (same as getClassResults)
       let currentRank = 1;
-      let previousScore = itemsWithString[0].formattedScore;
+      let previousScore = sorted[0][scoreField];
 
-      // Assign Rank 1 to first student
-      rankedMap.set(itemsWithString[0].studentId, currentRank);
+      // First student gets rank 1
+      rankMap.set(sorted[0].studentId, currentRank);
 
-      for (let i = 1; i < itemsWithString.length; i++) {
-        const item = itemsWithString[i];
-        const currentScore = item.formattedScore;
+      for (let i = 1; i < sorted.length; i++) {
+        const item = sorted[i];
+        const currentScore = item[scoreField];
 
-        // COMPARE: Is "85.50" different from "85.50"?
-        if (currentScore < previousScore) {
-          currentRank++; // Different score -> Rank increases (1, 1, 2)
+        // Use same tolerance as getClassResults
+        if (Math.abs(currentScore - previousScore) > 0.01) {
+          currentRank++;
         }
-        // If equal, Rank stays same (1, 1)
 
-        rankedMap.set(item.studentId, currentRank);
+        rankMap.set(item.studentId, currentRank);
         previousScore = currentScore;
       }
 
-      return rankedMap;
+      return rankMap;
     };
 
-    // Calculate Ranks
-    const qa1Ranks = applyDenseRanking(results, 'qa1Raw');
-    const qa2Ranks = applyDenseRanking(results, 'qa2Raw');
-    const endTermRanks = applyDenseRanking(results, 'endTermRaw');
+    // Calculate ranks using EXACT SAME LOGIC as getClassResults
+    const qa1Ranks = calculateRanks(studentResults, 'qa1Avg');
+    const qa2Ranks = calculateRanks(studentResults, 'qa2Avg');
+    const endTermRanks = calculateRanks(studentResults, 'endTermAvg');
 
-    // 4. Update Database
-    for (const studentId of studentIds) {
+    // 4. Update ALL students in the class (including those without scores)
+    for (const student of students) {
       let reportCard = await this.reportCardRepository.findOne({
-        where: { student: { id: studentId }, term },
+        where: { student: { id: student.id }, term },
       });
 
       if (!reportCard) {
         reportCard = this.reportCardRepository.create({
-          student: { id: studentId },
+          student: { id: student.id },
           term,
-          totalStudents: studentIds.length,
+          totalStudents: students.length,
         });
       }
 
-      reportCard.qa1Rank = qa1Ranks.get(studentId) || 0;
-      reportCard.qa2Rank = qa2Ranks.get(studentId) || 0;
-      reportCard.classRank = endTermRanks.get(studentId) || 0;
-      reportCard.totalStudents = studentIds.length;
+      // Check if student has valid scores
+      const studentHasScores = studentResults.some(r => r.studentId === student.id);
+
+      if (studentHasScores) {
+        // Student has scores: assign proper rank
+        reportCard.qa1Rank = qa1Ranks.get(student.id) || 0;
+        reportCard.qa2Rank = qa2Ranks.get(student.id) || 0;
+        reportCard.classRank = endTermRanks.get(student.id) || 0;
+      } else {
+        // Student has NO scores: rank = 0 (will be excluded from getClassResults)
+        reportCard.qa1Rank = 0;
+        reportCard.qa2Rank = 0;
+        reportCard.classRank = 0;
+      }
+
+      // reportCard.totalStudents = students.length;
+      reportCard.totalStudents = studentResults.length;
 
       await this.reportCardRepository.save(reportCard);
     }
 
-    console.log(`--- FINISHED: Ranks updated using 2-decimal Fixed Comparison ---`);
-    return { message: 'Ranks calculated successfully' };
+    console.log(`--- FINISHED: Ranks updated for ${students.length} students ---`);
+    console.log(`--- Students with valid scores: ${studentResults.length} ---`);
+    return {
+      message: 'Ranks calculated successfully',
+      studentsWithScores: studentResults.length,
+      totalStudents: students.length
+    };
   }
 
   // async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
