@@ -29,32 +29,6 @@ export class StudentsService {
   ) { }
 
   // // ===== START MODIFIED: Added schoolId parameter =====
-  // async findByExamNumber(examNumber: string, schoolId?: string) {
-  //   const query = this.studentRepository
-  //     .createQueryBuilder('student')
-  //     .leftJoinAndSelect('student.assessments', 'assessments')
-  //     .leftJoinAndSelect('assessments.subject', 'subject')
-  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
-  //     .leftJoinAndSelect('student.class', 'class')
-  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
-  //   // .where('student.examNumber = :examNumber', { examNumber: examNumber.toUpperCase() });
-
-  //   // if (schoolId) {
-  //   //   query.andWhere('student.schoolId = :schoolId', { schoolId });
-  //   // }
-
-  //   const student = await query.getOne();
-
-  //   if (!student) {
-  //     throw new NotFoundException(`Student ${examNumber} not found`);
-  //   }
-
-  //   // const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
-  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
-  //   return this.formatStudentData(student, activeGradeConfig);
-  // }
-  // ===== END MODIFIED =====
-
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
       .createQueryBuilder('student')
@@ -63,6 +37,11 @@ export class StudentsService {
       .leftJoinAndSelect('student.reportCards', 'reportCards')
       .leftJoinAndSelect('student.class', 'class')
       .where('student.examNumber = :examNumber', { examNumber: examNumber })
+    // .where('student.examNumber = :examNumber', { examNumber: examNumber.toUpperCase() });
+
+    // if (schoolId) {
+    //   query.andWhere('student.schoolId = :schoolId', { schoolId });
+    // }
 
     const student = await query.getOne();
 
@@ -70,29 +49,50 @@ export class StudentsService {
       throw new NotFoundException(`Student ${examNumber} not found`);
     }
 
-    // 🔴🔴🔴 START ADDING HERE 🔴🔴🔴
-    // Recalculate ranks before returning data (only if student has a class)
-    if (student.class) {
-      // First, ensure ranks are calculated for the entire class
-      await this.calculateAndUpdateRanks(
-        student.class.id,
-        student.class.term || 'Term 1, 2024/2025',
-        student.schoolId
-      );
-
-      // Then reload the student's report card to get updated ranks
-      student.reportCards = await this.reportCardRepository.find({
-        where: {
-          student: { id: student.id },
-          term: student.class?.term || 'Term 1, 2024/2025' // Use optional chaining here
-        }
-      });
-    }
-    // 🔴🔴🔴 END ADDING HERE 🔴🔴🔴
-
+    // const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
     return this.formatStudentData(student, activeGradeConfig);
   }
+  // ===== END MODIFIED =====
+
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.assessments', 'assessments')
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
+  //     .leftJoinAndSelect('student.class', 'class')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+  //   // 🔴🔴🔴 START ADDING HERE 🔴🔴🔴
+  //   // Recalculate ranks before returning data (only if student has a class)
+  //   if (student.class) {
+  //     // First, ensure ranks are calculated for the entire class
+  //     await this.calculateAndUpdateRanks(
+  //       student.class.id,
+  //       student.class.term || 'Term 1, 2024/2025',
+  //       student.schoolId
+  //     );
+
+  //     // Then reload the student's report card to get updated ranks
+  //     student.reportCards = await this.reportCardRepository.find({
+  //       where: {
+  //         student: { id: student.id },
+  //         term: student.class?.term || 'Term 1, 2024/2025' // Use optional chaining here
+  //       }
+  //     });
+  //   }
+  //   // 🔴🔴🔴 END ADDING HERE 🔴🔴🔴
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+  //   return this.formatStudentData(student, activeGradeConfig);
+  // }
 
   // ===== START MODIFIED: Added schoolId parameter =====
   async getActiveGradeConfiguration(schoolId?: string) {
