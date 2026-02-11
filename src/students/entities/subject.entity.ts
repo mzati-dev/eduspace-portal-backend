@@ -1,14 +1,15 @@
 // src/students/entities/subject.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, Unique } from 'typeorm';
 import { Assessment } from './assessment.entity';
 import { School } from '../../schools/entities/school.entity';
 
 @Entity('subjects')
+@Unique(['name', 'schoolId'])
 export class Subject {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ unique: true })
+    @Column()
     name: string;
 
     @Column({ nullable: true })

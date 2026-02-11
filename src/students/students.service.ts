@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Like, Repository } from 'typeorm';
 import { Student } from './entities/student.entity';
@@ -682,11 +682,35 @@ export class StudentsService {
   // ===== END MODIFIED =====
 
   // ===== START MODIFIED: Added schoolId parameter =====
+  // async createSubject(subjectData: { name: string }, schoolId?: string) {
+  //   const subject = this.subjectRepository.create({
+  //     ...subjectData,
+  //     schoolId: schoolId,
+  //   });
+  //   return this.subjectRepository.save(subject);
+  // }
+  // src/students/students.service.ts
+
   async createSubject(subjectData: { name: string }, schoolId?: string) {
+    // 1. Check if this subject already exists FOR THIS SCHOOL
+    const existingSubject = await this.subjectRepository.findOne({
+      where: {
+        name: subjectData.name,
+        schoolId: schoolId // <--- Crucial check!
+      }
+    });
+
+    if (existingSubject) {
+      // Return a nice error instead of crashing
+      throw new BadRequestException(`Subject '${subjectData.name}' already exists in this school.`);
+    }
+
+    // 2. If not found, create it
     const subject = this.subjectRepository.create({
       ...subjectData,
       schoolId: schoolId,
     });
+
     return this.subjectRepository.save(subject);
   }
   // ===== END MODIFIED =====
