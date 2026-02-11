@@ -1320,6 +1320,7 @@ export class StudentsService {
     }
 
     console.log('--- FINISHED RANK CALCULATION ---');
+
   }
 
 

@@ -12,7 +12,18 @@ export class StudentsController {
     @Query('schoolId') schoolId?: string
   ) {
     const finalSchoolId = body.schoolId || schoolId;
-    return this.studentsService.calculateAndUpdateRanks(body.class_id, body.term, finalSchoolId);
+
+
+    // return this.studentsService.calculateAndUpdateRanks(body.class_id, body.term, finalSchoolId);
+
+    // 1. Run the calculation logic (it returns void, which is fine now)
+    await this.studentsService.calculateAndUpdateRanks(body.class_id, body.term, finalSchoolId);
+
+    // 2. Return a success object so the frontend has JSON to parse
+    return {
+      success: true,
+      message: 'Ranks calculation completed successfully.'
+    };
   }
 
   @Get('class/:classId/results')
@@ -88,7 +99,7 @@ export class AssessmentsController {
   @Post('upsert')
   async upsertAssessment(
     @Body() assessmentData: any,
-    @Query('schoolId') schoolId?: string
+    @Query('schoolId') schoolId?: string,
   ) {
     return this.studentsService.upsertAssessment(assessmentData, schoolId);
   }
