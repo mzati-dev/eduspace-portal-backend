@@ -567,53 +567,53 @@ export class StudentsService {
       },
     });
 
-    if (existing) {
-      Object.assign(existing, {
-        score: data.score,
-        grade: data.grade,
-      });
-      return this.assessmentRepository.save(existing);
-    } else {
-      const assessment = this.assessmentRepository.create(data); // NO CHANGE
-      return this.assessmentRepository.save(assessment);
-    }
-
     // if (existing) {
     //   Object.assign(existing, {
     //     score: data.score,
     //     grade: data.grade,
     //   });
-    //   const result = await this.assessmentRepository.save(existing);
-
-    //   // Recalculate ranks after saving assessment
-    //   if (student.class) {
-    //     setTimeout(async () => {
-    //       await this.calculateAndUpdateRanks(
-    //         student.class!.id,
-    //         student.class!.term || 'Term 1, 2024/2025',
-    //         schoolId
-    //       );
-    //     }, 100);
-    //   }
-
-    //   return result;
+    //   return this.assessmentRepository.save(existing);
     // } else {
-    //   const assessment = this.assessmentRepository.create(data);
-    //   const result = await this.assessmentRepository.save(assessment);
-
-    //   // Recalculate ranks after saving assessment
-    //   if (student.class) {
-    //     setTimeout(async () => {
-    //       await this.calculateAndUpdateRanks(
-    //         student.class!.id,
-    //         student.class!.term || 'Term 1, 2024/2025',
-    //         schoolId
-    //       );
-    //     }, 100);
-    //   }
-
-    //   return result;
+    //   const assessment = this.assessmentRepository.create(data); // NO CHANGE
+    //   return this.assessmentRepository.save(assessment);
     // }
+
+    if (existing) {
+      Object.assign(existing, {
+        score: data.score,
+        grade: data.grade,
+      });
+      const result = await this.assessmentRepository.save(existing);
+
+      // Recalculate ranks after saving assessment
+      if (student.class) {
+        setTimeout(async () => {
+          await this.calculateAndUpdateRanks(
+            student.class!.id,
+            student.class!.term || 'Term 1, 2024/2025',
+            schoolId
+          );
+        }, 100);
+      }
+
+      return result;
+    } else {
+      const assessment = this.assessmentRepository.create(data);
+      const result = await this.assessmentRepository.save(assessment);
+
+      // Recalculate ranks after saving assessment
+      if (student.class) {
+        setTimeout(async () => {
+          await this.calculateAndUpdateRanks(
+            student.class!.id,
+            student.class!.term || 'Term 1, 2024/2025',
+            schoolId
+          );
+        }, 100);
+      }
+
+      return result;
+    }
   }
   // ===== END MODIFIED =====
 

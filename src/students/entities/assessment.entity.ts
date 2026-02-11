@@ -33,6 +33,16 @@ export class Assessment {
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
     updatedAt: Date;
+    // ✅ ADD THIS - prevents circular reference when serializing to JSON
+    toJSON() {
+        const { student, subject, class: classEntity, ...rest } = this;
+        return {
+            ...rest,
+            studentId: student?.id,
+            subjectId: subject?.id,
+            classId: classEntity?.id
+        };
+    }
 }
 
 
