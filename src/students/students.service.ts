@@ -1027,175 +1027,301 @@ export class StudentsService {
   //   return { message: 'Ranks calculated successfully' };
   // }
 
-  async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
-    console.log(`--- STARTING RANK CALCULATION (Consistent with getClassResults) ---`);
+  // async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
+  //   console.log(`--- STARTING RANK CALCULATION (Consistent with getClassResults) ---`);
 
-    // 1. Fetch Class
-    const query = this.classRepository
+  //   // 1. Fetch Class
+  //   const query = this.classRepository
+  //     .createQueryBuilder('class')
+  //     .leftJoinAndSelect('class.students', 'students')
+  //     .where('class.id = :classId', { classId });
+
+  //   if (schoolId) query.andWhere('class.schoolId = :schoolId', { schoolId });
+
+  //   const classEntity = await query.getOne();
+  //   if (!classEntity) throw new NotFoundException(`Class ${classId} not found`);
+
+  //   const students = classEntity.students;
+  //   const studentResults: any[] = [];
+
+  //   // 2. Calculate Averages for EACH STUDENT (same logic as getClassResults)
+  //   for (const student of students) {
+  //     // Get assessments for THIS CLASS only
+  //     const assessments = await this.assessmentRepository.find({
+  //       where: {
+  //         student: { id: student.id },
+  //         class: { id: classId },
+  //         assessmentType: In(['qa1', 'qa2', 'end_of_term']),
+  //       },
+  //       relations: ['subject']
+  //     });
+
+  //     // Build subjects from assessments (same as getClassResults)
+  //     const subjectMap = new Map<string, any>();
+
+  //     assessments.forEach(asm => {
+  //       const subjectName = asm.subject?.name || 'Unknown';
+
+  //       if (!subjectMap.has(subjectName)) {
+  //         subjectMap.set(subjectName, {
+  //           qa1: 0,
+  //           qa2: 0,
+  //           endOfTerm: 0,
+  //         });
+  //       }
+
+  //       const subjectData = subjectMap.get(subjectName);
+  //       if (asm.assessmentType === 'qa1') {
+  //         subjectData.qa1 = asm.score || 0;
+  //       } else if (asm.assessmentType === 'qa2') {
+  //         subjectMap.get(subjectName).qa2 = asm.score || 0;
+  //       } else if (asm.assessmentType === 'end_of_term') {
+  //         subjectMap.get(subjectName).endOfTerm = asm.score || 0;
+  //       }
+  //     });
+
+  //     const subjects = Array.from(subjectMap.values());
+
+  //     // Get active grade config
+  //     const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
+
+  //     // Calculate final scores and grades (same as getClassResults)
+  //     const enhancedSubjects = subjects.map(subject => {
+  //       const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
+  //       return {
+  //         ...subject,
+  //         finalScore,
+  //         grade: this.calculateGrade(finalScore, activeGradeConfig)
+  //       };
+  //     });
+
+  //     // Calculate average (same as getClassResults)
+  //     const totalScore = enhancedSubjects.reduce((sum, subject) => sum + subject.finalScore, 0);
+  //     const average = enhancedSubjects.length > 0 ? totalScore / enhancedSubjects.length : 0;
+
+  //     // Only include students who have at least one valid assessment
+  //     const hasValidScores = enhancedSubjects.some(subject =>
+  //       subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0
+  //     );
+
+  //     if (hasValidScores) {
+  //       studentResults.push({
+  //         studentId: student.id,
+  //         average,
+  //         qa1Avg: enhancedSubjects.reduce((sum, s) => sum + s.qa1, 0) / enhancedSubjects.length,
+  //         qa2Avg: enhancedSubjects.reduce((sum, s) => sum + s.qa2, 0) / enhancedSubjects.length,
+  //         endTermAvg: enhancedSubjects.reduce((sum, s) => sum + s.endOfTerm, 0) / enhancedSubjects.length,
+  //       });
+  //     }
+  //   }
+
+  //   // 3. DENSE RANKING (Must match getClassResults logic EXACTLY)
+  //   const calculateRanks = (items: any[], scoreField: string): Map<string, number> => {
+  //     const rankMap = new Map<string, number>();
+
+  //     // Sort by score descending (same as getClassResults)
+  //     const sorted = [...items]
+  //       .sort((a, b) => b[scoreField] - a[scoreField]);
+
+  //     if (sorted.length === 0) return rankMap;
+
+  //     // Apply DENSE ranking (same as getClassResults)
+  //     let currentRank = 1;
+  //     let previousScore = sorted[0][scoreField];
+
+  //     // First student gets rank 1
+  //     rankMap.set(sorted[0].studentId, currentRank);
+
+  //     for (let i = 1; i < sorted.length; i++) {
+  //       const item = sorted[i];
+  //       const currentScore = item[scoreField];
+
+  //       // Use same tolerance as getClassResults
+  //       if (Math.abs(currentScore - previousScore) > 0.01) {
+  //         currentRank++;
+  //       }
+
+  //       rankMap.set(item.studentId, currentRank);
+  //       previousScore = currentScore;
+  //     }
+
+  //     return rankMap;
+  //   };
+
+  //   // Calculate ranks using EXACT SAME LOGIC as getClassResults
+  //   const qa1Ranks = calculateRanks(studentResults, 'qa1Avg');
+  //   const qa2Ranks = calculateRanks(studentResults, 'qa2Avg');
+  //   const endTermRanks = calculateRanks(studentResults, 'endTermAvg');
+
+  //   // 4. Update ALL students in the class (including those without scores)
+  //   for (const student of students) {
+  //     let reportCard = await this.reportCardRepository.findOne({
+  //       where: { student: { id: student.id }, term },
+  //     });
+
+  //     if (!reportCard) {
+  //       reportCard = this.reportCardRepository.create({
+  //         student: { id: student.id },
+  //         term,
+  //         totalStudents: students.length,
+  //       });
+  //     }
+
+  //     // Check if student has valid scores
+  //     const studentHasScores = studentResults.some(r => r.studentId === student.id);
+
+  //     if (studentHasScores) {
+  //       // Student has scores: assign proper rank
+  //       reportCard.qa1Rank = qa1Ranks.get(student.id) || 0;
+  //       reportCard.qa2Rank = qa2Ranks.get(student.id) || 0;
+  //       reportCard.classRank = endTermRanks.get(student.id) || 0;
+  //     } else {
+  //       // Student has NO scores: rank = 0 (will be excluded from getClassResults)
+  //       reportCard.qa1Rank = 0;
+  //       reportCard.qa2Rank = 0;
+  //       reportCard.classRank = 0;
+  //     }
+
+  //     // reportCard.totalStudents = students.length;
+  //     reportCard.totalStudents = studentResults.length;
+
+  //     await this.reportCardRepository.save(reportCard);
+  //   }
+
+  //   console.log(`--- FINISHED: Ranks updated for ${students.length} students ---`);
+  //   console.log(`--- Students with valid scores: ${studentResults.length} ---`);
+
+  //   return {
+  //     message: 'Ranks calculated successfully',
+  //     studentsWithScores: studentResults.length,
+  //     totalStudents: students.length
+  //   };
+  // }
+
+  async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
+    console.log('--- START RANK CALCULATION (OPTIMIZED) ---');
+
+    // 1️⃣ Load class + students
+    const classQuery = this.classRepository
       .createQueryBuilder('class')
       .leftJoinAndSelect('class.students', 'students')
       .where('class.id = :classId', { classId });
 
-    if (schoolId) query.andWhere('class.schoolId = :schoolId', { schoolId });
-
-    const classEntity = await query.getOne();
-    if (!classEntity) throw new NotFoundException(`Class ${classId} not found`);
-
-    const students = classEntity.students;
-    const studentResults: any[] = [];
-
-    // 2. Calculate Averages for EACH STUDENT (same logic as getClassResults)
-    for (const student of students) {
-      // Get assessments for THIS CLASS only
-      const assessments = await this.assessmentRepository.find({
-        where: {
-          student: { id: student.id },
-          class: { id: classId },
-          assessmentType: In(['qa1', 'qa2', 'end_of_term']),
-        },
-        relations: ['subject']
-      });
-
-      // Build subjects from assessments (same as getClassResults)
-      const subjectMap = new Map<string, any>();
-
-      assessments.forEach(asm => {
-        const subjectName = asm.subject?.name || 'Unknown';
-
-        if (!subjectMap.has(subjectName)) {
-          subjectMap.set(subjectName, {
-            qa1: 0,
-            qa2: 0,
-            endOfTerm: 0,
-          });
-        }
-
-        const subjectData = subjectMap.get(subjectName);
-        if (asm.assessmentType === 'qa1') {
-          subjectData.qa1 = asm.score || 0;
-        } else if (asm.assessmentType === 'qa2') {
-          subjectMap.get(subjectName).qa2 = asm.score || 0;
-        } else if (asm.assessmentType === 'end_of_term') {
-          subjectMap.get(subjectName).endOfTerm = asm.score || 0;
-        }
-      });
-
-      const subjects = Array.from(subjectMap.values());
-
-      // Get active grade config
-      const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
-
-      // Calculate final scores and grades (same as getClassResults)
-      const enhancedSubjects = subjects.map(subject => {
-        const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
-        return {
-          ...subject,
-          finalScore,
-          grade: this.calculateGrade(finalScore, activeGradeConfig)
-        };
-      });
-
-      // Calculate average (same as getClassResults)
-      const totalScore = enhancedSubjects.reduce((sum, subject) => sum + subject.finalScore, 0);
-      const average = enhancedSubjects.length > 0 ? totalScore / enhancedSubjects.length : 0;
-
-      // Only include students who have at least one valid assessment
-      const hasValidScores = enhancedSubjects.some(subject =>
-        subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0
-      );
-
-      if (hasValidScores) {
-        studentResults.push({
-          studentId: student.id,
-          average,
-          qa1Avg: enhancedSubjects.reduce((sum, s) => sum + s.qa1, 0) / enhancedSubjects.length,
-          qa2Avg: enhancedSubjects.reduce((sum, s) => sum + s.qa2, 0) / enhancedSubjects.length,
-          endTermAvg: enhancedSubjects.reduce((sum, s) => sum + s.endOfTerm, 0) / enhancedSubjects.length,
-        });
-      }
+    if (schoolId) {
+      classQuery.andWhere('class.schoolId = :schoolId', { schoolId });
     }
 
-    // 3. DENSE RANKING (Must match getClassResults logic EXACTLY)
-    const calculateRanks = (items: any[], scoreField: string): Map<string, number> => {
-      const rankMap = new Map<string, number>();
+    const classEntity = await classQuery.getOne();
+    if (!classEntity) throw new NotFoundException(`Class not found`);
 
-      // Sort by score descending (same as getClassResults)
-      const sorted = [...items]
-        .sort((a, b) => b[scoreField] - a[scoreField]);
+    const studentIds = classEntity.students.map(s => s.id);
+    if (studentIds.length === 0) return;
 
-      if (sorted.length === 0) return rankMap;
+    // 2️⃣ Load ALL assessments for this class in ONE query
+    const assessments = await this.assessmentRepository.find({
+      where: {
+        class: { id: classId },
+        student: { id: In(studentIds) },
+        assessmentType: In(['qa1', 'qa2', 'end_of_term']),
+      },
+      relations: ['student'],
+    });
 
-      // Apply DENSE ranking (same as getClassResults)
-      let currentRank = 1;
-      let previousScore = sorted[0][scoreField];
+    // 3️⃣ Group by student
+    const byStudent = new Map<string, any[]>();
 
-      // First student gets rank 1
-      rankMap.set(sorted[0].studentId, currentRank);
+    for (const asm of assessments) {
+      const sid = asm.student.id;
+      if (!byStudent.has(sid)) byStudent.set(sid, []);
+      byStudent.get(sid)!.push(asm);
+    }
 
-      for (let i = 1; i < sorted.length; i++) {
-        const item = sorted[i];
-        const currentScore = item[scoreField];
+    // 4️⃣ Build result averages — ONLY students with end_of_term scores enter ranking
+    const results: any[] = [];
 
-        // Use same tolerance as getClassResults
-        if (Math.abs(currentScore - previousScore) > 0.01) {
-          currentRank++;
-        }
+    for (const [studentId, items] of byStudent.entries()) {
 
-        rankMap.set(item.studentId, currentRank);
-        previousScore = currentScore;
+      const avg = (type: string) => {
+        const valid = items.filter(a => a.assessmentType === type && a.score > 0);
+        if (valid.length === 0) return 0;
+        return valid.reduce((s, a) => s + a.score, 0) / valid.length;
+      };
+
+      const endAvg = avg('end_of_term');
+
+      // 🚨 KEY FIX — skip students with NO end term scores
+      if (endAvg === 0) continue;
+
+      results.push({
+        studentId,
+        qa1Raw: avg('qa1'),
+        qa2Raw: avg('qa2'),
+        endRaw: endAvg,
+      });
+    }
+
+    if (results.length === 0) {
+      console.log('No scored students — skipping rank');
+      return;
+    }
+
+    // 5️⃣ Dense ranking with float safety
+    const denseRank = (items: any[], field: string) => {
+      const arr = items
+        .map(x => ({
+          ...x,
+          score: parseFloat(x[field].toFixed(2))
+        }))
+        .sort((a, b) => b.score - a.score);
+
+      const map = new Map<string, number>();
+
+      let rank = 1;
+      let prev = arr[0].score;
+      map.set(arr[0].studentId, rank);
+
+      for (let i = 1; i < arr.length; i++) {
+        if (arr[i].score < prev) rank++;
+        map.set(arr[i].studentId, rank);
+        prev = arr[i].score;
       }
 
-      return rankMap;
+      return map;
     };
 
-    // Calculate ranks using EXACT SAME LOGIC as getClassResults
-    const qa1Ranks = calculateRanks(studentResults, 'qa1Avg');
-    const qa2Ranks = calculateRanks(studentResults, 'qa2Avg');
-    const endTermRanks = calculateRanks(studentResults, 'endTermAvg');
+    const qa1Ranks = denseRank(results, 'qa1Raw');
+    const qa2Ranks = denseRank(results, 'qa2Raw');
+    const endRanks = denseRank(results, 'endRaw');
 
-    // 4. Update ALL students in the class (including those without scores)
-    for (const student of students) {
-      let reportCard = await this.reportCardRepository.findOne({
-        where: { student: { id: student.id }, term },
+    const rankedStudentIds = results.map(r => r.studentId);
+    const totalRanked = rankedStudentIds.length;
+
+    // 6️⃣ Update report cards
+    for (const sid of studentIds) {
+      let rc = await this.reportCardRepository.findOne({
+        where: { student: { id: sid }, term }
       });
 
-      if (!reportCard) {
-        reportCard = this.reportCardRepository.create({
-          student: { id: student.id },
+      if (!rc) {
+        rc = this.reportCardRepository.create({
+          student: { id: sid },
           term,
-          totalStudents: students.length,
         });
       }
 
-      // Check if student has valid scores
-      const studentHasScores = studentResults.some(r => r.studentId === student.id);
+      rc.qa1Rank = qa1Ranks.get(sid) || 0;
+      rc.qa2Rank = qa2Ranks.get(sid) || 0;
+      rc.classRank = endRanks.get(sid) || 0;
 
-      if (studentHasScores) {
-        // Student has scores: assign proper rank
-        reportCard.qa1Rank = qa1Ranks.get(student.id) || 0;
-        reportCard.qa2Rank = qa2Ranks.get(student.id) || 0;
-        reportCard.classRank = endTermRanks.get(student.id) || 0;
-      } else {
-        // Student has NO scores: rank = 0 (will be excluded from getClassResults)
-        reportCard.qa1Rank = 0;
-        reportCard.qa2Rank = 0;
-        reportCard.classRank = 0;
-      }
+      // ✅ KEY FIX — only count ranked students
+      rc.totalStudents = totalRanked;
 
-      // reportCard.totalStudents = students.length;
-      reportCard.totalStudents = studentResults.length;
-
-      await this.reportCardRepository.save(reportCard);
+      await this.reportCardRepository.save(rc);
     }
 
-    console.log(`--- FINISHED: Ranks updated for ${students.length} students ---`);
-    console.log(`--- Students with valid scores: ${studentResults.length} ---`);
-    return {
-      message: 'Ranks calculated successfully',
-      studentsWithScores: studentResults.length,
-      totalStudents: students.length
-    };
+    console.log('--- FINISHED RANK CALCULATION ---');
   }
+
 
   // async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
   //   const query = this.classRepository
