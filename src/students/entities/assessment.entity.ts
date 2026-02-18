@@ -16,6 +16,9 @@ export class Assessment {
     @Column('int')
     score: number;
 
+    @Column({ default: false })
+    isAbsent: boolean;
+
     @Column()
     grade: string;
 

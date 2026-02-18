@@ -136,23 +136,30 @@ export class StudentsService {
           qa1: 0,
           qa2: 0,
           endOfTerm: 0,
+          // 👈 NEW: Add absent flags
+          qa1_absent: false,
+          qa2_absent: false,
+          endOfTerm_absent: false,
           grade: 'N/A',
         };
       }
 
       if (asm.assessmentType === 'qa1') {
         subjectMap[subjectName].qa1 = asm.score;
+        subjectMap[subjectName].qa1_absent = asm.isAbsent || false; // 👈 NEW
       } else if (asm.assessmentType === 'qa2') {
         subjectMap[subjectName].qa2 = asm.score;
+        subjectMap[subjectName].qa2_absent = asm.isAbsent || false; // 👈 NEW
       } else if (asm.assessmentType === 'end_of_term') {
         subjectMap[subjectName].endOfTerm = asm.score;
-        subjectMap[subjectName].grade = this.calculateGrade(asm.score, gradeConfig);
+        subjectMap[subjectName].endOfTerm_absent = asm.isAbsent || false; // 👈 NEW
+        subjectMap[subjectName].grade = this.calculateGrade(asm.score, gradeConfig, asm.isAbsent);
       }
     });
 
     Object.values(subjectMap).forEach((subject: any) => {
       subject.finalScore = this.calculateFinalScore(subject, gradeConfig, student.assessments);
-      subject.grade = this.calculateGrade(subject.finalScore, gradeConfig);
+      subject.grade = this.calculateGrade(subject.finalScore, gradeConfig, subject.endOfTerm_absent);
     });
 
     const activeReport = student.reportCards?.[0] || {};
@@ -189,16 +196,104 @@ export class StudentsService {
   }
   // ===== END NO CHANGES =====
 
-  // ===== NO CHANGES =====
+  // // ===== NO CHANGES =====
+  // private calculateFinalScore(subject: any, gradeConfig: any, studentAssessments?: any[]): number {
+  //   const qa1 = subject.qa1 || 0;
+  //   const qa2 = subject.qa2 || 0;
+  //   const endOfTerm = subject.endOfTerm || 0;
+
+  //   // 👈 NEW: Get absent flags
+  //   const qa1Absent = subject.qa1_absent || false;
+  //   const qa2Absent = subject.qa2_absent || false;
+  //   const endOfTermAbsent = subject.endOfTerm_absent || false;
+
+  //   // 👈 NEW: If absent for end of term, final score is 0
+  //   if (endOfTermAbsent) {
+  //     return 0;
+  //   }
+
+  //   if (studentAssessments) {
+  //     const hasQA1 = studentAssessments.some(a => a.assessmentType === 'qa1' && a.score > 0 || a.isAbsent);
+  //     const hasQA2 = studentAssessments.some(a => a.assessmentType === 'qa2' && a.score > 0 || a.isAbsent);
+  //     const hasEndOfTerm = studentAssessments.some(a => a.assessmentType === 'end_of_term' && a.score > 0 || a.isAbsent);
+
+  //     if ((hasQA1 || hasQA2) && !hasEndOfTerm) {
+  //       return endOfTerm;
+  //     }
+  //   }
+
+  //   switch (gradeConfig.calculation_method) {
+  //     case 'average_all':
+  //       // 👈 NEW: Don't include absent assessments in average
+  //       let total = 0;
+  //       let count = 0;
+  //       if (!qa1Absent) { total += qa1; count++; }
+  //       if (!qa2Absent) { total += qa2; count++; }
+  //       if (!endOfTermAbsent) { total += endOfTerm; count++; }
+  //       return count > 0 ? total / count : 0;
+
+  //       return (qa1 + qa2 + endOfTerm) / 3;
+  //     case 'end_of_term_only':
+  //       // return endOfTerm;
+  //       // 👈 NEW: If absent, return 0
+  //       return endOfTermAbsent ? 0 : endOfTerm;
+
+  //     case 'weighted_average':
+  //       // 👈 NEW: Only include non-absent assessments
+  //       let weightedTotal = 0;
+  //       let weightTotal = 0;
+  //       if (!qa1Absent) {
+  //         weightedTotal += qa1 * gradeConfig.weight_qa1;
+  //         weightTotal += gradeConfig.weight_qa1;
+  //       }
+  //       if (!qa2Absent) {
+  //         weightedTotal += qa2 * gradeConfig.weight_qa2;
+  //         weightTotal += gradeConfig.weight_qa2;
+  //       }
+  //       if (!endOfTermAbsent) {
+  //         weightedTotal += endOfTerm * gradeConfig.weight_end_of_term;
+  //         weightTotal += gradeConfig.weight_end_of_term;
+  //       }
+  //       return weightTotal > 0 ? weightedTotal / weightTotal : 0;
+
+  //     default:
+  //       return (qa1 + qa2 + endOfTerm) / 3;
+
+
+
+  //     //   return (qa1 * gradeConfig.weight_qa1 +
+  //     //     qa2 * gradeConfig.weight_qa2 +
+  //     //     endOfTerm * gradeConfig.weight_end_of_term) / 100;
+  //     // default:
+  //     //   return (qa1 + qa2 + endOfTerm) / 3;
+  //   }
+  // }
   private calculateFinalScore(subject: any, gradeConfig: any, studentAssessments?: any[]): number {
     const qa1 = subject.qa1 || 0;
     const qa2 = subject.qa2 || 0;
     const endOfTerm = subject.endOfTerm || 0;
 
+    // Get absent flags
+    const qa1Absent = subject.qa1_absent || false;
+    const qa2Absent = subject.qa2_absent || false;
+    const endOfTermAbsent = subject.endOfTerm_absent || false;
+
+    // If absent for end of term, final score is 0
+    if (endOfTermAbsent) {
+      return 0;
+    }
+
     if (studentAssessments) {
-      const hasQA1 = studentAssessments.some(a => a.assessmentType === 'qa1' && a.score > 0);
-      const hasQA2 = studentAssessments.some(a => a.assessmentType === 'qa2' && a.score > 0);
-      const hasEndOfTerm = studentAssessments.some(a => a.assessmentType === 'end_of_term' && a.score > 0);
+      // ✅ FIXED: Added parentheses for correct operator precedence
+      const hasQA1 = studentAssessments.some(a =>
+        a.assessmentType === 'qa1' && (a.score > 0 || a.isAbsent)
+      );
+      const hasQA2 = studentAssessments.some(a =>
+        a.assessmentType === 'qa2' && (a.score > 0 || a.isAbsent)
+      );
+      const hasEndOfTerm = studentAssessments.some(a =>
+        a.assessmentType === 'end_of_term' && (a.score > 0 || a.isAbsent)
+      );
 
       if ((hasQA1 || hasQA2) && !hasEndOfTerm) {
         return endOfTerm;
@@ -207,13 +302,37 @@ export class StudentsService {
 
     switch (gradeConfig.calculation_method) {
       case 'average_all':
-        return (qa1 + qa2 + endOfTerm) / 3;
+        // Don't include absent assessments in average
+        let total = 0;
+        let count = 0;
+        if (!qa1Absent) { total += qa1; count++; }
+        if (!qa2Absent) { total += qa2; count++; }
+        if (!endOfTermAbsent) { total += endOfTerm; count++; }
+        return count > 0 ? total / count : 0;
+      // ✅ REMOVED the duplicate return statement
+
       case 'end_of_term_only':
-        return endOfTerm;
+        // If absent, return 0
+        return endOfTermAbsent ? 0 : endOfTerm;
+
       case 'weighted_average':
-        return (qa1 * gradeConfig.weight_qa1 +
-          qa2 * gradeConfig.weight_qa2 +
-          endOfTerm * gradeConfig.weight_end_of_term) / 100;
+        // Only include non-absent assessments
+        let weightedTotal = 0;
+        let weightTotal = 0;
+        if (!qa1Absent) {
+          weightedTotal += qa1 * gradeConfig.weight_qa1;
+          weightTotal += gradeConfig.weight_qa1;
+        }
+        if (!qa2Absent) {
+          weightedTotal += qa2 * gradeConfig.weight_qa2;
+          weightTotal += gradeConfig.weight_qa2;
+        }
+        if (!endOfTermAbsent) {
+          weightedTotal += endOfTerm * gradeConfig.weight_end_of_term;
+          weightTotal += gradeConfig.weight_end_of_term;
+        }
+        return weightTotal > 0 ? weightedTotal / weightTotal : 0;
+
       default:
         return (qa1 + qa2 + endOfTerm) / 3;
     }
@@ -531,30 +650,42 @@ export class StudentsService {
       throw new NotFoundException('Student is not assigned to any class');
     }
 
-    if (assessmentData.score === 0) {
-      const existing = await this.assessmentRepository.findOne({
-        where: {
-          student: { id: assessmentData.student_id || assessmentData.studentId },
-          subject: { id: assessmentData.subject_id || assessmentData.subjectId },
-          assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
-          class: { id: student.class.id } // CHANGE 3: Add class filter
-        },
-      });
+    // if (assessmentData.score === 0) {
+    //   const existing = await this.assessmentRepository.findOne({
+    //     where: {
+    //       student: { id: assessmentData.student_id || assessmentData.studentId },
+    //       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
+    //       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
 
-      if (existing) {
-        await this.assessmentRepository.remove(existing);
-        return { deleted: true };
-      }
-      return { deleted: true };
-    }
+    //       class: { id: student.class.id } // CHANGE 3: Add class filter
+    //     },
+    //   });
+
+    //   if (existing) {
+    //     await this.assessmentRepository.remove(existing);
+    //     return { deleted: true };
+    //   }
+    //   return { deleted: true };
+    // }
+
+    // ✅ FIX 2: Handle is_absent flag from frontend
+    const isAbsent = assessmentData.is_absent === true;
+
+    // ✅ FIX 3: Score is 0 if absent, otherwise use provided score
+    const score = isAbsent ? 0 : (assessmentData.score || 0);
+
 
     const activeConfig = await this.getActiveGradeConfiguration(schoolId);
     const data = {
       student: { id: assessmentData.student_id || assessmentData.studentId },
       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
-      score: assessmentData.score,
-      grade: this.calculateGrade(assessmentData.score, activeConfig),
+
+      score: score,
+      isAbsent: isAbsent, // 👈 NEW FIELD
+      grade: isAbsent ? 'AB' : this.calculateGrade(score, activeConfig), // 👈 'AB' for absent
+      // score: assessmentData.score,
+      // grade: this.calculateGrade(assessmentData.score, activeConfig),
       class: { id: student.class.id } // CHANGE 4: Add class to data
     };
 
@@ -581,6 +712,7 @@ export class StudentsService {
     if (existing) {
       Object.assign(existing, {
         score: data.score,
+        isAbsent: data.isAbsent, // 👈 NEW FIELD
         grade: data.grade,
       });
       const result = await this.assessmentRepository.save(existing);
@@ -735,7 +867,10 @@ export class StudentsService {
   // ===== END MODIFIED =====
 
   // ===== NO CHANGES =====
-  calculateGrade(score: number, gradeConfig?: any): string {
+  // calculateGrade(score: number, gradeConfig?: any): string {
+  calculateGrade(score: number, gradeConfig?: any, isAbsent?: boolean): string {
+    // If student was absent, return 'AB'
+    if (isAbsent) return 'AB';
     const passMark = gradeConfig?.pass_mark || 50;
     if (score >= 80) return 'A';
     if (score >= 70) return 'B';
@@ -1721,16 +1856,23 @@ export class StudentsService {
             qa1: 0,
             qa2: 0,
             endOfTerm: 0,
+            // 👈 NEW: Add absent flags
+            qa1_absent: false,
+            qa2_absent: false,
+            endOfTerm_absent: false,
           });
         }
 
         const subjectData = subjectMap.get(subjectName);
         if (asm.assessmentType === 'qa1') {
           subjectData.qa1 = asm.score || 0;
+          subjectData.qa1_absent = asm.isAbsent || false; // 👈 NEW
         } else if (asm.assessmentType === 'qa2') {
           subjectData.qa2 = asm.score || 0;
+          subjectData.qa2_absent = asm.isAbsent || false; // 👈 NEW
         } else if (asm.assessmentType === 'end_of_term') {
           subjectData.endOfTerm = asm.score || 0;
+          subjectData.endOfTerm_absent = asm.isAbsent || false; // 👈 NEW
         }
       });
 

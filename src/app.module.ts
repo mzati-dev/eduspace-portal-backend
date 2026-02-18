@@ -37,7 +37,10 @@ import { TeachersModule } from './teachers/teachers.module';
               database: configService.get<string>('DB_NAME', 'parent_portal_db'),
             }),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: !isProd,
+          //Add table to database 
+          synchronize: true,
+          //Avoid adding table to database
+          // synchronize: !isProd,
           logging: !isProd,
           extra: isProd
             ? { ssl: { rejectUnauthorized: false } }
