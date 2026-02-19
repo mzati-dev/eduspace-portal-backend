@@ -38,9 +38,9 @@ import { TeachersModule } from './teachers/teachers.module';
             }),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
           //Add table to database 
-          synchronize: true,
+          // synchronize: true,
           //Avoid adding table to database
-          // synchronize: !isProd,
+          synchronize: !isProd,
           logging: !isProd,
           extra: isProd
             ? { ssl: { rejectUnauthorized: false } }
