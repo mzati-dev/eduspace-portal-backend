@@ -144,16 +144,29 @@ export class StudentsService {
         };
       }
 
+      // if (asm.assessmentType === 'qa1') {
+      //   subjectMap[subjectName].qa1 = asm.score;
+      //   subjectMap[subjectName].qa1_absent = asm.isAbsent || false; // 👈 NEW
+      // } else if (asm.assessmentType === 'qa2') {
+      //   subjectMap[subjectName].qa2 = asm.score;
+      //   subjectMap[subjectName].qa2_absent = asm.isAbsent || false; // 👈 NEW
+      // } else if (asm.assessmentType === 'end_of_term') {
+      //   subjectMap[subjectName].endOfTerm = asm.score;
+      //   subjectMap[subjectName].endOfTerm_absent = asm.isAbsent || false; // 👈 NEW
+      //   subjectMap[subjectName].grade = this.calculateGrade(asm.score, gradeConfig, asm.isAbsent);
+      // }
       if (asm.assessmentType === 'qa1') {
-        subjectMap[subjectName].qa1 = asm.score;
-        subjectMap[subjectName].qa1_absent = asm.isAbsent || false; // 👈 NEW
+        // 🔴🔴🔴 MODIFIED: Handle null scores (empty fields)
+        subjectMap[subjectName].qa1 = asm.score === null ? '' : asm.score;
+        subjectMap[subjectName].qa1_absent = asm.isAbsent || false;
       } else if (asm.assessmentType === 'qa2') {
-        subjectMap[subjectName].qa2 = asm.score;
-        subjectMap[subjectName].qa2_absent = asm.isAbsent || false; // 👈 NEW
+        subjectMap[subjectName].qa2 = asm.score === null ? '' : asm.score;
+        subjectMap[subjectName].qa2_absent = asm.isAbsent || false;
       } else if (asm.assessmentType === 'end_of_term') {
-        subjectMap[subjectName].endOfTerm = asm.score;
-        subjectMap[subjectName].endOfTerm_absent = asm.isAbsent || false; // 👈 NEW
-        subjectMap[subjectName].grade = this.calculateGrade(asm.score, gradeConfig, asm.isAbsent);
+        subjectMap[subjectName].endOfTerm = asm.score === null ? '' : asm.score;
+        subjectMap[subjectName].endOfTerm_absent = asm.isAbsent || false;
+        subjectMap[subjectName].grade = asm.isAbsent ? 'AB' :
+          (asm.score === null ? 'N/A' : this.calculateGrade(asm.score, gradeConfig));
       }
     });
 
@@ -560,9 +573,6 @@ export class StudentsService {
   }
   // ===== END MODIFIED =====
 
-
-
-  // ===== START MODIFIED: Added schoolId parameter =====
   // async upsertAssessment(assessmentData: any, schoolId?: string) {
   //   if (schoolId) {
   //     const student = await this.studentRepository.findOne({
@@ -570,65 +580,54 @@ export class StudentsService {
   //         id: assessmentData.student_id || assessmentData.studentId,
   //         schoolId
   //       },
-  //       relations: ['class'] // CHANGE 1: Add this to load class relation
+  //       relations: ['class']
   //     });
   //     if (!student) {
   //       throw new NotFoundException('Student not found in your school');
   //     }
   //   }
 
-  //   // CHANGE 2: Get student with class relation (needed for class ID)
   //   const student = await this.studentRepository.findOne({
   //     where: { id: assessmentData.student_id || assessmentData.studentId },
-  //     relations: ['class'] // Load class relation
+  //     relations: ['class']
   //   });
 
   //   if (!student) {
   //     throw new NotFoundException('Student not found');
   //   }
 
-  //   // ADD THIS CHECK:
   //   if (!student.class) {
   //     throw new NotFoundException('Student is not assigned to any class');
   //   }
 
-  //   // if (assessmentData.score === 0) {
-  //   //   const existing = await this.assessmentRepository.findOne({
-  //   //     where: {
-  //   //       student: { id: assessmentData.student_id || assessmentData.studentId },
-  //   //       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
-  //   //       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
+  //   // 🔴🔴🔴 NEW CODE: Check if this field was actually modified by user
+  //   // If score is null or undefined, skip processing this field entirely
+  //   if (assessmentData.score === null || assessmentData.score === undefined) {
+  //     console.log('Field not modified, skipping...');
+  //     return { skipped: true, message: 'Field not modified' };
+  //   }
+  //   // 🔴🔴🔴 END NEW CODE
 
-  //   //       class: { id: student.class.id } // CHANGE 3: Add class filter
-  //   //     },
-  //   //   });
-
-  //   //   if (existing) {
-  //   //     await this.assessmentRepository.remove(existing);
-  //   //     return { deleted: true };
-  //   //   }
-  //   //   return { deleted: true };
-  //   // }
-
-  //   // ✅ FIX 2: Handle is_absent flag from frontend
   //   const isAbsent = assessmentData.is_absent === true;
 
-  //   // ✅ FIX 3: Score is 0 if absent, otherwise use provided score
-  //   const score = isAbsent ? 0 : (assessmentData.score || 0);
-
+  //   // 🔴🔴🔴 MODIFIED: Handle empty string as "no change"
+  //   if (assessmentData.score === '') {
+  //     console.log('Empty string received - treating as no change');
+  //     return { skipped: true, message: 'Empty field - no change' };
+  //   }
+  //   // 🔴🔴🔴 END MODIFIED
 
   //   const activeConfig = await this.getActiveGradeConfiguration(schoolId);
+
+  //   // 🔴🔴🔴 MODIFIED: Only create/update if we have actual data
   //   const data = {
   //     student: { id: assessmentData.student_id || assessmentData.studentId },
   //     subject: { id: assessmentData.subject_id || assessmentData.subjectId },
   //     assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
-
-  //     score: score,
-  //     isAbsent: isAbsent, // 👈 NEW FIELD
-  //     grade: isAbsent ? 'AB' : this.calculateGrade(score, activeConfig), // 👈 'AB' for absent
-  //     // score: assessmentData.score,
-  //     // grade: this.calculateGrade(assessmentData.score, activeConfig),
-  //     class: { id: student.class.id } // CHANGE 4: Add class to data
+  //     score: isAbsent ? 0 : Number(assessmentData.score), // Ensure score is number
+  //     isAbsent: isAbsent,
+  //     grade: isAbsent ? 'AB' : this.calculateGrade(Number(assessmentData.score), activeConfig),
+  //     class: { id: student.class.id }
   //   };
 
   //   const existing = await this.assessmentRepository.findOne({
@@ -636,30 +635,26 @@ export class StudentsService {
   //       student: { id: data.student.id },
   //       subject: { id: data.subject.id },
   //       assessmentType: data.assessmentType,
-  //       class: { id: student.class.id } // CHANGE 5: Add class filter
+  //       class: { id: student.class.id }
   //     },
   //   });
 
-  //   // if (existing) {
-  //   //   Object.assign(existing, {
-  //   //     score: data.score,
-  //   //     grade: data.grade,
-  //   //   });
-  //   //   return this.assessmentRepository.save(existing);
-  //   // } else {
-  //   //   const assessment = this.assessmentRepository.create(data); // NO CHANGE
-  //   //   return this.assessmentRepository.save(assessment);
-  //   // }
-
   //   if (existing) {
-  //     Object.assign(existing, {
-  //       score: data.score,
-  //       isAbsent: data.isAbsent, // 👈 NEW FIELD
-  //       grade: data.grade,
-  //     });
+  //     // 🔴🔴🔴 MODIFIED: Check if values actually changed before updating
+  //     const hasChanges =
+  //       existing.score !== data.score ||
+  //       existing.isAbsent !== data.isAbsent ||
+  //       existing.grade !== data.grade;
+
+  //     if (!hasChanges) {
+  //       console.log('No changes detected, skipping update');
+  //       return { unchanged: true, message: 'No changes detected' };
+  //     }
+  //     // 🔴🔴🔴 END MODIFIED
+
+  //     Object.assign(existing, data);
   //     const result = await this.assessmentRepository.save(existing);
 
-  //     // Recalculate ranks after saving assessment
   //     if (student.class) {
   //       setTimeout(async () => {
   //         await this.calculateAndUpdateRanks(
@@ -672,10 +667,17 @@ export class StudentsService {
 
   //     return result;
   //   } else {
+  //     // 🔴🔴🔴 MODIFIED: Only create if score is not 0 or isAbsent is true
+  //     // This prevents creating records for empty fields
+  //     if (data.score === 0 && !data.isAbsent) {
+  //       console.log('Score is 0 but not absent - not creating record');
+  //       return { skipped: true, message: 'Zero without absent - not saving' };
+  //     }
+  //     // 🔴🔴🔴 END MODIFIED
+
   //     const assessment = this.assessmentRepository.create(data);
   //     const result = await this.assessmentRepository.save(assessment);
 
-  //     // Recalculate ranks after saving assessment
   //     if (student.class) {
   //       setTimeout(async () => {
   //         await this.calculateAndUpdateRanks(
@@ -689,7 +691,6 @@ export class StudentsService {
   //     return result;
   //   }
   // }
-  // ===== END MODIFIED =====
 
   async upsertAssessment(assessmentData: any, schoolId?: string) {
     if (schoolId) {
@@ -718,35 +719,50 @@ export class StudentsService {
       throw new NotFoundException('Student is not assigned to any class');
     }
 
-    // 🔴🔴🔴 NEW CODE: Check if this field was actually modified by user
-    // If score is null or undefined, skip processing this field entirely
+    // 🔴🔴🔴 MODIFIED: Only skip if score is null or undefined (field not sent from frontend)
+    // But allow empty string, 0, and other values to be processed
     if (assessmentData.score === null || assessmentData.score === undefined) {
       console.log('Field not modified, skipping...');
       return { skipped: true, message: 'Field not modified' };
     }
-    // 🔴🔴🔴 END NEW CODE
+    // 🔴🔴🔴 END MODIFIED
 
     const isAbsent = assessmentData.is_absent === true;
 
-    // 🔴🔴🔴 MODIFIED: Handle empty string as "no change"
-    if (assessmentData.score === '') {
-      console.log('Empty string received - treating as no change');
-      return { skipped: true, message: 'Empty field - no change' };
-    }
-    // 🔴🔴🔴 END MODIFIED
+    // 🔴🔴🔴 REMOVED: Don't skip empty strings - they represent user clearing a field
+    // User might want to clear a field (set it to empty)
+    // 🔴🔴🔴 END REMOVED
 
     const activeConfig = await this.getActiveGradeConfiguration(schoolId);
 
-    // 🔴🔴🔴 MODIFIED: Only create/update if we have actual data
+    // 🔴🔴🔴 MODIFIED: Prepare data - handle all cases properly
+    let score: number | null = null;
+    let grade: string = 'N/A';
+
+    if (isAbsent) {
+      // AB case: score = 0, isAbsent = true, grade = 'AB'
+      score = 0;
+      grade = 'AB';
+    } else if (assessmentData.score === '') {
+      // Empty string means user wants to clear the field
+      score = null;
+      grade = 'N/A';
+    } else {
+      // Numeric score (including 0)
+      score = Number(assessmentData.score);
+      grade = this.calculateGrade(score, activeConfig);
+    }
+
     const data = {
       student: { id: assessmentData.student_id || assessmentData.studentId },
       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
-      score: isAbsent ? 0 : Number(assessmentData.score), // Ensure score is number
+      score: score,
       isAbsent: isAbsent,
-      grade: isAbsent ? 'AB' : this.calculateGrade(Number(assessmentData.score), activeConfig),
+      grade: grade,
       class: { id: student.class.id }
     };
+    // 🔴🔴🔴 END MODIFIED
 
     const existing = await this.assessmentRepository.findOne({
       where: {
@@ -785,15 +801,15 @@ export class StudentsService {
 
       return result;
     } else {
-      // 🔴🔴🔴 MODIFIED: Only create if score is not 0 or isAbsent is true
-      // This prevents creating records for empty fields
-      if (data.score === 0 && !data.isAbsent) {
-        console.log('Score is 0 but not absent - not creating record');
-        return { skipped: true, message: 'Zero without absent - not saving' };
+      // 🔴🔴🔴 REMOVED: Don't block creation of zero scores
+      // Only skip if both score is null AND not absent (completely empty field)
+      if (data.score === null && !data.isAbsent) {
+        console.log('No data to save - skipping creation');
+        return { skipped: true, message: 'No data to save' };
       }
       // 🔴🔴🔴 END MODIFIED
 
-      const assessment = this.assessmentRepository.create(data);
+      const assessment = this.assessmentRepository.create(data as any);
       const result = await this.assessmentRepository.save(assessment);
 
       if (student.class) {
