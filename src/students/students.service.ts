@@ -133,9 +133,9 @@ export class StudentsService {
       if (!subjectMap[subjectName]) {
         subjectMap[subjectName] = {
           name: subjectName,
-          qa1: 0,
-          qa2: 0,
-          endOfTerm: 0,
+          qa1: '',
+          qa2: '',
+          endOfTerm: '',
           // 👈 NEW: Add absent flags
           qa1_absent: false,
           qa2_absent: false,
@@ -560,43 +560,75 @@ export class StudentsService {
   }
   // ===== END MODIFIED =====
 
-  // // ===== START MODIFIED: Added schoolId parameter =====
+
+
+  // ===== START MODIFIED: Added schoolId parameter =====
   // async upsertAssessment(assessmentData: any, schoolId?: string) {
   //   if (schoolId) {
   //     const student = await this.studentRepository.findOne({
   //       where: {
   //         id: assessmentData.student_id || assessmentData.studentId,
   //         schoolId
-  //       }
+  //       },
+  //       relations: ['class'] // CHANGE 1: Add this to load class relation
   //     });
   //     if (!student) {
   //       throw new NotFoundException('Student not found in your school');
   //     }
   //   }
 
-  //   if (assessmentData.score === 0) {
-  //     const existing = await this.assessmentRepository.findOne({
-  //       where: {
-  //         student: { id: assessmentData.student_id || assessmentData.studentId },
-  //         subject: { id: assessmentData.subject_id || assessmentData.subjectId },
-  //         assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
-  //       },
-  //     });
+  //   // CHANGE 2: Get student with class relation (needed for class ID)
+  //   const student = await this.studentRepository.findOne({
+  //     where: { id: assessmentData.student_id || assessmentData.studentId },
+  //     relations: ['class'] // Load class relation
+  //   });
 
-  //     if (existing) {
-  //       await this.assessmentRepository.remove(existing);
-  //       return { deleted: true };
-  //     }
-  //     return { deleted: true };
+  //   if (!student) {
+  //     throw new NotFoundException('Student not found');
   //   }
+
+  //   // ADD THIS CHECK:
+  //   if (!student.class) {
+  //     throw new NotFoundException('Student is not assigned to any class');
+  //   }
+
+  //   // if (assessmentData.score === 0) {
+  //   //   const existing = await this.assessmentRepository.findOne({
+  //   //     where: {
+  //   //       student: { id: assessmentData.student_id || assessmentData.studentId },
+  //   //       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
+  //   //       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
+
+  //   //       class: { id: student.class.id } // CHANGE 3: Add class filter
+  //   //     },
+  //   //   });
+
+  //   //   if (existing) {
+  //   //     await this.assessmentRepository.remove(existing);
+  //   //     return { deleted: true };
+  //   //   }
+  //   //   return { deleted: true };
+  //   // }
+
+  //   // ✅ FIX 2: Handle is_absent flag from frontend
+  //   const isAbsent = assessmentData.is_absent === true;
+
+  //   // ✅ FIX 3: Score is 0 if absent, otherwise use provided score
+  //   const score = isAbsent ? 0 : (assessmentData.score || 0);
+
 
   //   const activeConfig = await this.getActiveGradeConfiguration(schoolId);
   //   const data = {
   //     student: { id: assessmentData.student_id || assessmentData.studentId },
   //     subject: { id: assessmentData.subject_id || assessmentData.subjectId },
   //     assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
-  //     score: assessmentData.score,
-  //     grade: this.calculateGrade(assessmentData.score, activeConfig),
+
+  //     score: score,
+  //     isAbsent: isAbsent, // 👈 NEW FIELD
+  //     grade: isAbsent ? 'AB' : this.calculateGrade(score, activeConfig), // 👈 'AB' for absent
+  //     // score: assessmentData.score,
+  //     // grade: this.calculateGrade(assessmentData.score, activeConfig),
+  //     class: { id: student.class.id } // CHANGE 4: Add class to data
   //   };
 
   //   const existing = await this.assessmentRepository.findOne({
@@ -604,23 +636,61 @@ export class StudentsService {
   //       student: { id: data.student.id },
   //       subject: { id: data.subject.id },
   //       assessmentType: data.assessmentType,
+  //       class: { id: student.class.id } // CHANGE 5: Add class filter
   //     },
   //   });
+
+  //   // if (existing) {
+  //   //   Object.assign(existing, {
+  //   //     score: data.score,
+  //   //     grade: data.grade,
+  //   //   });
+  //   //   return this.assessmentRepository.save(existing);
+  //   // } else {
+  //   //   const assessment = this.assessmentRepository.create(data); // NO CHANGE
+  //   //   return this.assessmentRepository.save(assessment);
+  //   // }
 
   //   if (existing) {
   //     Object.assign(existing, {
   //       score: data.score,
+  //       isAbsent: data.isAbsent, // 👈 NEW FIELD
   //       grade: data.grade,
   //     });
-  //     return this.assessmentRepository.save(existing);
+  //     const result = await this.assessmentRepository.save(existing);
+
+  //     // Recalculate ranks after saving assessment
+  //     if (student.class) {
+  //       setTimeout(async () => {
+  //         await this.calculateAndUpdateRanks(
+  //           student.class!.id,
+  //           student.class!.term || 'Term 1, 2024/2025',
+  //           schoolId
+  //         );
+  //       }, 100);
+  //     }
+
+  //     return result;
   //   } else {
   //     const assessment = this.assessmentRepository.create(data);
-  //     return this.assessmentRepository.save(assessment);
+  //     const result = await this.assessmentRepository.save(assessment);
+
+  //     // Recalculate ranks after saving assessment
+  //     if (student.class) {
+  //       setTimeout(async () => {
+  //         await this.calculateAndUpdateRanks(
+  //           student.class!.id,
+  //           student.class!.term || 'Term 1, 2024/2025',
+  //           schoolId
+  //         );
+  //       }, 100);
+  //     }
+
+  //     return result;
   //   }
   // }
-  // // ===== END MODIFIED =====
+  // ===== END MODIFIED =====
 
-  // ===== START MODIFIED: Added schoolId parameter =====
   async upsertAssessment(assessmentData: any, schoolId?: string) {
     if (schoolId) {
       const student = await this.studentRepository.findOne({
@@ -628,65 +698,54 @@ export class StudentsService {
           id: assessmentData.student_id || assessmentData.studentId,
           schoolId
         },
-        relations: ['class'] // CHANGE 1: Add this to load class relation
+        relations: ['class']
       });
       if (!student) {
         throw new NotFoundException('Student not found in your school');
       }
     }
 
-    // CHANGE 2: Get student with class relation (needed for class ID)
     const student = await this.studentRepository.findOne({
       where: { id: assessmentData.student_id || assessmentData.studentId },
-      relations: ['class'] // Load class relation
+      relations: ['class']
     });
 
     if (!student) {
       throw new NotFoundException('Student not found');
     }
 
-    // ADD THIS CHECK:
     if (!student.class) {
       throw new NotFoundException('Student is not assigned to any class');
     }
 
-    // if (assessmentData.score === 0) {
-    //   const existing = await this.assessmentRepository.findOne({
-    //     where: {
-    //       student: { id: assessmentData.student_id || assessmentData.studentId },
-    //       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
-    //       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
+    // 🔴🔴🔴 NEW CODE: Check if this field was actually modified by user
+    // If score is null or undefined, skip processing this field entirely
+    if (assessmentData.score === null || assessmentData.score === undefined) {
+      console.log('Field not modified, skipping...');
+      return { skipped: true, message: 'Field not modified' };
+    }
+    // 🔴🔴🔴 END NEW CODE
 
-    //       class: { id: student.class.id } // CHANGE 3: Add class filter
-    //     },
-    //   });
-
-    //   if (existing) {
-    //     await this.assessmentRepository.remove(existing);
-    //     return { deleted: true };
-    //   }
-    //   return { deleted: true };
-    // }
-
-    // ✅ FIX 2: Handle is_absent flag from frontend
     const isAbsent = assessmentData.is_absent === true;
 
-    // ✅ FIX 3: Score is 0 if absent, otherwise use provided score
-    const score = isAbsent ? 0 : (assessmentData.score || 0);
-
+    // 🔴🔴🔴 MODIFIED: Handle empty string as "no change"
+    if (assessmentData.score === '') {
+      console.log('Empty string received - treating as no change');
+      return { skipped: true, message: 'Empty field - no change' };
+    }
+    // 🔴🔴🔴 END MODIFIED
 
     const activeConfig = await this.getActiveGradeConfiguration(schoolId);
+
+    // 🔴🔴🔴 MODIFIED: Only create/update if we have actual data
     const data = {
       student: { id: assessmentData.student_id || assessmentData.studentId },
       subject: { id: assessmentData.subject_id || assessmentData.subjectId },
       assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
-
-      score: score,
-      isAbsent: isAbsent, // 👈 NEW FIELD
-      grade: isAbsent ? 'AB' : this.calculateGrade(score, activeConfig), // 👈 'AB' for absent
-      // score: assessmentData.score,
-      // grade: this.calculateGrade(assessmentData.score, activeConfig),
-      class: { id: student.class.id } // CHANGE 4: Add class to data
+      score: isAbsent ? 0 : Number(assessmentData.score), // Ensure score is number
+      isAbsent: isAbsent,
+      grade: isAbsent ? 'AB' : this.calculateGrade(Number(assessmentData.score), activeConfig),
+      class: { id: student.class.id }
     };
 
     const existing = await this.assessmentRepository.findOne({
@@ -694,30 +753,26 @@ export class StudentsService {
         student: { id: data.student.id },
         subject: { id: data.subject.id },
         assessmentType: data.assessmentType,
-        class: { id: student.class.id } // CHANGE 5: Add class filter
+        class: { id: student.class.id }
       },
     });
 
-    // if (existing) {
-    //   Object.assign(existing, {
-    //     score: data.score,
-    //     grade: data.grade,
-    //   });
-    //   return this.assessmentRepository.save(existing);
-    // } else {
-    //   const assessment = this.assessmentRepository.create(data); // NO CHANGE
-    //   return this.assessmentRepository.save(assessment);
-    // }
-
     if (existing) {
-      Object.assign(existing, {
-        score: data.score,
-        isAbsent: data.isAbsent, // 👈 NEW FIELD
-        grade: data.grade,
-      });
+      // 🔴🔴🔴 MODIFIED: Check if values actually changed before updating
+      const hasChanges =
+        existing.score !== data.score ||
+        existing.isAbsent !== data.isAbsent ||
+        existing.grade !== data.grade;
+
+      if (!hasChanges) {
+        console.log('No changes detected, skipping update');
+        return { unchanged: true, message: 'No changes detected' };
+      }
+      // 🔴🔴🔴 END MODIFIED
+
+      Object.assign(existing, data);
       const result = await this.assessmentRepository.save(existing);
 
-      // Recalculate ranks after saving assessment
       if (student.class) {
         setTimeout(async () => {
           await this.calculateAndUpdateRanks(
@@ -730,10 +785,17 @@ export class StudentsService {
 
       return result;
     } else {
+      // 🔴🔴🔴 MODIFIED: Only create if score is not 0 or isAbsent is true
+      // This prevents creating records for empty fields
+      if (data.score === 0 && !data.isAbsent) {
+        console.log('Score is 0 but not absent - not creating record');
+        return { skipped: true, message: 'Zero without absent - not saving' };
+      }
+      // 🔴🔴🔴 END MODIFIED
+
       const assessment = this.assessmentRepository.create(data);
       const result = await this.assessmentRepository.save(assessment);
 
-      // Recalculate ranks after saving assessment
       if (student.class) {
         setTimeout(async () => {
           await this.calculateAndUpdateRanks(
@@ -747,7 +809,6 @@ export class StudentsService {
       return result;
     }
   }
-  // ===== END MODIFIED =====
 
   // ===== MODIFIED: Added permission check for class teacher =====
   async upsertReportCard(reportCardData: any, schoolId?: string, requestingTeacherId?: string) {
