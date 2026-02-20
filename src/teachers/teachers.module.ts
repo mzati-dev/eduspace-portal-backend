@@ -7,6 +7,10 @@ import { TeacherClassSubject } from './entities/teacher-class-subject.entity';
 import { Class } from '../students/entities/class.entity';
 import { Subject } from '../students/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
+// ===== ADD THESE IMPORTS =====
+import { Assessment } from '../students/entities/assessment.entity';      // 👈 ADD THIS
+import { ReportCard } from '../students/entities/report-card.entity';    // 👈 ADD THIS
+import { GradeConfig } from '../students/entities/grade-config.entity';  // 👈 ADD THIS
 // import { Teacher } from './entities/teacher.entity';
 
 
@@ -19,6 +23,11 @@ import { Student } from '../students/entities/student.entity';
     Subject,
     Student,
     // ===== END: NEW ENTITIES =====
+    // ===== ADD THESE ENTITIES =====
+    Assessment,      // 👈 ADD THIS
+    ReportCard,      // 👈 ADD THIS
+    GradeConfig,     // 👈 ADD THIS
+    // ===== END ADD =====
   ])],
   controllers: [TeachersController],
   providers: [TeachersService],
