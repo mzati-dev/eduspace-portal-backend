@@ -25,7 +25,7 @@ export class Assessment {
     // @Column()
     // grade: string;
     // 🔴 CHANGE 2: Make grade nullable (allows null when no score)
-    @Column({ nullable: true })  // 👈 Add nullable: true
+    @Column({ type: 'varchar', nullable: true })  // 👈 Add type: 'varchar'
     grade: string | null;  // 👈 Change type to allow null
 
     @ManyToOne(() => Student, (student) => student.assessments, { onDelete: 'CASCADE' })
