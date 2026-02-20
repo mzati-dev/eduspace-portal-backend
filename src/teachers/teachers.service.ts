@@ -555,12 +555,21 @@ export class TeachersService {
         }
 
         // 3. Handle null/undefined (field not modified in frontend)
-        if (assessmentData.score === null || assessmentData.score === undefined) {
+        // if (assessmentData.score === null || assessmentData.score === undefined) {
+        //     console.log('Field not modified, skipping...');
+        //     return { skipped: true, message: 'Field not modified' };
+        // }
+        // 3. Check for absent flag FIRST
+
+        const isAbsent = assessmentData.is_absent === true || assessmentData.isAbsent === true;
+        // ONLY skip if there is no score AND they are not being marked absent
+        if ((assessmentData.score === null || assessmentData.score === undefined) && !isAbsent) {
             console.log('Field not modified, skipping...');
             return { skipped: true, message: 'Field not modified' };
         }
 
-        const isAbsent = assessmentData.is_absent === true;
+
+        // const isAbsent = assessmentData.is_absent === true;
         const activeConfig = await this.getActiveGradeConfiguration(student.schoolId);
 
         // 4. Prepare data - HANDLE ALL CASES:
