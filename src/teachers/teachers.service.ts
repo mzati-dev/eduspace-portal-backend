@@ -569,7 +569,7 @@ export class TeachersService {
 
         if (isAbsent) {
             // CASE 1: Student was absent
-            score = 0; // Store 0 for absent
+            score = null; // Store 0 for absent
             grade = 'AB';
         } else if (assessmentData.score === '') {
             // CASE 2: User cleared the field (empty string)
