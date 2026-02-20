@@ -13,14 +13,20 @@ export class Assessment {
     @Column()
     assessmentType: 'qa1' | 'qa2' | 'end_of_term';
 
-    @Column('int')
-    score: number;
+    // @Column('int')
+    // score: number;
+    // 🔴 CHANGE 1: Make score nullable (allows null for empty fields)
+    @Column('int', { nullable: true })  // 👈 Add nullable: true
+    score: number | null;  // 👈 Change type to allow null
 
     @Column({ default: false })
     isAbsent: boolean;
 
-    @Column()
-    grade: string;
+    // @Column()
+    // grade: string;
+    // 🔴 CHANGE 2: Make grade nullable (allows null when no score)
+    @Column({ nullable: true })  // 👈 Add nullable: true
+    grade: string | null;  // 👈 Change type to allow null
 
     @ManyToOne(() => Student, (student) => student.assessments, { onDelete: 'CASCADE' })
     student: Student;
@@ -37,62 +43,3 @@ export class Assessment {
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
     updatedAt: Date;
 }
-
-
-// // src/students/entities/assessment.entity.ts
-// import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Unique } from 'typeorm';
-// import { Student } from './student.entity';
-// import { Subject } from './subject.entity';
-
-// @Entity('assessments')
-// @Unique(['student', 'subject', 'assessmentType']) // Prevent duplicate assessments
-// export class Assessment {
-//     @PrimaryGeneratedColumn('uuid')
-//     id: string;
-
-//     @Column()
-//     assessmentType: 'qa1' | 'qa2' | 'end_of_term';
-
-//     @Column('int')
-//     score: number;
-
-//     @Column()
-//     grade: string;
-
-//     @ManyToOne(() => Student, (student) => student.assessments, { onDelete: 'CASCADE' })
-//     student: Student;
-
-//     @ManyToOne(() => Subject, (subject) => subject.assessments, { onDelete: 'CASCADE' })
-//     subject: Subject;
-
-//     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-//     createdAt: Date;
-
-//     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
-//     updatedAt: Date;
-// }
-
-// // src/students/entities/assessment.entity.ts
-// import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
-// import { Student } from './student.entity';
-
-// @Entity('assessments')
-// export class Assessment {
-//     @PrimaryGeneratedColumn('uuid')
-//     id: string;
-
-//     @Column()
-//     subjectName: string;
-
-//     @Column()
-//     assessmentType: 'qa1' | 'qa2' | 'end_of_term';
-
-//     @Column('int')
-//     score: number;
-
-//     @Column()
-//     grade: string;
-
-//     @ManyToOne(() => Student, (student) => student.assessments)
-//     student: Student;
-// }
