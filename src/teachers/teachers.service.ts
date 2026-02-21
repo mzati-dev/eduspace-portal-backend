@@ -958,7 +958,11 @@ export class TeachersService {
                         qa2: subject.qa2,
                         endOfTerm: subject.endOfTerm,
                         finalScore: subject.finalScore,
-                        grade: subject.grade
+                        grade: subject.grade,
+                        // 👈 ADD THESE THREE LINES:
+                        qa1_absent: subject.qa1_absent,
+                        qa2_absent: subject.qa2_absent,
+                        endOfTerm_absent: subject.endOfTerm_absent
                     }))
                 });
             }
