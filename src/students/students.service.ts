@@ -72,22 +72,22 @@ export class StudentsService {
 
     // 🔴🔴🔴 START ADDING HERE 🔴🔴🔴
     // Recalculate ranks before returning data (only if student has a class)
-    if (student.class) {
-      // First, ensure ranks are calculated for the entire class
-      await this.calculateAndUpdateRanks(
-        student.class.id,
-        student.class.term || 'Term 1, 2024/2025',
-        student.schoolId
-      );
+    // if (student.class) {
+    //   // First, ensure ranks are calculated for the entire class
+    //   await this.calculateAndUpdateRanks(
+    //     student.class.id,
+    //     student.class.term || 'Term 1, 2024/2025',
+    //     student.schoolId
+    //   );
 
-      // Then reload the student's report card to get updated ranks
-      student.reportCards = await this.reportCardRepository.find({
-        where: {
-          student: { id: student.id },
-          term: student.class?.term || 'Term 1, 2024/2025' // Use optional chaining here
-        }
-      });
-    }
+    //   // Then reload the student's report card to get updated ranks
+    //   student.reportCards = await this.reportCardRepository.find({
+    //     where: {
+    //       student: { id: student.id },
+    //       term: student.class?.term || 'Term 1, 2024/2025' // Use optional chaining here
+    //     }
+    //   });
+    // }
     // 🔴🔴🔴 END ADDING HERE 🔴🔴🔴
 
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
