@@ -131,12 +131,23 @@ export class SchoolsService {
     return school;
   }
 
+  // async updateSchool(id: string, data: Partial<School>) {
+  //   const school = await this.getSchoolById(id);
+  //   Object.assign(school, data);
+  //   return this.schoolRepository.save(school);
+  // }
   async updateSchool(id: string, data: Partial<School>) {
     const school = await this.getSchoolById(id);
+
+    // If password is being updated, hash it first
+    if (data.adminPassword) {
+      const salt = await bcrypt.genSalt(10);
+      data.adminPassword = await bcrypt.hash(data.adminPassword, salt);
+    }
+
     Object.assign(school, data);
     return this.schoolRepository.save(school);
   }
-
   async deleteSchool(id: string) {
     const school = await this.getSchoolById(id);
     // Soft delete - mark as inactive
