@@ -175,12 +175,14 @@ export class StudentsService {
       subject.grade = this.calculateGrade(subject.finalScore, gradeConfig, subject.endOfTerm_absent);
     });
 
-    // const activeReport = student.reportCards?.[0] || {};
-    const activeReport = student.reportCards?.find(report => report.term === term) || student.reportCards?.[0] || {};
-
     const className = student.class ? student.class.name : 'Unknown';
     const term = student.class ? student.class.term : 'Term 1, 2024/2025';
     const academicYear = student.class ? student.class.academic_year : '2024/2025';
+
+    // const activeReport = student.reportCards?.[0] || {};
+    const activeReport = student.reportCards?.find(report => report.term === term) || student.reportCards?.[0] || {};
+
+
 
     const response: any = {
       id: student.id,
