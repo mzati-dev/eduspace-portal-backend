@@ -1522,6 +1522,29 @@ export class StudentsService {
     }
 
     // 5️⃣ Dense ranking with float safety
+    // const denseRank = (items: any[], field: string) => {
+    //   const arr = items
+    //     .map(x => ({
+    //       ...x,
+    //       score: parseFloat(x[field].toFixed(2))
+    //     }))
+    //     .sort((a, b) => b.score - a.score);
+
+    //   const map = new Map<string, number>();
+
+    //   let rank = 1;
+    //   let prev = arr[0].score;
+    //   map.set(arr[0].studentId, rank);
+
+    //   for (let i = 1; i < arr.length; i++) {
+    //     if (arr[i].score < prev) rank++;
+    //     map.set(arr[i].studentId, rank);
+    //     prev = arr[i].score;
+    //   }
+
+    //   return map;
+    // };
+
     const denseRank = (items: any[], field: string) => {
       const arr = items
         .map(x => ({
@@ -1532,14 +1555,18 @@ export class StudentsService {
 
       const map = new Map<string, number>();
 
+      if (arr.length === 0) return map;
+
       let rank = 1;
-      let prev = arr[0].score;
+      let prevScore = arr[0].score;
       map.set(arr[0].studentId, rank);
 
       for (let i = 1; i < arr.length; i++) {
-        if (arr[i].score < prev) rank++;
+        if (arr[i].score < prevScore) {
+          rank = i + 1;  // ✅ CORRECT: rank becomes position in sorted list
+        }
         map.set(arr[i].studentId, rank);
-        prev = arr[i].score;
+        prevScore = arr[i].score;
       }
 
       return map;
