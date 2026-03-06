@@ -1477,14 +1477,8 @@ export class StudentsService {
 
     for (const [studentId, items] of byStudent.entries()) {
 
-      // const avg = (type: string) => {
-      //   const valid = items.filter(a => a.assessmentType === type && a.score > 0);
-      //   if (valid.length === 0) return 0;
-      //   return valid.reduce((s, a) => s + a.score, 0) / valid.length;
-      // };
       const avg = (type: string) => {
-        // ✅ FIX: Include zero scores (>= 0) instead of only positive scores (> 0)
-        const valid = items.filter(a => a.assessmentType === type && a.score >= 0);
+        const valid = items.filter(a => a.assessmentType === type && a.score > 0);
         if (valid.length === 0) return 0;
         return valid.reduce((s, a) => s + a.score, 0) / valid.length;
       };
@@ -1502,49 +1496,12 @@ export class StudentsService {
       });
     }
 
-    // 🔴🔴🔴 ADD DEBUG CODE HERE 🔴🔴🔴
-    console.log('=== QA1 DEBUG ===');
-    const qa1Sorted = [...results].sort((a, b) => b.qa1Raw - a.qa1Raw);
-    qa1Sorted.forEach((r, index) => {
-      console.log(`Rank ${index + 1}: Student ${r.studentId} - QA1 Score: ${r.qa1Raw}`);
-    });
-
-    // Replace 'ACTUAL-STUDENT-ID' with the actual student ID of the problem student
-    const problemStudent = results.find(r => r.studentId === 'ACTUAL-STUDENT-ID');
-    if (problemStudent) {
-      console.log('Problem student QA1 score:', problemStudent.qa1Raw);
-    }
-    // 🔴🔴🔴 END DEBUG CODE 🔴🔴🔴
-
     if (results.length === 0) {
       console.log('No scored students — skipping rank');
       return;
     }
 
     // 5️⃣ Dense ranking with float safety
-    // const denseRank = (items: any[], field: string) => {
-    //   const arr = items
-    //     .map(x => ({
-    //       ...x,
-    //       score: parseFloat(x[field].toFixed(2))
-    //     }))
-    //     .sort((a, b) => b.score - a.score);
-
-    //   const map = new Map<string, number>();
-
-    //   let rank = 1;
-    //   let prev = arr[0].score;
-    //   map.set(arr[0].studentId, rank);
-
-    //   for (let i = 1; i < arr.length; i++) {
-    //     if (arr[i].score < prev) rank++;
-    //     map.set(arr[i].studentId, rank);
-    //     prev = arr[i].score;
-    //   }
-
-    //   return map;
-    // };
-
     const denseRank = (items: any[], field: string) => {
       const arr = items
         .map(x => ({
@@ -1555,18 +1512,14 @@ export class StudentsService {
 
       const map = new Map<string, number>();
 
-      if (arr.length === 0) return map;
-
       let rank = 1;
-      let prevScore = arr[0].score;
+      let prev = arr[0].score;
       map.set(arr[0].studentId, rank);
 
       for (let i = 1; i < arr.length; i++) {
-        if (arr[i].score < prevScore) {
-          rank = i + 1;  // ✅ CORRECT: rank becomes position in sorted list
-        }
+        if (arr[i].score < prev) rank++;
         map.set(arr[i].studentId, rank);
-        prevScore = arr[i].score;
+        prev = arr[i].score;
       }
 
       return map;
@@ -1595,8 +1548,6 @@ export class StudentsService {
       rc.qa1Rank = qa1Ranks.get(sid) || 0;
       rc.qa2Rank = qa2Ranks.get(sid) || 0;
       rc.classRank = endRanks.get(sid) || 0;
-
-      console.log(`Saving student ${sid}: QA1 rank = ${qa1Ranks.get(sid)} (was ${rc.qa1Rank})`);
 
       // ✅ KEY FIX — only count ranked students
       rc.totalStudents = totalRanked;
