@@ -1563,7 +1563,8 @@ export class StudentsService {
       rc.classRank = endRanks.get(sid) || 0;
 
       // ✅ KEY FIX — only count ranked students
-      rc.totalStudents = totalRanked;
+      // rc.totalStudents = totalRanked;
+      rc.totalStudents = studentIds.length;  // ← CHANGE THIS!
 
       await this.reportCardRepository.save(rc);
     }
