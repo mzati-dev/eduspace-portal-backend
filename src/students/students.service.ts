@@ -1502,6 +1502,20 @@ export class StudentsService {
       });
     }
 
+    // 🔴🔴🔴 ADD DEBUG CODE HERE 🔴🔴🔴
+    console.log('=== QA1 DEBUG ===');
+    const qa1Sorted = [...results].sort((a, b) => b.qa1Raw - a.qa1Raw);
+    qa1Sorted.forEach((r, index) => {
+      console.log(`Rank ${index + 1}: Student ${r.studentId} - QA1 Score: ${r.qa1Raw}`);
+    });
+
+    // Replace 'ACTUAL-STUDENT-ID' with the actual student ID of the problem student
+    const problemStudent = results.find(r => r.studentId === 'ACTUAL-STUDENT-ID');
+    if (problemStudent) {
+      console.log('Problem student QA1 score:', problemStudent.qa1Raw);
+    }
+    // 🔴🔴🔴 END DEBUG CODE 🔴🔴🔴
+
     if (results.length === 0) {
       console.log('No scored students — skipping rank');
       return;
