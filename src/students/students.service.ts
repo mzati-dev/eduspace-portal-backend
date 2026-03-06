@@ -175,7 +175,8 @@ export class StudentsService {
       subject.grade = this.calculateGrade(subject.finalScore, gradeConfig, subject.endOfTerm_absent);
     });
 
-    const activeReport = student.reportCards?.[0] || {};
+    // const activeReport = student.reportCards?.[0] || {};
+    const activeReport = student.reportCards?.find(report => report.term === term) || student.reportCards?.[0] || {};
 
     const className = student.class ? student.class.name : 'Unknown';
     const term = student.class ? student.class.term : 'Term 1, 2024/2025';
@@ -812,15 +813,25 @@ export class StudentsService {
       const assessment = this.assessmentRepository.create(data as any);
       const result = await this.assessmentRepository.save(assessment);
 
+
       if (student.class) {
-        setTimeout(async () => {
-          await this.calculateAndUpdateRanks(
-            student.class!.id,
-            student.class!.term || 'Term 1, 2024/2025',
-            schoolId
-          );
-        }, 100);
+        // Wait for the calculation to finish before moving on!
+        await this.calculateAndUpdateRanks(
+          student.class.id,
+          student.class.term || 'Term 1, 2024/2025',
+          schoolId
+        );
       }
+
+      // if (student.class) {
+      //   setTimeout(async () => {
+      //     await this.calculateAndUpdateRanks(
+      //       student.class!.id,
+      //       student.class!.term || 'Term 1, 2024/2025',
+      //       schoolId
+      //     );
+      //   }, 100);
+      // }
 
       return result;
     }
