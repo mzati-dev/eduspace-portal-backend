@@ -1569,6 +1569,8 @@ export class StudentsService {
       rc.qa2Rank = qa2Ranks.get(sid) || 0;
       rc.classRank = endRanks.get(sid) || 0;
 
+      console.log(`Saving student ${sid}: QA1 rank = ${qa1Ranks} (was ${rc.qa1Rank})`);
+
       // ✅ KEY FIX — only count ranked students
       rc.totalStudents = totalRanked;
 
