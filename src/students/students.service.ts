@@ -1499,7 +1499,7 @@ export class StudentsService {
       const endAvg = avg('end_of_term');
 
       // // 🚨 KEY FIX — skip students with NO end term scores
-      // if (endAvg === 0) continue;
+      if (endAvg === 0) continue;
 
       results.push({
         studentId,
