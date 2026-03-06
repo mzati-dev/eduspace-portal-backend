@@ -175,14 +175,11 @@ export class StudentsService {
       subject.grade = this.calculateGrade(subject.finalScore, gradeConfig, subject.endOfTerm_absent);
     });
 
+    const activeReport = student.reportCards?.[0] || {};
+
     const className = student.class ? student.class.name : 'Unknown';
     const term = student.class ? student.class.term : 'Term 1, 2024/2025';
     const academicYear = student.class ? student.class.academic_year : '2024/2025';
-
-    // const activeReport = student.reportCards?.[0] || {};
-    const activeReport = student.reportCards?.find(report => report.term === term) || student.reportCards?.[0] || {};
-
-
 
     const response: any = {
       id: student.id,
@@ -815,25 +812,15 @@ export class StudentsService {
       const assessment = this.assessmentRepository.create(data as any);
       const result = await this.assessmentRepository.save(assessment);
 
-
       if (student.class) {
-        // Wait for the calculation to finish before moving on!
-        await this.calculateAndUpdateRanks(
-          student.class.id,
-          student.class.term || 'Term 1, 2024/2025',
-          schoolId
-        );
+        setTimeout(async () => {
+          await this.calculateAndUpdateRanks(
+            student.class!.id,
+            student.class!.term || 'Term 1, 2024/2025',
+            schoolId
+          );
+        }, 100);
       }
-
-      // if (student.class) {
-      //   setTimeout(async () => {
-      //     await this.calculateAndUpdateRanks(
-      //       student.class!.id,
-      //       student.class!.term || 'Term 1, 2024/2025',
-      //       schoolId
-      //     );
-      //   }, 100);
-      // }
 
       return result;
     }
@@ -1490,8 +1477,14 @@ export class StudentsService {
 
     for (const [studentId, items] of byStudent.entries()) {
 
+      // const avg = (type: string) => {
+      //   const valid = items.filter(a => a.assessmentType === type && a.score > 0);
+      //   if (valid.length === 0) return 0;
+      //   return valid.reduce((s, a) => s + a.score, 0) / valid.length;
+      // };
       const avg = (type: string) => {
-        const valid = items.filter(a => a.assessmentType === type && a.score > 0);
+        // ✅ FIX: Include zero scores (>= 0) instead of only positive scores (> 0)
+        const valid = items.filter(a => a.assessmentType === type && a.score >= 0);
         if (valid.length === 0) return 0;
         return valid.reduce((s, a) => s + a.score, 0) / valid.length;
       };
@@ -1499,7 +1492,7 @@ export class StudentsService {
       const endAvg = avg('end_of_term');
 
       // // 🚨 KEY FIX — skip students with NO end term scores
-      if (endAvg === 0) continue;
+      // if (endAvg === 0) continue;
 
       results.push({
         studentId,
@@ -1563,8 +1556,7 @@ export class StudentsService {
       rc.classRank = endRanks.get(sid) || 0;
 
       // ✅ KEY FIX — only count ranked students
-      // rc.totalStudents = totalRanked;
-      rc.totalStudents = studentIds.length;  // ← CHANGE THIS!
+      rc.totalStudents = totalRanked;
 
       await this.reportCardRepository.save(rc);
     }
