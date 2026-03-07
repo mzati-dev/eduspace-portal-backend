@@ -49,17 +49,44 @@ export class StudentsService {
   //   return this.formatStudentData(student, activeGradeConfig);
   // }
 
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.class', 'class') // 👈 Moved up
+  //     // 👈 MAGIC LINE: Only load the report card for the current term!
+  //     .leftJoinAndSelect(
+  //       'student.reportCards',
+  //       'reportCards',
+  //       'reportCards.term = class.term'
+  //     )
+  //     // 👈 PRECAUTION: Only load assessments for the current class!
+  //     .leftJoinAndSelect(
+  //       'student.assessments',
+  //       'assessments',
+  //       'assessments.classId = class.id'
+  //     )
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber });
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+  //   return this.formatStudentData(student, activeGradeConfig);
+  // }
+
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
       .createQueryBuilder('student')
-      .leftJoinAndSelect('student.class', 'class') // 👈 Moved up
-      // 👈 MAGIC LINE: Only load the report card for the current term!
+      .leftJoinAndSelect('student.class', 'class')
       .leftJoinAndSelect(
         'student.reportCards',
         'reportCards',
         'reportCards.term = class.term'
       )
-      // 👈 PRECAUTION: Only load assessments for the current class!
       .leftJoinAndSelect(
         'student.assessments',
         'assessments',
@@ -75,7 +102,27 @@ export class StudentsService {
     }
 
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
-    return this.formatStudentData(student, activeGradeConfig);
+
+    // 1. Format the data as usual
+    const response = this.formatStudentData(student, activeGradeConfig);
+
+    // 2. 👈 BULLETPROOF FIX: Override the database rank by dynamically pulling 
+    // the exact rank from the Class Results so they always match 100%.
+    if (student.class?.id) {
+      const classResults = await this.getClassResults(student.class.id, schoolId);
+      const studentInClass = classResults.find(r => r.id === student.id);
+
+      if (studentInClass) {
+        response.classRank = studentInClass.rank;
+
+        // Also update the endOfTerm stats object to reflect the correct rank
+        if (response.assessmentStats?.endOfTerm) {
+          response.assessmentStats.endOfTerm.classRank = studentInClass.rank;
+        }
+      }
+    }
+
+    return response;
   }
 
   // ===== START MODIFIED: Added schoolId parameter =====
