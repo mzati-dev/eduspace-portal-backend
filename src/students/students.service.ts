@@ -106,18 +106,64 @@ export class StudentsService {
     // 1. Format the data as usual
     const response = this.formatStudentData(student, activeGradeConfig);
 
-    // 2. 👈 BULLETPROOF FIX: Override the database rank by dynamically pulling 
-    // the exact rank from the Class Results so they always match 100%.
+    // 2. 👈 NEW BULLETPROOF FIX: Override ALL database ranks (QA1, QA2, and Overall)
     if (student.class?.id) {
       const classResults = await this.getClassResults(student.class.id, schoolId);
-      const studentInClass = classResults.find(r => r.id === student.id);
+
+      // Calculate QA1 and QA2 averages for everyone in the class
+      const classStats = classResults.map(r => {
+        const qa1Total = r.subjects.reduce((sum, s) => sum + (Number(s.qa1) || 0), 0);
+        const qa2Total = r.subjects.reduce((sum, s) => sum + (Number(s.qa2) || 0), 0);
+        const subjCount = r.subjects.length > 0 ? r.subjects.length : 1; // Prevent divide by zero
+
+        return {
+          id: r.id,
+          qa1Avg: qa1Total / subjCount,
+          qa2Avg: qa2Total / subjCount,
+          overallRank: r.rank // Overall rank already calculated inside getClassResults
+        };
+      });
+
+      // Helper function to calculate Dense Ranks for QA1 or QA2
+      const calculateDenseRanks = (stats: any[], field: string) => {
+        const sorted = [...stats].sort((a, b) => b[field] - a[field]);
+        const ranks: Record<string, number> = {};
+        let currentRank = 1;
+        let previousVal = sorted.length > 0 ? sorted[0][field] : null;
+
+        for (let i = 0; i < sorted.length; i++) {
+          if (i > 0 && Math.abs(sorted[i][field] - previousVal) > 0.01) {
+            currentRank++;
+          }
+          ranks[sorted[i].id] = currentRank;
+          previousVal = sorted[i][field];
+        }
+        return ranks;
+      };
+
+      // Generate the accurate ranks for QA1 and QA2
+      const qa1Ranks = calculateDenseRanks(classStats, 'qa1Avg');
+      const qa2Ranks = calculateDenseRanks(classStats, 'qa2Avg');
+
+      const studentInClass = classStats.find(r => r.id === student.id);
 
       if (studentInClass) {
-        response.classRank = studentInClass.rank;
+        // Apply ranks to the root response (if your frontend uses these)
+        response.qa1Rank = qa1Ranks[student.id] || 0;
+        response.qa2Rank = qa2Ranks[student.id] || 0;
+        response.classRank = studentInClass.overallRank || 0;
 
-        // Also update the endOfTerm stats object to reflect the correct rank
-        if (response.assessmentStats?.endOfTerm) {
-          response.assessmentStats.endOfTerm.classRank = studentInClass.rank;
+        // Apply ranks to the assessment stats (where the frontend usually looks)
+        if (response.assessmentStats) {
+          if (response.assessmentStats.qa1) {
+            response.assessmentStats.qa1.classRank = qa1Ranks[student.id] || 0;
+          }
+          if (response.assessmentStats.qa2) {
+            response.assessmentStats.qa2.classRank = qa2Ranks[student.id] || 0;
+          }
+          if (response.assessmentStats.endOfTerm) {
+            response.assessmentStats.endOfTerm.classRank = studentInClass.overallRank || 0;
+          }
         }
       }
     }
