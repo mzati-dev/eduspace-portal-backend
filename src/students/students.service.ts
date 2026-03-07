@@ -548,15 +548,15 @@ export class StudentsService {
       Object.assign(existing, data);
       const result = await this.assessmentRepository.save(existing);
 
-      if (student.class) {
-        setTimeout(async () => {
-          await this.calculateAndUpdateRanks(
-            student.class!.id,
-            student.class!.term || 'Term 1, 2024/2025',
-            schoolId
-          );
-        }, 100);
-      }
+      // if (student.class) {
+      //   setTimeout(async () => {
+      //     await this.calculateAndUpdateRanks(
+      //       student.class!.id,
+      //       student.class!.term || 'Term 1, 2024/2025',
+      //       schoolId
+      //     );
+      //   }, 100);
+      // }
 
       return result;
     } else {
@@ -571,15 +571,15 @@ export class StudentsService {
       const assessment = this.assessmentRepository.create(data as any);
       const result = await this.assessmentRepository.save(assessment);
 
-      if (student.class) {
-        setTimeout(async () => {
-          await this.calculateAndUpdateRanks(
-            student.class!.id,
-            student.class!.term || 'Term 1, 2024/2025',
-            schoolId
-          );
-        }, 100);
-      }
+      // if (student.class) {
+      //   setTimeout(async () => {
+      //     await this.calculateAndUpdateRanks(
+      //       student.class!.id,
+      //       student.class!.term || 'Term 1, 2024/2025',
+      //       schoolId
+      //     );
+      //   }, 100);
+      // }
 
       return result;
     }
