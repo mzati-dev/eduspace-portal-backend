@@ -626,15 +626,15 @@ export class TeachersService {
             const result = await this.assessmentRepo.save(existing);
 
             // Trigger rank recalculation (async)
-            if (student.class) {
-                setTimeout(async () => {
-                    await this.calculateAndUpdateRanks(
-                        student.class!.id,
-                        student.class!.term || 'Term 1, 2024/2025',
-                        student.schoolId
-                    );
-                }, 100);
-            }
+            // if (student.class) {
+            //     setTimeout(async () => {
+            //         await this.calculateAndUpdateRanks(
+            //             student.class!.id,
+            //             student.class!.term || 'Term 1, 2024/2025',
+            //             student.schoolId
+            //         );
+            //     }, 100);
+            // }
 
             return result;
         } else {
@@ -649,15 +649,15 @@ export class TeachersService {
             const result = await this.assessmentRepo.save(assessment);
 
             // Trigger rank recalculation (async)
-            if (student.class) {
-                setTimeout(async () => {
-                    await this.calculateAndUpdateRanks(
-                        student.class!.id,
-                        student.class!.term || 'Term 1, 2024/2025',
-                        student.schoolId
-                    );
-                }, 100);
-            }
+            // if (student.class) {
+            //     setTimeout(async () => {
+            //         await this.calculateAndUpdateRanks(
+            //             student.class!.id,
+            //             student.class!.term || 'Term 1, 2024/2025',
+            //             student.schoolId
+            //         );
+            //     }, 100);
+            // }
 
             return result;
         }

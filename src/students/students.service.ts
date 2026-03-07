@@ -1125,7 +1125,7 @@ export class StudentsService {
       // Calculate final scores for each subject
       let totalFinalScore = 0;
       for (const subject of subjects) {
-        const finalScore = this.calculateFinalScore(subject, activeGradeConfig, assessments);
+        const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
         totalFinalScore += finalScore;
       }
 
