@@ -1043,6 +1043,194 @@ export class StudentsService {
 
   // }
 
+  // async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
+  //   console.log('--- START RANK CALCULATION (OPTIMIZED) ---');
+
+  //   // 1️⃣ Load class + students
+  //   const classQuery = this.classRepository
+  //     .createQueryBuilder('class')
+  //     .leftJoinAndSelect('class.students', 'students')
+  //     .where('class.id = :classId', { classId });
+
+  //   if (schoolId) {
+  //     classQuery.andWhere('class.schoolId = :schoolId', { schoolId });
+  //   }
+
+  //   const classEntity = await classQuery.getOne();
+  //   if (!classEntity) throw new NotFoundException(`Class not found`);
+
+  //   const studentIds = classEntity.students.map(s => s.id);
+  //   if (studentIds.length === 0) return;
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
+
+  //   // 2️⃣ Load assessments with subject (needed for final-score calculation like getClassResults)
+  //   const assessments = await this.assessmentRepository.find({
+  //     where: {
+  //       class: { id: classId },
+  //       student: { id: In(studentIds) },
+  //       assessmentType: In(['qa1', 'qa2', 'end_of_term']),
+  //     },
+  //     relations: ['student', 'subject'],
+  //   });
+
+  //   // 3️⃣ Group by student and subject (exactly like getClassResults)
+  //   const studentResults = new Map<string, {
+  //     studentId: string;
+  //     subjects: Map<string, any>;
+  //   }>();
+
+  //   for (const asm of assessments) {
+  //     const sid = asm.student.id;
+  //     if (!studentResults.has(sid)) {
+  //       studentResults.set(sid, {
+  //         studentId: sid,
+  //         subjects: new Map()
+  //       });
+  //     }
+
+  //     const studentData = studentResults.get(sid)!;
+  //     const subjectName = asm.subject?.name || 'Unknown';
+
+  //     if (!studentData.subjects.has(subjectName)) {
+  //       studentData.subjects.set(subjectName, {
+  //         qa1: 0,
+  //         qa2: 0,
+  //         endOfTerm: 0,
+  //         qa1_absent: false,
+  //         qa2_absent: false,
+  //         endOfTerm_absent: false,
+  //       });
+  //     }
+
+  //     const subjectData = studentData.subjects.get(subjectName)!;
+  //     if (asm.assessmentType === 'qa1') {
+  //       subjectData.qa1 = asm.score ?? 0;
+  //       subjectData.qa1_absent = asm.isAbsent ?? false;
+  //     } else if (asm.assessmentType === 'qa2') {
+  //       subjectData.qa2 = asm.score ?? 0;
+  //       subjectData.qa2_absent = asm.isAbsent ?? false;
+  //     } else if (asm.assessmentType === 'end_of_term') {
+  //       subjectData.endOfTerm = asm.score ?? 0;
+  //       subjectData.endOfTerm_absent = asm.isAbsent ?? false;
+  //     }
+  //   }
+
+  //   // 4️⃣ Calculate averages for each student (exactly like getClassResults)
+  //   const results: any[] = [];
+
+  //   for (const [studentId, data] of studentResults.entries()) {
+  //     const subjects = Array.from(data.subjects.values());
+
+  //     // Calculate final scores for each subject
+  //     let totalFinalScore = 0;
+  //     for (const subject of subjects) {
+  //       const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
+  //       totalFinalScore += finalScore;
+  //     }
+
+  //     const average = subjects.length > 0 ? totalFinalScore / subjects.length : 0;
+
+  //     // Calculate QA1 average (raw scores)
+  //     let qa1Total = 0;
+  //     let qa1Count = 0;
+  //     for (const subject of subjects) {
+  //       if (!subject.qa1_absent && subject.qa1 > 0) {
+  //         qa1Total += subject.qa1;
+  //         qa1Count++;
+  //       }
+  //     }
+  //     const qa1Average = qa1Count > 0 ? qa1Total / qa1Count : 0;
+
+  //     // Calculate QA2 average (raw scores)
+  //     let qa2Total = 0;
+  //     let qa2Count = 0;
+  //     for (const subject of subjects) {
+  //       if (!subject.qa2_absent && subject.qa2 > 0) {
+  //         qa2Total += subject.qa2;
+  //         qa2Count++;
+  //       }
+  //     }
+  //     const qa2Average = qa2Count > 0 ? qa2Total / qa2Count : 0;
+
+  //     results.push({
+  //       studentId,
+  //       qa1Raw: qa1Average,
+  //       qa2Raw: qa2Average,
+  //       average: parseFloat(average.toFixed(4)),
+  //     });
+  //   }
+
+  //   if (results.length === 0) {
+  //     console.log('No scored students — skipping rank');
+  //     return;
+  //   }
+
+  //   // 5️⃣ Dense ranking function (identical to getClassResults)
+  //   const denseRank = (items: any[], field: string) => {
+  //     // Sort in descending order
+  //     const sorted = [...items].sort((a, b) => (b[field] ?? 0) - (a[field] ?? 0));
+
+  //     const ranks = new Map<string, number>();
+  //     let currentRank = 1;
+  //     let previousValue = sorted.length > 0 ? sorted[0][field] : null;
+
+  //     for (let i = 0; i < sorted.length; i++) {
+  //       const currentValue = sorted[i][field];
+
+  //       // If not first item and value is different (with tolerance for averages)
+  //       if (i > 0) {
+  //         let valueChanged = false;
+  //         if (field === 'average' && typeof currentValue === 'number' && typeof previousValue === 'number') {
+  //           valueChanged = Math.abs(currentValue - previousValue) > 0.01;
+  //         } else if (currentValue < previousValue) {
+  //           valueChanged = true;
+  //         }
+
+  //         if (valueChanged) {
+  //           currentRank++;
+  //         }
+  //       }
+
+  //       ranks.set(sorted[i].studentId, currentRank);
+  //       previousValue = currentValue;
+  //     }
+
+  //     return ranks;
+  //   };
+
+  //   // Calculate ranks for each category
+  //   const qa1Ranks = denseRank(results, 'qa1Raw');
+  //   const qa2Ranks = denseRank(results, 'qa2Raw');
+  //   const endRanks = denseRank(results, 'average');
+
+  //   const totalRanked = results.length;
+
+  //   // 6️⃣ Update report cards
+  //   for (const sid of studentIds) {
+  //     let rc = await this.reportCardRepository.findOne({
+  //       where: { student: { id: sid }, term }
+  //     });
+
+  //     if (!rc) {
+  //       rc = this.reportCardRepository.create({
+  //         student: { id: sid },
+  //         term,
+  //       });
+  //     }
+
+  //     // Get ranks (default to 0 if student has no scores)
+  //     rc.qa1Rank = qa1Ranks.get(sid) || 0;
+  //     rc.qa2Rank = qa2Ranks.get(sid) || 0;
+  //     rc.classRank = endRanks.get(sid) || 0; // This should now match getClassResults
+  //     rc.totalStudents = totalRanked;
+
+  //     await this.reportCardRepository.save(rc);
+  //   }
+
+  //   console.log('--- FINISHED RANK CALCULATION ---');
+  // }
+
   async calculateAndUpdateRanks(classId: string, term: string, schoolId?: string) {
     console.log('--- START RANK CALCULATION (OPTIMIZED) ---');
 
@@ -1064,7 +1252,7 @@ export class StudentsService {
 
     const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
 
-    // 2️⃣ Load assessments with subject (needed for final-score calculation like getClassResults)
+    // 2️⃣ Load assessments with subject
     const assessments = await this.assessmentRepository.find({
       where: {
         class: { id: classId },
@@ -1074,7 +1262,7 @@ export class StudentsService {
       relations: ['student', 'subject'],
     });
 
-    // 3️⃣ Group by student and subject (exactly like getClassResults)
+    // 3️⃣ Group by student and subject
     const studentResults = new Map<string, {
       studentId: string;
       subjects: Map<string, any>;
@@ -1116,7 +1304,7 @@ export class StudentsService {
       }
     }
 
-    // 4️⃣ Calculate averages for each student (exactly like getClassResults)
+    // 4️⃣ Calculate final averages for each student
     const results: any[] = [];
 
     for (const [studentId, data] of studentResults.entries()) {
@@ -1124,39 +1312,25 @@ export class StudentsService {
 
       // Calculate final scores for each subject
       let totalFinalScore = 0;
-      for (const subject of subjects) {
-        const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
-        totalFinalScore += finalScore;
-      }
+      let subjectCount = 0;
 
-      const average = subjects.length > 0 ? totalFinalScore / subjects.length : 0;
-
-      // Calculate QA1 average (raw scores)
-      let qa1Total = 0;
-      let qa1Count = 0;
       for (const subject of subjects) {
-        if (!subject.qa1_absent && subject.qa1 > 0) {
-          qa1Total += subject.qa1;
-          qa1Count++;
+        // Include ALL subjects that have any data (including zeros and absents)
+        const hasAnyData = subject.qa1 !== null || subject.qa2 !== null ||
+          subject.endOfTerm !== null || subject.qa1_absent ||
+          subject.qa2_absent || subject.endOfTerm_absent;
+
+        if (hasAnyData) {
+          const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
+          totalFinalScore += finalScore;
+          subjectCount++;
         }
       }
-      const qa1Average = qa1Count > 0 ? qa1Total / qa1Count : 0;
 
-      // Calculate QA2 average (raw scores)
-      let qa2Total = 0;
-      let qa2Count = 0;
-      for (const subject of subjects) {
-        if (!subject.qa2_absent && subject.qa2 > 0) {
-          qa2Total += subject.qa2;
-          qa2Count++;
-        }
-      }
-      const qa2Average = qa2Count > 0 ? qa2Total / qa2Count : 0;
+      const average = subjectCount > 0 ? totalFinalScore / subjectCount : 0;
 
       results.push({
         studentId,
-        qa1Raw: qa1Average,
-        qa2Raw: qa2Average,
         average: parseFloat(average.toFixed(4)),
       });
     }
@@ -1166,66 +1340,35 @@ export class StudentsService {
       return;
     }
 
-    // 5️⃣ Dense ranking function (identical to getClassResults)
-    const denseRank = (items: any[], field: string) => {
-      // Sort in descending order
-      const sorted = [...items].sort((a, b) => (b[field] ?? 0) - (a[field] ?? 0));
+    // 5️⃣ Sort and assign ranks
+    results.sort((a, b) => b.average - a.average);
 
-      const ranks = new Map<string, number>();
-      let currentRank = 1;
-      let previousValue = sorted.length > 0 ? sorted[0][field] : null;
+    let currentRank = 1;
+    let previousAverage = results[0]?.average;
 
-      for (let i = 0; i < sorted.length; i++) {
-        const currentValue = sorted[i][field];
-
-        // If not first item and value is different (with tolerance for averages)
-        if (i > 0) {
-          let valueChanged = false;
-          if (field === 'average' && typeof currentValue === 'number' && typeof previousValue === 'number') {
-            valueChanged = Math.abs(currentValue - previousValue) > 0.01;
-          } else if (currentValue < previousValue) {
-            valueChanged = true;
-          }
-
-          if (valueChanged) {
-            currentRank++;
-          }
-        }
-
-        ranks.set(sorted[i].studentId, currentRank);
-        previousValue = currentValue;
+    for (let i = 0; i < results.length; i++) {
+      if (i > 0 && Math.abs(results[i].average - previousAverage) > 0.01) {
+        currentRank++;
       }
 
-      return ranks;
-    };
-
-    // Calculate ranks for each category
-    const qa1Ranks = denseRank(results, 'qa1Raw');
-    const qa2Ranks = denseRank(results, 'qa2Raw');
-    const endRanks = denseRank(results, 'average');
-
-    const totalRanked = results.length;
-
-    // 6️⃣ Update report cards
-    for (const sid of studentIds) {
+      // Update report card
+      const studentId = results[i].studentId;
       let rc = await this.reportCardRepository.findOne({
-        where: { student: { id: sid }, term }
+        where: { student: { id: studentId }, term }
       });
 
       if (!rc) {
         rc = this.reportCardRepository.create({
-          student: { id: sid },
+          student: { id: studentId },
           term,
         });
       }
 
-      // Get ranks (default to 0 if student has no scores)
-      rc.qa1Rank = qa1Ranks.get(sid) || 0;
-      rc.qa2Rank = qa2Ranks.get(sid) || 0;
-      rc.classRank = endRanks.get(sid) || 0; // This should now match getClassResults
-      rc.totalStudents = totalRanked;
-
+      rc.classRank = currentRank;
+      rc.totalStudents = results.length;
       await this.reportCardRepository.save(rc);
+
+      previousAverage = results[i].average;
     }
 
     console.log('--- FINISHED RANK CALCULATION ---');
