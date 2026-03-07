@@ -29,21 +29,50 @@ export class StudentsService {
   ) { }
 
 
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.assessments', 'assessments')
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
+  //     .leftJoinAndSelect('student.class', 'class')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+  //   return this.formatStudentData(student, activeGradeConfig);
+  // }
+
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
       .createQueryBuilder('student')
-      .leftJoinAndSelect('student.assessments', 'assessments')
+      .leftJoinAndSelect('student.class', 'class') // 👈 Moved up
+      // 👈 MAGIC LINE: Only load the report card for the current term!
+      .leftJoinAndSelect(
+        'student.reportCards',
+        'reportCards',
+        'reportCards.term = class.term'
+      )
+      // 👈 PRECAUTION: Only load assessments for the current class!
+      .leftJoinAndSelect(
+        'student.assessments',
+        'assessments',
+        'assessments.classId = class.id'
+      )
       .leftJoinAndSelect('assessments.subject', 'subject')
-      .leftJoinAndSelect('student.reportCards', 'reportCards')
-      .leftJoinAndSelect('student.class', 'class')
-      .where('student.examNumber = :examNumber', { examNumber: examNumber })
+      .where('student.examNumber = :examNumber', { examNumber: examNumber });
 
     const student = await query.getOne();
 
     if (!student) {
       throw new NotFoundException(`Student ${examNumber} not found`);
     }
-
 
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
     return this.formatStudentData(student, activeGradeConfig);
@@ -121,10 +150,12 @@ export class StudentsService {
     });
 
     // Use report card for current class term so classRank matches class results table (was: [0] = wrong term)
-    const currentTerm = student.class?.term;
-    const activeReport = (currentTerm && student.reportCards?.length)
-      ? (student.reportCards.find((rc: any) => rc.term === currentTerm) || student.reportCards[0] || {})
-      : (student.reportCards?.[0] || {});
+    // const currentTerm = student.class?.term;
+    // const activeReport = (currentTerm && student.reportCards?.length)
+    //   ? (student.reportCards.find((rc: any) => rc.term === currentTerm) || student.reportCards[0] || {})
+    //   : (student.reportCards?.[0] || {});
+
+    const activeReport = student.reportCards?.[0] || {};
 
     const className = student.class ? student.class.name : 'Unknown';
     const term = student.class ? student.class.term : 'Term 1, 2024/2025';
