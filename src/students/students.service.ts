@@ -1727,10 +1727,21 @@ export class StudentsService {
   // locked_by_admin: boolean default false
 
   async publishAssessment(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm', publish: boolean) {
-    // Update all report cards for this class/term
+    // First, get all students in this class
+    const students = await this.studentRepository.find({
+      where: { class: { id: classId } }
+    });
+
+    const studentIds = students.map(s => s.id);
+
+    if (studentIds.length === 0) {
+      return { message: 'No students found in this class' };
+    }
+
+    // Then update report cards for these students
     await this.reportCardRepository.update(
       {
-        student: { class: { id: classId } }, // Correct way to navigate relations
+        student: { id: In(studentIds) },
         term: term
       },
       {
