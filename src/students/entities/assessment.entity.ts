@@ -42,4 +42,7 @@ export class Assessment {
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
     updatedAt: Date;
+
+    @Column({ default: false })
+    is_locked: boolean;
 }

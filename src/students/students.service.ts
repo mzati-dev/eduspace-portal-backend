@@ -9,6 +9,7 @@ import { GradeConfig } from './entities/grade-config.entity';
 import { Class } from './entities/class.entity';
 import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.entity';
 import { TeachersService } from '../teachers/teachers.service';
+import { Archive } from './entities/archive.entity';
 
 @Injectable()
 export class StudentsService {
@@ -25,6 +26,9 @@ export class StudentsService {
     private gradeConfigRepository: Repository<GradeConfig>,
     @InjectRepository(Class)
     private classRepository: Repository<Class>,
+
+    @InjectRepository(Archive) // ADD THIS
+    private archiveRepository: Repository<Archive>, // ADD THIS
     private teachersService: TeachersService,
   ) { }
 
@@ -1717,4 +1721,78 @@ export class StudentsService {
     return { message: `Updated ${reportCards.length} report cards with new grade calculations` };
   }
   // ===== END MODIFIED =====
+
+  // Add to your Student entity
+  // is_published: boolean default false
+  // locked_by_admin: boolean default false
+
+  async publishAssessment(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm', publish: boolean) {
+    // Update all report cards for this class/term
+    await this.reportCardRepository.update(
+      {
+        student: { class: { id: classId } }, // Correct way to navigate relations
+        term: term
+      },
+      {
+        [`${assessmentType}_published`]: publish
+      }
+    );
+
+    return { message: `Assessment ${publish ? 'published' : 'unpublished'} successfully` };
+  }
+
+  async lockResults(classId: string, term: string, lock: boolean) {
+    // First, get the class to verify term matches
+    const classEntity = await this.classRepository.findOne({
+      where: { id: classId, term: term }
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException('Class not found for this term');
+    }
+
+    // Update assessments by class ID only (term is on the class)
+    await this.assessmentRepository.update(
+      {
+        class: { id: classId }
+      },
+      { is_locked: lock } // You need to add is_locked column to Assessment entity first
+    );
+
+    return { message: `Results ${lock ? 'locked' : 'unlocked'} successfully` };
+  }
+
+  async archiveTermResults(classId: string, term: string, academicYear: string) {
+    // Create archive record
+    const archive = this.archiveRepository.create({
+      classId,
+      term,
+      academicYear,
+      results: await this.getClassResults(classId, undefined, undefined, 'overall'),
+      archivedAt: new Date()
+    });
+
+    await this.archiveRepository.save(archive);
+
+    // Optional: Clear current results?
+    // await this.clearCurrentResults(classId, term);
+
+    return { message: 'Results archived successfully' };
+  }
+
+  async getArchivedResults(classId: string, term: string, academicYear: string) {
+    return this.archiveRepository.findOne({
+      where: { classId, term, academicYear }
+    });
+  }
+  async getLockedAssessments(classId: string, term: string, schoolId?: string) {
+    return this.assessmentRepository.find({
+      where: {
+        class: { id: classId },
+        is_locked: true
+      },
+      relations: ['student', 'subject']
+    });
+  }
+
 }
