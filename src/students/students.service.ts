@@ -1233,22 +1233,50 @@ export class StudentsService {
 
       const average = subjects.length > 0 ? totalFinalScore / subjects.length : 0;
 
-      // Calculate QA1 average (raw scores)
+      // // Calculate QA1 average (raw scores)
+      // let qa1Total = 0;
+      // let qa1Count = 0;
+      // for (const subject of subjects) {
+      //   if (!subject.qa1_absent && subject.qa1 > 0) {
+      //     qa1Total += subject.qa1;
+      //     qa1Count++;
+      //   }
+      // }
+      // const qa1Average = qa1Count > 0 ? qa1Total / qa1Count : 0;
+
+      // // Calculate QA2 average (raw scores)
+      // let qa2Total = 0;
+      // let qa2Count = 0;
+      // for (const subject of subjects) {
+      //   if (!subject.qa2_absent && subject.qa2 > 0) {
+      //     qa2Total += subject.qa2;
+      //     qa2Count++;
+      //   }
+      // }
+      // const qa2Average = qa2Count > 0 ? qa2Total / qa2Count : 0;
+
+      // Calculate QA1 average (include absent as 0)
       let qa1Total = 0;
       let qa1Count = 0;
       for (const subject of subjects) {
-        if (!subject.qa1_absent && subject.qa1 > 0) {
+        if (subject.qa1_absent) {
+          qa1Count++; // Count absent subjects
+          // qa1Total remains 0
+        } else if (subject.qa1 !== null && subject.qa1 >= 0) {
           qa1Total += subject.qa1;
           qa1Count++;
         }
       }
       const qa1Average = qa1Count > 0 ? qa1Total / qa1Count : 0;
 
-      // Calculate QA2 average (raw scores)
+      // Calculate QA2 average (include absent as 0)
       let qa2Total = 0;
       let qa2Count = 0;
       for (const subject of subjects) {
-        if (!subject.qa2_absent && subject.qa2 > 0) {
+        if (subject.qa2_absent) {
+          qa2Count++; // Count absent subjects
+          // qa2Total remains 0
+        } else if (subject.qa2 !== null && subject.qa2 >= 0) {
           qa2Total += subject.qa2;
           qa2Count++;
         }
@@ -1589,10 +1617,38 @@ export class StudentsService {
         let qa2Total = 0, qa2Count = 0;
         let endTermTotal = 0, endTermCount = 0;
 
+        // enhancedSubjects.forEach(sub => {
+        //   if (!sub.qa1_absent && sub.qa1 > 0) { qa1Total += sub.qa1; qa1Count++; }
+        //   if (!sub.qa2_absent && sub.qa2 > 0) { qa2Total += sub.qa2; qa2Count++; }
+        //   if (!sub.endOfTerm_absent && sub.endOfTerm > 0) { endTermTotal += sub.endOfTerm; endTermCount++; }
+        // });
         enhancedSubjects.forEach(sub => {
-          if (!sub.qa1_absent && sub.qa1 > 0) { qa1Total += sub.qa1; qa1Count++; }
-          if (!sub.qa2_absent && sub.qa2 > 0) { qa2Total += sub.qa2; qa2Count++; }
-          if (!sub.endOfTerm_absent && sub.endOfTerm > 0) { endTermTotal += sub.endOfTerm; endTermCount++; }
+          // QA1 - include absent as 0
+          if (sub.qa1_absent) {
+            qa1Count++; // Count absent subjects
+            // qa1Total remains 0
+          } else if (sub.qa1 !== null && sub.qa1 >= 0) {
+            qa1Total += sub.qa1;
+            qa1Count++;
+          }
+
+          // QA2 - include absent as 0
+          if (sub.qa2_absent) {
+            qa2Count++; // Count absent subjects
+            // qa2Total remains 0
+          } else if (sub.qa2 !== null && sub.qa2 >= 0) {
+            qa2Total += sub.qa2;
+            qa2Count++;
+          }
+
+          // End of Term - include absent as 0
+          if (sub.endOfTerm_absent) {
+            endTermCount++; // Count absent subjects
+            // endTermTotal remains 0
+          } else if (sub.endOfTerm !== null && sub.endOfTerm >= 0) {
+            endTermTotal += sub.endOfTerm;
+            endTermCount++;
+          }
         });
 
         const qa1Average = qa1Count > 0 ? qa1Total / qa1Count : 0;
