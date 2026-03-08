@@ -596,6 +596,36 @@ export class StudentsService {
       throw new NotFoundException('Student is not assigned to any class');
     }
 
+    // 🔴🔴🔴 ADD LOCK CHECK HERE
+    // Check if this assessment type is locked for this class
+    const existingAssessment = await this.assessmentRepository.findOne({
+      where: {
+        student: { id: student.id },
+        subject: { id: assessmentData.subject_id || assessmentData.subjectId },
+        assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
+        class: { id: student.class.id }
+      },
+    });
+
+    // If there's an existing assessment and it's locked, prevent editing
+    if (existingAssessment && existingAssessment.is_locked) {
+      throw new ForbiddenException(`This ${existingAssessment.assessmentType} assessment is locked and cannot be edited`);
+    }
+
+    // Also check if ANY assessment of this type in this class is locked
+    const anyLockedOfType = await this.assessmentRepository.findOne({
+      where: {
+        class: { id: student.class.id },
+        assessmentType: assessmentData.assessment_type || assessmentData.assessmentType,
+        is_locked: true
+      }
+    });
+
+    if (anyLockedOfType) {
+      throw new ForbiddenException(`All ${assessmentData.assessment_type || assessmentData.assessmentType} assessments are locked for this class`);
+    }
+    // 🔴🔴🔴 END LOCK CHECK
+
     // 🔴🔴🔴 MODIFIED: Only skip if score is null or undefined (field not sent from frontend)
     // But allow empty string, 0, and other values to be processed
     if (assessmentData.score === null || assessmentData.score === undefined) {
