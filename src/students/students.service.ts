@@ -33,6 +33,26 @@ export class StudentsService {
   ) { }
 
 
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.assessments', 'assessments')
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
+  //     .leftJoinAndSelect('student.class', 'class')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+  //   return this.formatStudentData(student, activeGradeConfig);
+  // }
+
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
       .createQueryBuilder('student')
@@ -48,9 +68,50 @@ export class StudentsService {
       throw new NotFoundException(`Student ${examNumber} not found`);
     }
 
-
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
-    return this.formatStudentData(student, activeGradeConfig);
+
+    // Get the formatted student data
+    const studentData = this.formatStudentData(student, activeGradeConfig);
+
+    // Get report card for current term
+    const currentTerm = student.class?.term;
+    const reportCard = student.reportCards?.find(rc => rc.term === currentTerm);
+
+    // If no report card or nothing published, return empty data
+    if (!reportCard || (!reportCard.qa1_published && !reportCard.qa2_published && !reportCard.endOfTerm_published)) {
+      return {
+        ...studentData,
+        subjects: [],
+        message: "No results have been published yet"
+      };
+    }
+
+    // Filter subjects based on published status
+    studentData.subjects = studentData.subjects.map(subject => {
+      const filteredSubject = { ...subject };
+
+      // Hide QA1 if not published
+      if (!reportCard.qa1_published) {
+        filteredSubject.qa1 = null;
+        filteredSubject.qa1_absent = false;
+      }
+
+      // Hide QA2 if not published
+      if (!reportCard.qa2_published) {
+        filteredSubject.qa2 = null;
+        filteredSubject.qa2_absent = false;
+      }
+
+      // Hide End of Term if not published
+      if (!reportCard.endOfTerm_published) {
+        filteredSubject.endOfTerm = null;
+        filteredSubject.endOfTerm_absent = false;
+      }
+
+      return filteredSubject;
+    });
+
+    return studentData;
   }
 
   // async findByExamNumber(examNumber: string, schoolId?: string) {
