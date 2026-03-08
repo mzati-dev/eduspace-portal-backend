@@ -29,6 +29,26 @@ export class StudentsService {
   ) { }
 
 
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.assessments', 'assessments')
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
+  //     .leftJoinAndSelect('student.class', 'class')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+  //   return this.formatStudentData(student, activeGradeConfig);
+  // }
+
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
       .createQueryBuilder('student')
@@ -44,9 +64,38 @@ export class StudentsService {
       throw new NotFoundException(`Student ${examNumber} not found`);
     }
 
-
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
-    return this.formatStudentData(student, activeGradeConfig);
+
+    // 1. Get the base formatted data 
+    let response = this.formatStudentData(student, activeGradeConfig);
+
+    // 2. Calculate the live ranks for ALL assessment types
+    if (student.class?.id) {
+      // 🔴 FIX: Notice the 'undefined' added here so the assessmentType goes to the 4th parameter!
+      const overallResults = await this.getClassResults(student.class.id, student.schoolId, undefined, 'overall');
+      const qa1Results = await this.getClassResults(student.class.id, student.schoolId, undefined, 'qa1');
+      const qa2Results = await this.getClassResults(student.class.id, student.schoolId, undefined, 'qa2');
+      const endTermResults = await this.getClassResults(student.class.id, student.schoolId, undefined, 'endOfTerm');
+
+      // Find this specific student in the live ranked lists
+      const overallData = overallResults.find(s => s.examNumber === examNumber);
+      const qa1Data = qa1Results.find(s => s.examNumber === examNumber);
+      const qa2Data = qa2Results.find(s => s.examNumber === examNumber);
+      const endTermData = endTermResults.find(s => s.examNumber === examNumber);
+
+      // 3. Attach all ranks to the response object
+      response.ranks = {
+        overall: overallData?.rank || null,
+        qa1: qa1Data?.rank || null,
+        qa2: qa2Data?.rank || null,
+        endOfTerm: endTermData?.rank || null
+      };
+
+      // Override the main classRank with the overall rank as a fallback
+      response.classRank = overallData?.rank || response.classRank;
+    }
+
+    return response;
   }
 
   // ===== START MODIFIED: Added schoolId parameter =====
@@ -1232,7 +1281,161 @@ export class StudentsService {
   }
 
   // ===== START MODIFIED: Added schoolId parameter =====
-  async getClassResults(classId: string, schoolId?: string, teacherId?: string) { // ADD teacherId parameter
+  // async getClassResults(classId: string, schoolId?: string, teacherId?: string) { // ADD teacherId parameter
+  //   const query = this.classRepository
+  //     .createQueryBuilder('class')
+  //     .leftJoinAndSelect('class.students', 'students')
+  //     .leftJoinAndSelect('class.classTeacher', 'classTeacher')
+  //     .where('class.id = :classId', { classId });
+
+  //   if (schoolId) {
+  //     query.andWhere('class.schoolId = :schoolId', { schoolId });
+  //   }
+
+  //   const classEntity = await query.getOne();
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class ${classId} not found`);
+  //   }
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
+  //   const results: any[] = [];
+
+  //   // ===== ADD THIS: Get teacher's subjects for this class =====
+  //   let teacherSubjectIds: string[] = [];
+  //   // Get teacher's subjects for this class
+  //   if (teacherId) {
+  //     const teacherAssignments = await this.teachersService.getTeacherAssignments(teacherId);
+  //     const assignmentsForThisClass = teacherAssignments.filter(a => a.classId === classId);
+  //     teacherSubjectIds = assignmentsForThisClass.map(a => a.subjectId);
+  //   }
+  //   // ===== END ADD =====
+
+  //   for (const student of classEntity.students) {
+  //     // CHANGE 1: Get assessments filtered by class instead of using findByExamNumber
+  //     let assessments = await this.assessmentRepository // ADD "let" not "const"
+  //       .createQueryBuilder('assessment')
+  //       .leftJoinAndSelect('assessment.subject', 'subject')
+  //       .leftJoinAndSelect('assessment.student', 'student')
+  //       .innerJoin('assessment.class', 'class')
+  //       .where('student.id = :studentId', { studentId: student.id })
+  //       .andWhere('class.id = :classId', { classId })
+  //       .getMany();
+
+  //     // ===== ADD THIS: Filter by teacher's subjects =====
+  //     if (teacherId && teacherSubjectIds.length > 0) {
+  //       assessments = assessments.filter(asm =>
+  //         teacherSubjectIds.includes(asm.subject.id)
+  //       );
+  //     }
+  //     // ===== END ADD =====
+
+  //     // CHANGE 2: Get report card for rankings
+  //     const reportCard = await this.reportCardRepository.findOne({
+  //       where: {
+  //         student: { id: student.id },
+  //         term: classEntity.term
+  //       }
+  //     });
+
+  //     // CHANGE 3: Build subjects from filtered assessments
+  //     const subjectMap = new Map<string, any>();
+
+  //     assessments.forEach(asm => {
+  //       const subjectName = asm.subject?.name || 'Unknown';
+
+  //       if (!subjectMap.has(subjectName)) {
+  //         subjectMap.set(subjectName, {
+  //           name: subjectName,
+  //           qa1: 0,
+  //           qa2: 0,
+  //           endOfTerm: 0,
+  //           // 👈 NEW: Add absent flags
+  //           qa1_absent: false,
+  //           qa2_absent: false,
+  //           endOfTerm_absent: false,
+  //         });
+  //       }
+
+  //       const subjectData = subjectMap.get(subjectName);
+  //       if (asm.assessmentType === 'qa1') {
+  //         subjectData.qa1 = asm.score || 0;
+  //         subjectData.qa1_absent = asm.isAbsent || false; // 👈 NEW
+  //       } else if (asm.assessmentType === 'qa2') {
+  //         subjectData.qa2 = asm.score || 0;
+  //         subjectData.qa2_absent = asm.isAbsent || false; // 👈 NEW
+  //       } else if (asm.assessmentType === 'end_of_term') {
+  //         subjectData.endOfTerm = asm.score || 0;
+  //         subjectData.endOfTerm_absent = asm.isAbsent || false; // 👈 NEW
+  //       }
+  //     });
+
+  //     const subjects = Array.from(subjectMap.values());
+
+  //     if (subjects.length > 0) {
+  //       // CHANGE 4: Calculate final scores and grades
+  //       const enhancedSubjects = subjects.map(subject => {
+  //         const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
+  //         const grade = this.calculateGrade(finalScore, activeGradeConfig);
+  //         return {
+  //           ...subject,
+  //           finalScore,
+  //           grade
+  //         };
+  //       });
+
+  //       // CHANGE 5: Calculate totals and average
+  //       const totalScore = enhancedSubjects.reduce((sum, subject) => sum + subject.finalScore, 0);
+  //       const average = enhancedSubjects.length > 0 ? totalScore / enhancedSubjects.length : 0;
+
+  //       results.push({
+  //         id: student.id,
+  //         name: student.name,
+  //         examNumber: student.examNumber,
+  //         classRank: reportCard?.classRank || 0,
+  //         totalScore: totalScore,
+  //         average: average,
+  //         overallGrade: this.calculateGrade(average, activeGradeConfig),
+  //         subjects: enhancedSubjects.map(subject => ({
+  //           name: subject.name,
+  //           qa1: subject.qa1,
+  //           qa2: subject.qa2,
+  //           endOfTerm: subject.endOfTerm,
+  //           finalScore: subject.finalScore,
+  //           grade: subject.grade,
+  //           // 👈 ADD THESE THREE LINES:
+  //           qa1_absent: subject.qa1_absent,
+  //           qa2_absent: subject.qa2_absent,
+  //           endOfTerm_absent: subject.endOfTerm_absent
+  //         }))
+  //       });
+  //     }
+  //   }
+
+  //   // results.sort((a, b) => b.average - a.average);
+  //   // results.forEach((result, index) => {
+  //   //   result.rank = index + 1;
+  //   // });
+
+  //   results.sort((a, b) => b.average - a.average);
+
+  //   // Apply dense ranking
+  //   let currentRank = 1;
+  //   let previousAverage = results.length > 0 ? results[0].average : null;
+
+  //   for (let i = 0; i < results.length; i++) {
+  //     if (i > 0 && Math.abs(results[i].average - previousAverage) > 0.01) {
+  //       currentRank++;
+  //     }
+  //     results[i].rank = currentRank;
+  //     previousAverage = results[i].average;
+  //   }
+  //   return results;
+  // }
+  // ===== END MODIFIED =====
+
+  // 🔴 ADDED assessmentType parameter with a default of 'overall'
+  async getClassResults(classId: string, schoolId?: string, teacherId?: string, assessmentType: string = 'overall') {
     const query = this.classRepository
       .createQueryBuilder('class')
       .leftJoinAndSelect('class.students', 'students')
@@ -1252,19 +1455,15 @@ export class StudentsService {
     const activeGradeConfig = await this.getActiveGradeConfiguration(schoolId);
     const results: any[] = [];
 
-    // ===== ADD THIS: Get teacher's subjects for this class =====
     let teacherSubjectIds: string[] = [];
-    // Get teacher's subjects for this class
     if (teacherId) {
       const teacherAssignments = await this.teachersService.getTeacherAssignments(teacherId);
       const assignmentsForThisClass = teacherAssignments.filter(a => a.classId === classId);
       teacherSubjectIds = assignmentsForThisClass.map(a => a.subjectId);
     }
-    // ===== END ADD =====
 
     for (const student of classEntity.students) {
-      // CHANGE 1: Get assessments filtered by class instead of using findByExamNumber
-      let assessments = await this.assessmentRepository // ADD "let" not "const"
+      let assessments = await this.assessmentRepository
         .createQueryBuilder('assessment')
         .leftJoinAndSelect('assessment.subject', 'subject')
         .leftJoinAndSelect('assessment.student', 'student')
@@ -1273,15 +1472,12 @@ export class StudentsService {
         .andWhere('class.id = :classId', { classId })
         .getMany();
 
-      // ===== ADD THIS: Filter by teacher's subjects =====
       if (teacherId && teacherSubjectIds.length > 0) {
         assessments = assessments.filter(asm =>
           teacherSubjectIds.includes(asm.subject.id)
         );
       }
-      // ===== END ADD =====
 
-      // CHANGE 2: Get report card for rankings
       const reportCard = await this.reportCardRepository.findOne({
         where: {
           student: { id: student.id },
@@ -1289,7 +1485,6 @@ export class StudentsService {
         }
       });
 
-      // CHANGE 3: Build subjects from filtered assessments
       const subjectMap = new Map<string, any>();
 
       assessments.forEach(asm => {
@@ -1301,7 +1496,6 @@ export class StudentsService {
             qa1: 0,
             qa2: 0,
             endOfTerm: 0,
-            // 👈 NEW: Add absent flags
             qa1_absent: false,
             qa2_absent: false,
             endOfTerm_absent: false,
@@ -1311,20 +1505,19 @@ export class StudentsService {
         const subjectData = subjectMap.get(subjectName);
         if (asm.assessmentType === 'qa1') {
           subjectData.qa1 = asm.score || 0;
-          subjectData.qa1_absent = asm.isAbsent || false; // 👈 NEW
+          subjectData.qa1_absent = asm.isAbsent || false;
         } else if (asm.assessmentType === 'qa2') {
           subjectData.qa2 = asm.score || 0;
-          subjectData.qa2_absent = asm.isAbsent || false; // 👈 NEW
+          subjectData.qa2_absent = asm.isAbsent || false;
         } else if (asm.assessmentType === 'end_of_term') {
           subjectData.endOfTerm = asm.score || 0;
-          subjectData.endOfTerm_absent = asm.isAbsent || false; // 👈 NEW
+          subjectData.endOfTerm_absent = asm.isAbsent || false;
         }
       });
 
       const subjects = Array.from(subjectMap.values());
 
       if (subjects.length > 0) {
-        // CHANGE 4: Calculate final scores and grades
         const enhancedSubjects = subjects.map(subject => {
           const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
           const grade = this.calculateGrade(finalScore, activeGradeConfig);
@@ -1335,9 +1528,23 @@ export class StudentsService {
           };
         });
 
-        // CHANGE 5: Calculate totals and average
         const totalScore = enhancedSubjects.reduce((sum, subject) => sum + subject.finalScore, 0);
         const average = enhancedSubjects.length > 0 ? totalScore / enhancedSubjects.length : 0;
+
+        // 🔴 ADDED: Calculate specific QA averages (matching your calculateAndUpdateRanks logic)
+        let qa1Total = 0, qa1Count = 0;
+        let qa2Total = 0, qa2Count = 0;
+        let endTermTotal = 0, endTermCount = 0;
+
+        enhancedSubjects.forEach(sub => {
+          if (!sub.qa1_absent && sub.qa1 > 0) { qa1Total += sub.qa1; qa1Count++; }
+          if (!sub.qa2_absent && sub.qa2 > 0) { qa2Total += sub.qa2; qa2Count++; }
+          if (!sub.endOfTerm_absent && sub.endOfTerm > 0) { endTermTotal += sub.endOfTerm; endTermCount++; }
+        });
+
+        const qa1Average = qa1Count > 0 ? qa1Total / qa1Count : 0;
+        const qa2Average = qa2Count > 0 ? qa2Total / qa2Count : 0;
+        const endTermAverage = endTermCount > 0 ? endTermTotal / endTermCount : 0;
 
         results.push({
           id: student.id,
@@ -1346,6 +1553,9 @@ export class StudentsService {
           classRank: reportCard?.classRank || 0,
           totalScore: totalScore,
           average: average,
+          qa1Average: qa1Average, // 👈 Added
+          qa2Average: qa2Average, // 👈 Added
+          endTermAverage: endTermAverage, // 👈 Added
           overallGrade: this.calculateGrade(average, activeGradeConfig),
           subjects: enhancedSubjects.map(subject => ({
             name: subject.name,
@@ -1354,7 +1564,6 @@ export class StudentsService {
             endOfTerm: subject.endOfTerm,
             finalScore: subject.finalScore,
             grade: subject.grade,
-            // 👈 ADD THESE THREE LINES:
             qa1_absent: subject.qa1_absent,
             qa2_absent: subject.qa2_absent,
             endOfTerm_absent: subject.endOfTerm_absent
@@ -1363,27 +1572,29 @@ export class StudentsService {
       }
     }
 
-    // results.sort((a, b) => b.average - a.average);
-    // results.forEach((result, index) => {
-    //   result.rank = index + 1;
-    // });
+    // 🔴 THE FIX: Dynamically pick what we are ranking based on the assessmentType
+    let rankField = 'average'; // Default overall
+    if (assessmentType === 'qa1') rankField = 'qa1Average';
+    if (assessmentType === 'qa2') rankField = 'qa2Average';
+    if (assessmentType === 'endOfTerm') rankField = 'endTermAverage';
 
-    results.sort((a, b) => b.average - a.average);
+    // Sort descending by the chosen field
+    results.sort((a, b) => b[rankField] - a[rankField]);
 
-    // Apply dense ranking
+    // Apply dense ranking based on the chosen field
     let currentRank = 1;
-    let previousAverage = results.length > 0 ? results[0].average : null;
+    let previousScore = results.length > 0 ? results[0][rankField] : null;
 
     for (let i = 0; i < results.length; i++) {
-      if (i > 0 && Math.abs(results[i].average - previousAverage) > 0.01) {
+      if (i > 0 && Math.abs(results[i][rankField] - previousScore) > 0.01) {
         currentRank++;
       }
       results[i].rank = currentRank;
-      previousAverage = results[i].average;
+      previousScore = results[i][rankField];
     }
+
     return results;
   }
-  // ===== END MODIFIED =====
 
   // ===== START MODIFIED: Added schoolId parameter =====
   async updateAllReportCardsWithNewGrades(schoolId?: string) {
