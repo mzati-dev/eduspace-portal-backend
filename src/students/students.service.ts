@@ -10,6 +10,7 @@ import { Class } from './entities/class.entity';
 import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.entity';
 import { TeachersService } from '../teachers/teachers.service';
 import { Archive } from './entities/archive.entity';
+import { StudentReportArchive } from './entities/student-report-archive.entity';
 
 @Injectable()
 export class StudentsService {
@@ -29,6 +30,8 @@ export class StudentsService {
 
     @InjectRepository(Archive) // ADD THIS
     private archiveRepository: Repository<Archive>, // ADD THIS
+    @InjectRepository(StudentReportArchive) // ADD THIS
+    private studentReportArchiveRepository: Repository<StudentReportArchive>, // ADD THIS
     private teachersService: TeachersService,
   ) { }
 
@@ -1895,6 +1898,85 @@ export class StudentsService {
       },
       relations: ['student', 'subject']
     });
+  }
+
+  // In students.service.ts
+  async archiveStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
+    const students = await this.studentRepository.find({
+      where: { class: { id: classId } },
+      relations: ['assessments', 'assessments.subject', 'reportCards']
+    });
+
+    const archives: StudentReportArchive[] = []; // 👈 FIXED: Explicitly typed
+
+    for (const student of students) {
+      const reportCard = student.reportCards?.find(rc => rc.term === term);
+      if (!reportCard) continue;
+
+      const archive = this.studentReportArchiveRepository.create({
+        studentId: student.id,
+        studentName: student.name,
+        examNumber: student.examNumber,
+        classId,
+        term,
+        assessmentType,
+        parentEmail: student.parentEmail,
+        parentPhone: student.parentPhone,
+        whatsappNumber: student.whatsappNumber,
+        reportCardData: {
+          classRank: reportCard.classRank,
+          qa1Rank: reportCard.qa1Rank,
+          qa2Rank: reportCard.qa2Rank,
+          totalStudents: reportCard.totalStudents,
+          attendance: {
+            present: reportCard.daysPresent,
+            absent: reportCard.daysAbsent,
+            late: reportCard.daysLate
+          },
+          teacherRemarks: reportCard.teacherRemarks,
+          overallAverage: reportCard.overallAverage,
+          overallGrade: reportCard.overallGrade,
+          subjects: student.assessments
+            .filter(a => a.assessmentType === assessmentType)
+            .map(a => ({
+              subjectName: a.subject.name,
+              score: a.score,
+              grade: a.grade,
+              isAbsent: a.isAbsent
+            }))
+        },
+        archivedAt: new Date()
+      });
+
+      const savedArchive = await this.studentReportArchiveRepository.save(archive);
+      archives.push(savedArchive); // Now works because archives is typed as StudentReportArchive[]
+    }
+
+    return archives;
+  }
+
+  // In students.service.ts
+  async sendReportViaEmail(archiveId: string) {
+    // TODO: Implement email sending
+    // Will use nodemailer or email service
+    console.log(`Email sending to be implemented for archive ${archiveId}`);
+  }
+
+  async sendReportViaWhatsApp(archiveId: string) {
+    // TODO: Implement WhatsApp sending
+    // Will use WhatsApp Business API
+    console.log(`WhatsApp sending to be implemented for archive ${archiveId}`);
+  }
+
+  async sendBulkReports(classId: string, term: string, assessmentType: string) {
+    const archives = await this.studentReportArchiveRepository.find({
+      where: { classId, term, assessmentType, sentViaEmail: false }
+    });
+
+    for (const archive of archives) {
+      // Queue for sending (implement later)
+      console.log(`Queued report for ${archive.studentName}`);
+    }
   }
 
 }

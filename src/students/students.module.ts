@@ -17,6 +17,7 @@ import { GradeConfig } from './entities/grade-config.entity';
 import { Class } from './entities/class.entity'; // ADD THIS
 import { TeachersModule } from '../teachers/teachers.module';
 import { Archive } from './entities/archive.entity';
+import { StudentReportArchive } from './entities/student-report-archive.entity';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { Archive } from './entities/archive.entity';
       GradeConfig,
       Class, // ADD THIS HERE,
       Archive, // 👈 ADD THIS
+      StudentReportArchive, // 👈 ADD THIS
 
     ]),
     TeachersModule,

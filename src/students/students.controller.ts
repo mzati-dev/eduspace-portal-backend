@@ -265,5 +265,25 @@ export class ClassesController {
     return this.studentsService.getLockedAssessments(classId, term, schoolId);
   }
 
+  // In students.controller.ts
+  @Post('archive-student-reports')
+  async archiveStudentReports(
+    @Body() body: { classId: string; term: string; assessmentType: 'qa1' | 'qa2' | 'endOfTerm' } // 👈 FIXED
+  ) {
+    return this.studentsService.archiveStudentReportCards(
+      body.classId,
+      body.term,
+      body.assessmentType
+    );
+  }
 
+  @Post('send-report/:archiveId/email')
+  async sendReportEmail(@Param('archiveId') archiveId: string) {
+    return this.studentsService.sendReportViaEmail(archiveId);
+  }
+
+  @Post('send-report/:archiveId/whatsapp')
+  async sendReportWhatsApp(@Param('archiveId') archiveId: string) {
+    return this.studentsService.sendReportViaWhatsApp(archiveId);
+  }
 }
