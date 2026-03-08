@@ -49,6 +49,55 @@ export class StudentsService {
   //   return this.formatStudentData(student, activeGradeConfig);
   // }
 
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.assessments', 'assessments')
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
+  //     .leftJoinAndSelect('student.class', 'class')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+
+  //   // 1. Get the base formatted data 
+  //   let response = this.formatStudentData(student, activeGradeConfig);
+
+  //   // 2. Calculate the live ranks for ALL assessment types
+  //   if (student.class?.id) {
+  //     // 🔴 FIX: Notice the 'undefined' added here so the assessmentType goes to the 4th parameter!
+  //     const overallResults = await this.getClassResults(student.class.id, student.schoolId, undefined, 'overall');
+  //     const qa1Results = await this.getClassResults(student.class.id, student.schoolId, undefined, 'qa1');
+  //     const qa2Results = await this.getClassResults(student.class.id, student.schoolId, undefined, 'qa2');
+  //     const endTermResults = await this.getClassResults(student.class.id, student.schoolId, undefined, 'endOfTerm');
+
+  //     // Find this specific student in the live ranked lists
+  //     const overallData = overallResults.find(s => s.examNumber === examNumber);
+  //     const qa1Data = qa1Results.find(s => s.examNumber === examNumber);
+  //     const qa2Data = qa2Results.find(s => s.examNumber === examNumber);
+  //     const endTermData = endTermResults.find(s => s.examNumber === examNumber);
+
+  //     // 3. Attach all ranks to the response object
+  //     response.ranks = {
+  //       overall: overallData?.rank || null,
+  //       qa1: qa1Data?.rank || null,
+  //       qa2: qa2Data?.rank || null,
+  //       endOfTerm: endTermData?.rank || null
+  //     };
+
+  //     // Override the main classRank with the overall rank as a fallback
+  //     response.classRank = overallData?.rank || response.classRank;
+  //   }
+
+  //   return response;
+  // }
+
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
       .createQueryBuilder('student')
@@ -71,28 +120,32 @@ export class StudentsService {
 
     // 2. Calculate the live ranks for ALL assessment types
     if (student.class?.id) {
-      // 🔴 FIX: Notice the 'undefined' added here so the assessmentType goes to the 4th parameter!
-      const overallResults = await this.getClassResults(student.class.id, student.schoolId, undefined, 'overall');
-      const qa1Results = await this.getClassResults(student.class.id, student.schoolId, undefined, 'qa1');
+      // 🔴 ADD DEBUGGING HERE
+      console.log(`Getting class results for class ${student.class.id}`);
+
       const qa2Results = await this.getClassResults(student.class.id, student.schoolId, undefined, 'qa2');
-      const endTermResults = await this.getClassResults(student.class.id, student.schoolId, undefined, 'endOfTerm');
 
-      // Find this specific student in the live ranked lists
-      const overallData = overallResults.find(s => s.examNumber === examNumber);
-      const qa1Data = qa1Results.find(s => s.examNumber === examNumber);
+      // 🔴 LOG THE FULL RESULTS
+      console.log('QA2 Results:', JSON.stringify(qa2Results.map(s => ({
+        name: s.name,
+        examNumber: s.examNumber,
+        rank: s.rank,
+        qa2Average: s.qa2Average
+      })), null, 2));
+
       const qa2Data = qa2Results.find(s => s.examNumber === examNumber);
-      const endTermData = endTermResults.find(s => s.examNumber === examNumber);
+      console.log('Found student in QA2 results:', qa2Data);
 
-      // 3. Attach all ranks to the response object
-      response.ranks = {
-        overall: overallData?.rank || null,
-        qa1: qa1Data?.rank || null,
-        qa2: qa2Data?.rank || null,
-        endOfTerm: endTermData?.rank || null
-      };
-
-      // Override the main classRank with the overall rank as a fallback
-      response.classRank = overallData?.rank || response.classRank;
+      // 🔴 MANUALLY OVERRIDE THE QA2 RANK
+      if (qa2Data && qa2Data.rank) {
+        response.qa2Rank = qa2Data.rank;
+        if (response.ranks) {
+          response.ranks.qa2 = qa2Data.rank;
+        }
+        if (response.assessmentStats?.qa2) {
+          response.assessmentStats.qa2.classRank = qa2Data.rank;
+        }
+      }
     }
 
     return response;
