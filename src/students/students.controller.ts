@@ -245,6 +245,7 @@ export class ClassesController {
       term: string;
       assessmentType: 'qa1' | 'qa2' | 'endOfTerm'; // Add this
       lock: boolean;
+      lockReason: 'fee' | 'teacher'; // ADD THIS
       studentIds?: string[]; // Add this - optional array of student IDs
     },
     @Query('schoolId') schoolId?: string
@@ -254,6 +255,7 @@ export class ClassesController {
       body.term,
       body.assessmentType, // Pass this
       body.lock,
+      body.lockReason, // ADD THIS
       body.studentIds // Pass this
     );
   }

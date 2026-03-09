@@ -37,6 +37,9 @@ export class Assessment {
     @ManyToOne(() => Class, (cls) => cls.assessments, { onDelete: 'CASCADE' })
     class: Class; // ADD THIS LINE
 
+    @Column({ nullable: true })
+    lock_reason: string; // 'fee' or ' 'teacher'
+
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
 
