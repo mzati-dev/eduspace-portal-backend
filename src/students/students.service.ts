@@ -2180,8 +2180,8 @@ export class StudentsService {
       .createQueryBuilder('archive');
 
     if (schoolId) {
-      // Join with class to filter by schoolId
-      query.innerJoin('class', 'class', 'class.id = archive.classId')
+      // Join with the 'classes' table using the actual table name
+      query.innerJoin('classes', 'class', 'class.id = archive.classId')
         .andWhere('class.schoolId = :schoolId', { schoolId });
     }
 
