@@ -286,4 +286,30 @@ export class ClassesController {
   async sendReportWhatsApp(@Param('archiveId') archiveId: string) {
     return this.studentsService.sendReportViaWhatsApp(archiveId);
   }
+  @Post('generate-report-cards')
+  async generateReportCards(
+    @Body() body: { classId: string; term: string; assessmentType: 'qa1' | 'qa2' | 'endOfTerm' }
+  ) {
+    // This generates and returns the report cards WITHOUT saving them
+    return this.studentsService.generateStudentReportCards(
+      body.classId,
+      body.term,
+      body.assessmentType
+    );
+  }
+
+  @Get('preview-report-cards/:classId')
+  async previewReportCards(
+    @Param('classId') classId: string,
+    @Query('term') term: string,
+    @Query('assessmentType') assessmentType: 'qa1' | 'qa2' | 'endOfTerm'
+  ) {
+    // Preview report cards for a class (GET version for quick preview)
+    return this.studentsService.generateStudentReportCards(
+      classId,
+      term,
+      assessmentType
+    );
+  }
+
 }

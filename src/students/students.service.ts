@@ -1900,56 +1900,253 @@ export class StudentsService {
     });
   }
 
-  // In students.service.ts
-  async archiveStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
-    const students = await this.studentRepository.find({
-      where: { class: { id: classId } },
-      relations: ['assessments', 'assessments.subject', 'reportCards']
+
+  // ====================== REPORT CARD GENERATION HELPERS ======================
+
+  private calculateAverageForType(subjects: any[], type: 'qa1' | 'qa2' | 'endOfTerm'): number {
+    const validSubjects = subjects.filter(s => {
+      const isAbsent = type === 'qa1' ? s.qa1_absent :
+        type === 'qa2' ? s.qa2_absent :
+          s.endOfTerm_absent;
+      const score = s[type];
+      return !isAbsent && score !== null && score !== undefined && typeof score === 'number';
     });
 
-    const archives: StudentReportArchive[] = []; // 👈 FIXED: Explicitly typed
+    if (validSubjects.length === 0) return 0;
 
+    const total = validSubjects.reduce((sum, s) => sum + (s[type] as number), 0);
+    return total / validSubjects.length;
+  }
+
+  private calculateFinalScoreForReportCard(subject: any, gradeConfig: any): number {
+    const qa1 = subject.qa1 || 0;
+    const qa2 = subject.qa2 || 0;
+    const endOfTerm = subject.endOfTerm || 0;
+
+    const qa1Absent = subject.qa1_absent || false;
+    const qa2Absent = subject.qa2_absent || false;
+    const endOfTermAbsent = subject.endOfTerm_absent || false;
+
+    if (endOfTermAbsent) return 0;
+
+    switch (gradeConfig?.calculation_method) {
+      case 'average_all':
+        let total = 0;
+        let count = 0;
+        if (!qa1Absent) { total += qa1; count++; }
+        if (!qa2Absent) { total += qa2; count++; }
+        if (!endOfTermAbsent) { total += endOfTerm; count++; }
+        return count > 0 ? total / count : 0;
+
+      case 'end_of_term_only':
+        return endOfTermAbsent ? 0 : endOfTerm;
+
+      case 'weighted_average':
+        let weightedTotal = 0;
+        let weightTotal = 0;
+        if (!qa1Absent) {
+          weightedTotal += qa1 * (gradeConfig.weight_qa1 || 0);
+          weightTotal += gradeConfig.weight_qa1 || 0;
+        }
+        if (!qa2Absent) {
+          weightedTotal += qa2 * (gradeConfig.weight_qa2 || 0);
+          weightTotal += gradeConfig.weight_qa2 || 0;
+        }
+        if (!endOfTermAbsent) {
+          weightedTotal += endOfTerm * (gradeConfig.weight_end_of_term || 0);
+          weightTotal += gradeConfig.weight_end_of_term || 0;
+        }
+        return weightTotal > 0 ? weightedTotal / weightTotal : 0;
+
+      default:
+        return (qa1 + qa2 + endOfTerm) / 3;
+    }
+  }
+
+  async generateStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
+    console.log(`--- GENERATING REPORT CARDS FOR CLASS ${classId}, TERM ${term}, TYPE ${assessmentType} ---`);
+
+    // 1. Get all students in the class with their assessments and report cards
+    const students = await this.studentRepository.find({
+      where: { class: { id: classId } },
+      relations: ['assessments', 'assessments.subject', 'reportCards', 'class']
+    });
+
+    if (students.length === 0) {
+      return { message: 'No students found in this class' };
+    }
+
+    const activeGradeConfig = await this.getActiveGradeConfiguration(
+      students[0]?.class?.schoolId
+    );
+
+    // FIX: Explicitly type the array
+    const generatedReports: any[] = [];
+
+    // 2. For each student, generate their report card data matching StudentData interface
     for (const student of students) {
       const reportCard = student.reportCards?.find(rc => rc.term === term);
-      if (!reportCard) continue;
+
+      // Group assessments by subject
+      const subjectMap = new Map();
+
+      // Get all subjects (including those with no scores)
+      const allSubjects = await this.subjectRepository.find();
+
+      // Initialize all subjects with empty values
+      allSubjects.forEach(subject => {
+        subjectMap.set(subject.name, {
+          name: subject.name,
+          qa1: null,
+          qa2: null,
+          endOfTerm: null,
+          qa1_absent: false,
+          qa2_absent: false,
+          endOfTerm_absent: false,
+          grade: 'N/A'
+        });
+      });
+
+      // Fill in actual assessment data
+      student.assessments.forEach(asm => {
+        const subjectName = asm.subject?.name || 'Unknown';
+        if (subjectMap.has(subjectName)) {
+          const subject = subjectMap.get(subjectName);
+
+          if (asm.assessmentType === 'qa1') {
+            subject.qa1 = asm.score;
+            subject.qa1_absent = asm.isAbsent || false;
+          } else if (asm.assessmentType === 'qa2') {
+            subject.qa2 = asm.score;
+            subject.qa2_absent = asm.isAbsent || false;
+          } else if (asm.assessmentType === 'end_of_term') {
+            subject.endOfTerm = asm.score;
+            subject.endOfTerm_absent = asm.isAbsent || false;
+          }
+        }
+      });
+
+      // Calculate final scores for each subject
+      subjectMap.forEach(subject => {
+        subject.finalScore = this.calculateFinalScoreForReportCard(subject, activeGradeConfig);
+        subject.grade = this.calculateGrade(subject.finalScore, activeGradeConfig, subject.endOfTerm_absent);
+      });
+
+      const subjects = Array.from(subjectMap.values());
+
+      // Calculate averages for each assessment type
+      const qa1Average = this.calculateAverageForType(subjects, 'qa1');
+      const qa2Average = this.calculateAverageForType(subjects, 'qa2');
+      const endOfTermAverage = this.calculateAverageForType(subjects, 'endOfTerm');
+
+      // Calculate overall average using grade configuration
+      let overallAverage = this.calculateFinalScore(
+        { qa1: qa1Average, qa2: qa2Average, endOfTerm: endOfTermAverage },
+        activeGradeConfig
+      );
+
+      // Build the complete StudentData object
+      const studentData: any = {
+        id: student.id,
+        name: student.name,
+        examNumber: student.examNumber,
+        class: student.class?.name || 'Unknown',
+        term: term,
+        academicYear: student.class?.academic_year || '2024/2025',
+        photo: student.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+
+        subjects: subjects,
+
+        attendance: {
+          present: reportCard?.daysPresent || 0,
+          absent: reportCard?.daysAbsent || 0,
+          late: reportCard?.daysLate || 0
+        },
+
+        classRank: reportCard?.classRank || 0,
+        qa1Rank: reportCard?.qa1Rank || 0,
+        qa2Rank: reportCard?.qa2Rank || 0,
+        totalStudents: students.length,
+        teacherRemarks: reportCard?.teacherRemarks || 'No remarks available.',
+
+        assessmentStats: {
+          qa1: {
+            classRank: reportCard?.qa1Rank || 0,
+            termAverage: parseFloat(qa1Average.toFixed(1)),
+            overallGrade: this.calculateGrade(qa1Average, activeGradeConfig)
+          },
+          qa2: {
+            classRank: reportCard?.qa2Rank || 0,
+            termAverage: parseFloat(qa2Average.toFixed(1)),
+            overallGrade: this.calculateGrade(qa2Average, activeGradeConfig)
+          },
+          endOfTerm: {
+            classRank: reportCard?.classRank || 0,
+            termAverage: parseFloat(endOfTermAverage.toFixed(1)),
+            overallGrade: this.calculateGrade(endOfTermAverage, activeGradeConfig),
+            attendance: {
+              present: reportCard?.daysPresent || 0,
+              absent: reportCard?.daysAbsent || 0,
+              late: reportCard?.daysLate || 0
+            }
+          },
+          overall: {
+            termAverage: parseFloat(overallAverage.toFixed(1)),
+            calculationMethod: activeGradeConfig?.calculation_method || 'average_all'
+          }
+        },
+
+        gradeConfiguration: {
+          configuration_name: activeGradeConfig?.configuration_name || 'Default',
+          calculation_method: activeGradeConfig?.calculation_method || 'average_all',
+          weight_qa1: activeGradeConfig?.weight_qa1 || 33.33,
+          weight_qa2: activeGradeConfig?.weight_qa2 || 33.33,
+          weight_end_of_term: activeGradeConfig?.weight_end_of_term || 33.34,
+          pass_mark: activeGradeConfig?.pass_mark || 50
+        }
+      };
+
+      generatedReports.push(studentData);
+    }
+
+    return generatedReports;
+  }
+
+  // In students.service.ts
+  async archiveStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
+    // First generate the report cards matching your frontend structure
+    const result = await this.generateStudentReportCards(classId, term, assessmentType);
+
+    // Check if we got a message (no students found)
+    if ('message' in result) {
+      return { message: result.message, archives: [] };
+    }
+
+    // Now TypeScript knows result is an array of report cards
+    const reportCards = result as any[]; // Type assertion to avoid 'never' error
+    const archives: StudentReportArchive[] = [];
+
+    for (const reportCard of reportCards) {
+      const student = await this.studentRepository.findOne({
+        where: { id: reportCard.id }
+      });
 
       const archive = this.studentReportArchiveRepository.create({
-        studentId: student.id,
-        studentName: student.name,
-        examNumber: student.examNumber,
+        studentId: reportCard.id,
+        studentName: reportCard.name,
+        examNumber: reportCard.examNumber,
         classId,
         term,
         assessmentType,
-        parentEmail: student.parentEmail,
-        parentPhone: student.parentPhone,
-        whatsappNumber: student.whatsappNumber,
-        reportCardData: {
-          classRank: reportCard.classRank,
-          qa1Rank: reportCard.qa1Rank,
-          qa2Rank: reportCard.qa2Rank,
-          totalStudents: reportCard.totalStudents,
-          attendance: {
-            present: reportCard.daysPresent,
-            absent: reportCard.daysAbsent,
-            late: reportCard.daysLate
-          },
-          teacherRemarks: reportCard.teacherRemarks,
-          overallAverage: reportCard.overallAverage,
-          overallGrade: reportCard.overallGrade,
-          subjects: student.assessments
-            .filter(a => a.assessmentType === assessmentType)
-            .map(a => ({
-              subjectName: a.subject.name,
-              score: a.score,
-              grade: a.grade,
-              isAbsent: a.isAbsent
-            }))
-        },
+        parentEmail: student?.parentEmail,
+        parentPhone: student?.parentPhone,
+        whatsappNumber: student?.whatsappNumber,
+        reportCardData: reportCard, // Now stores the complete StudentData object
         archivedAt: new Date()
       });
 
       const savedArchive = await this.studentReportArchiveRepository.save(archive);
-      archives.push(savedArchive); // Now works because archives is typed as StudentReportArchive[]
+      archives.push(savedArchive);
     }
 
     return archives;
