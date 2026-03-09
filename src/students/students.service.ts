@@ -71,6 +71,30 @@ export class StudentsService {
       throw new NotFoundException(`Student ${examNumber} not found`);
     }
 
+    // Check if any assessments are locked for this student
+    const lockedAssessments = await this.assessmentRepository.find({
+      where: {
+        student: { id: student.id },
+        is_locked: true
+      }
+    });
+
+    if (lockedAssessments.length > 0) {
+      return {
+        id: student.id,
+        name: student.name,
+        examNumber: student.examNumber,
+        class: student.class?.name || 'Unknown',
+        term: student.class?.term || 'Term 1, 2024/2025',
+        academicYear: student.class?.academic_year || '2024/2025',
+        photo: student.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+        resultsLocked: true,
+        message: "Results Locked - Please contact the school administration",
+        subjects: [],
+        attendance: { present: 0, absent: 0, late: 0 }
+      };
+    }
+
     const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
 
     // Get the formatted student data
@@ -116,6 +140,67 @@ export class StudentsService {
 
     return studentData;
   }
+
+  // async findByExamNumber(examNumber: string, schoolId?: string) {
+  //   const query = this.studentRepository
+  //     .createQueryBuilder('student')
+  //     .leftJoinAndSelect('student.assessments', 'assessments')
+  //     .leftJoinAndSelect('assessments.subject', 'subject')
+  //     .leftJoinAndSelect('student.reportCards', 'reportCards')
+  //     .leftJoinAndSelect('student.class', 'class')
+  //     .where('student.examNumber = :examNumber', { examNumber: examNumber })
+
+  //   const student = await query.getOne();
+
+  //   if (!student) {
+  //     throw new NotFoundException(`Student ${examNumber} not found`);
+  //   }
+
+  //   const activeGradeConfig = await this.getActiveGradeConfiguration(student.schoolId);
+
+  //   // Get the formatted student data
+  //   const studentData = this.formatStudentData(student, activeGradeConfig);
+
+  //   // Get report card for current term
+  //   const currentTerm = student.class?.term;
+  //   const reportCard = student.reportCards?.find(rc => rc.term === currentTerm);
+
+  //   // If no report card or nothing published, return empty data
+  //   if (!reportCard || (!reportCard.qa1_published && !reportCard.qa2_published && !reportCard.endOfTerm_published)) {
+  //     return {
+  //       ...studentData,
+  //       subjects: [],
+  //       message: "No results have been published yet"
+  //     };
+  //   }
+
+  //   // Filter subjects based on published status
+  //   studentData.subjects = studentData.subjects.map(subject => {
+  //     const filteredSubject = { ...subject };
+
+  //     // Hide QA1 if not published
+  //     if (!reportCard.qa1_published) {
+  //       filteredSubject.qa1 = null;
+  //       filteredSubject.qa1_absent = false;
+  //     }
+
+  //     // Hide QA2 if not published
+  //     if (!reportCard.qa2_published) {
+  //       filteredSubject.qa2 = null;
+  //       filteredSubject.qa2_absent = false;
+  //     }
+
+  //     // Hide End of Term if not published
+  //     if (!reportCard.endOfTerm_published) {
+  //       filteredSubject.endOfTerm = null;
+  //       filteredSubject.endOfTerm_absent = false;
+  //     }
+
+  //     return filteredSubject;
+  //   });
+
+  //   return studentData;
+  // }
 
   // async findByExamNumber(examNumber: string, schoolId?: string) {
   //   const query = this.studentRepository
@@ -1846,7 +1931,34 @@ export class StudentsService {
     return { message: `Assessment ${publish ? 'published' : 'unpublished'} successfully` };
   }
 
-  async lockResults(classId: string, term: string, lock: boolean) {
+  // async lockResults(classId: string, term: string, lock: boolean) {
+  //   // First, get the class to verify term matches
+  //   const classEntity = await this.classRepository.findOne({
+  //     where: { id: classId, term: term }
+  //   });
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException('Class not found for this term');
+  //   }
+
+  //   // Update assessments by class ID only (term is on the class)
+  //   await this.assessmentRepository.update(
+  //     {
+  //       class: { id: classId }
+  //     },
+  //     { is_locked: lock } // You need to add is_locked column to Assessment entity first
+  //   );
+
+  //   return { message: `Results ${lock ? 'locked' : 'unlocked'} successfully` };
+  // }
+
+  async lockResults(
+    classId: string,
+    term: string,
+    assessmentType: 'qa1' | 'qa2' | 'endOfTerm',
+    lock: boolean,
+    studentIds?: string[] // Add this parameter - if empty array, lock all students
+  ) {
     // First, get the class to verify term matches
     const classEntity = await this.classRepository.findOne({
       where: { id: classId, term: term }
@@ -1856,15 +1968,26 @@ export class StudentsService {
       throw new NotFoundException('Class not found for this term');
     }
 
-    // Update assessments by class ID only (term is on the class)
-    await this.assessmentRepository.update(
-      {
-        class: { id: classId }
-      },
-      { is_locked: lock } // You need to add is_locked column to Assessment entity first
-    );
+    // Build the query
+    const queryBuilder = this.assessmentRepository
+      .createQueryBuilder()
+      .update(Assessment)
+      .set({ is_locked: lock })
+      .where('classId = :classId', { classId })
+      .andWhere('assessmentType = :assessmentType', { assessmentType });
 
-    return { message: `Results ${lock ? 'locked' : 'unlocked'} successfully` };
+    // If specific student IDs are provided, lock only those students
+    if (studentIds && studentIds.length > 0) {
+      queryBuilder.andWhere('studentId IN (:...studentIds)', { studentIds });
+    }
+
+    const result = await queryBuilder.execute();
+
+    return {
+      message: `Results ${lock ? 'locked' : 'unlocked'} successfully for ${assessmentType}`,
+      studentCount: studentIds?.length || 'all',
+      affectedCount: result.affected
+    };
   }
 
   async archiveTermResults(classId: string, term: string, academicYear: string) {

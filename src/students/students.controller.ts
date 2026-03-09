@@ -230,12 +230,32 @@ export class ClassesController {
     return this.studentsService.publishAssessment(body.classId, body.term, body.assessmentType, body.publish);
   }
 
+  // @Post('lock-results')
+  // async lockResults(
+  //   @Body() body: { classId: string; term: string; lock: boolean },
+  //   @Query('schoolId') schoolId?: string
+  // ) {
+  //   return this.studentsService.lockResults(body.classId, body.term, body.lock);
+  // }
+
   @Post('lock-results')
   async lockResults(
-    @Body() body: { classId: string; term: string; lock: boolean },
+    @Body() body: {
+      classId: string;
+      term: string;
+      assessmentType: 'qa1' | 'qa2' | 'endOfTerm'; // Add this
+      lock: boolean;
+      studentIds?: string[]; // Add this - optional array of student IDs
+    },
     @Query('schoolId') schoolId?: string
   ) {
-    return this.studentsService.lockResults(body.classId, body.term, body.lock);
+    return this.studentsService.lockResults(
+      body.classId,
+      body.term,
+      body.assessmentType, // Pass this
+      body.lock,
+      body.studentIds // Pass this
+    );
   }
 
   @Post('archive-results')
