@@ -311,5 +311,13 @@ export class ClassesController {
       assessmentType
     );
   }
+  @Get('student-report-archives')
+  async getStudentReportArchives(
+    @Query('classId') classId?: string,
+    @Query('term') term?: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    return this.studentsService.getStudentReportArchives(classId, term, schoolId);
+  }
 
 }

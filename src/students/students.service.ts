@@ -2175,5 +2175,27 @@ export class StudentsService {
       console.log(`Queued report for ${archive.studentName}`);
     }
   }
+  async getStudentReportArchives(classId?: string, term?: string, schoolId?: string) {
+    const query = this.studentReportArchiveRepository
+      .createQueryBuilder('archive');
+
+    if (schoolId) {
+      // Join with class to filter by schoolId
+      query.innerJoin('class', 'class', 'class.id = archive.classId')
+        .andWhere('class.schoolId = :schoolId', { schoolId });
+    }
+
+    if (classId) {
+      query.andWhere('archive.classId = :classId', { classId });
+    }
+
+    if (term) {
+      query.andWhere('archive.term = :term', { term });
+    }
+
+    query.orderBy('archive.archivedAt', 'DESC');
+
+    return query.getMany();
+  }
 
 }
