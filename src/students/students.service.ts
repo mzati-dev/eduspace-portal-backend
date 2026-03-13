@@ -2164,6 +2164,40 @@ export class StudentsService {
   //   return { message: 'Results archived successfully' };
   // }
 
+  // async archiveTermResults(classId: string, term: string, academicYear: string) {
+  //   // First, get the class entity
+  //   const classEntity = await this.classRepository.findOne({
+  //     where: { id: classId }
+  //   });
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class with ID ${classId} not found`);
+  //   }
+
+  //   // Get the results
+  //   const results = await this.getClassResults(classId, undefined, undefined, 'overall');
+
+  //   // Create archive record with both class relation and classId
+  //   const archive = this.archiveRepository.create({
+  //     class: classEntity, // Set the relation
+  //     classId: classId,   // Set the foreign key
+  //     term,
+  //     academicYear,
+  //     results: results,
+  //     archivedAt: new Date(),
+  //     is_published: false,
+  //     locked_by_admin: false
+  //   });
+
+  //   const savedArchive = await this.archiveRepository.save(archive);
+  //   console.log('Archive saved successfully:', savedArchive.id);
+
+  //   return {
+  //     message: 'Results archived successfully',
+  //     archive: savedArchive
+  //   };
+  // }
+
   async archiveTermResults(classId: string, term: string, academicYear: string) {
     // First, get the class entity
     const classEntity = await this.classRepository.findOne({
@@ -2174,23 +2208,40 @@ export class StudentsService {
       throw new NotFoundException(`Class with ID ${classId} not found`);
     }
 
-    // Get the results
-    const results = await this.getClassResults(classId, undefined, undefined, 'overall');
+    // Get results for ALL assessment types
+    const [overallResults, qa1Results, qa2Results, endOfTermResults] = await Promise.all([
+      this.getClassResults(classId, undefined, undefined, 'overall'),
+      this.getClassResults(classId, undefined, undefined, 'qa1'),
+      this.getClassResults(classId, undefined, undefined, 'qa2'),
+      this.getClassResults(classId, undefined, undefined, 'endOfTerm')
+    ]);
 
-    // Create archive record with both class relation and classId
+    // Create archive record with all results
     const archive = this.archiveRepository.create({
-      class: classEntity, // Set the relation
-      classId: classId,   // Set the foreign key
+      class: classEntity,
+      classId: classId,
       term,
       academicYear,
-      results: results,
+      results: {
+        overall: overallResults,
+        qa1: qa1Results,
+        qa2: qa2Results,
+        endOfTerm: endOfTermResults,
+        metadata: {
+          archivedAt: new Date(),
+          term,
+          academicYear,
+          className: classEntity.name,
+          totalStudents: overallResults?.length || 0
+        }
+      },
       archivedAt: new Date(),
       is_published: false,
       locked_by_admin: false
     });
 
     const savedArchive = await this.archiveRepository.save(archive);
-    console.log('Archive saved successfully:', savedArchive.id);
+    console.log('Archive saved successfully with all assessment types:', savedArchive.id);
 
     return {
       message: 'Results archived successfully',
