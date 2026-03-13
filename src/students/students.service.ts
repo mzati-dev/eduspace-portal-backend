@@ -2146,22 +2146,56 @@ export class StudentsService {
     };
   }
 
+  // async archiveTermResults(classId: string, term: string, academicYear: string) {
+  //   // Create archive record
+  //   const archive = this.archiveRepository.create({
+  //     classId,
+  //     term,
+  //     academicYear,
+  //     results: await this.getClassResults(classId, undefined, undefined, 'overall'),
+  //     archivedAt: new Date()
+  //   });
+
+  //   await this.archiveRepository.save(archive);
+
+  //   // Optional: Clear current results?
+  //   // await this.clearCurrentResults(classId, term);
+
+  //   return { message: 'Results archived successfully' };
+  // }
+
   async archiveTermResults(classId: string, term: string, academicYear: string) {
-    // Create archive record
-    const archive = this.archiveRepository.create({
-      classId,
-      term,
-      academicYear,
-      results: await this.getClassResults(classId, undefined, undefined, 'overall'),
-      archivedAt: new Date()
+    // First, get the class entity
+    const classEntity = await this.classRepository.findOne({
+      where: { id: classId }
     });
 
-    await this.archiveRepository.save(archive);
+    if (!classEntity) {
+      throw new NotFoundException(`Class with ID ${classId} not found`);
+    }
 
-    // Optional: Clear current results?
-    // await this.clearCurrentResults(classId, term);
+    // Get the results
+    const results = await this.getClassResults(classId, undefined, undefined, 'overall');
 
-    return { message: 'Results archived successfully' };
+    // Create archive record with both class relation and classId
+    const archive = this.archiveRepository.create({
+      class: classEntity, // Set the relation
+      classId: classId,   // Set the foreign key
+      term,
+      academicYear,
+      results: results,
+      archivedAt: new Date(),
+      is_published: false,
+      locked_by_admin: false
+    });
+
+    const savedArchive = await this.archiveRepository.save(archive);
+    console.log('Archive saved successfully:', savedArchive.id);
+
+    return {
+      message: 'Results archived successfully',
+      archive: savedArchive
+    };
   }
 
   // async getArchivedResults(classId: string, term: string, academicYear: string) {
