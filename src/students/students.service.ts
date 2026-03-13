@@ -2164,10 +2164,19 @@ export class StudentsService {
     return { message: 'Results archived successfully' };
   }
 
+  // async getArchivedResults(classId: string, term: string, academicYear: string) {
+  //   return this.archiveRepository.findOne({
+  //     where: { classId, term, academicYear }
+  //   });
+  // }
+
   async getArchivedResults(classId: string, term: string, academicYear: string) {
-    return this.archiveRepository.findOne({
+    const result = await this.archiveRepository.findOne({
       where: { classId, term, academicYear }
     });
+
+    // Return empty array if no results found
+    return result || [];
   }
   // async getLockedAssessments(classId: string, term: string, schoolId?: string) {
   //   return this.assessmentRepository.find({

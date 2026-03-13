@@ -268,6 +268,16 @@ export class ClassesController {
     return this.studentsService.archiveTermResults(body.classId, body.term, body.academicYear);
   }
 
+  // @Get('archived-results')
+  // async getArchivedResults(
+  //   @Query('classId') classId: string,
+  //   @Query('term') term: string,
+  //   @Query('academicYear') academicYear: string,
+  //   @Query('schoolId') schoolId?: string
+  // ) {
+  //   return this.studentsService.getArchivedResults(classId, term, academicYear);
+  // }
+
   @Get('archived-results')
   async getArchivedResults(
     @Query('classId') classId: string,
@@ -275,7 +285,9 @@ export class ClassesController {
     @Query('academicYear') academicYear: string,
     @Query('schoolId') schoolId?: string
   ) {
-    return this.studentsService.getArchivedResults(classId, term, academicYear);
+    const result = await this.studentsService.getArchivedResults(classId, term, academicYear);
+    // Always return an array
+    return result || [];
   }
 
   @Get('locked-assessments')
