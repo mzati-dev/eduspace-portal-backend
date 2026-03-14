@@ -1243,22 +1243,85 @@ export class StudentsService {
       throw new NotFoundException('No valid students found to add');
     }
 
-    // Update each student's class
+    const results = {
+      added: [] as string[],
+      skipped: [] as { student: string; reason: string }[]
+    };
+
+    // Update each student's class with term AND academic year validation
     for (const student of students) {
+      // Check if student already has a class
+      if (student.class) {
+        // Same academic year AND same term - NOT ALLOWED
+        if (student.class.academic_year === classEntity.academic_year &&
+          student.class.term === classEntity.term) {
+          results.skipped.push({
+            student: student.name,
+            reason: `Already in class ${student.class.name} for ${student.class.academic_year} ${student.class.term}`
+          });
+          continue;
+        }
+
+        // Different term or different academic year - ALLOWED
+        console.log(`Student ${student.name} moving from ${student.class.academic_year} ${student.class.term} to ${classEntity.academic_year} ${classEntity.term}`);
+      }
+
+      // Update student's class
       student.class = classEntity;
       await this.studentRepository.save(student);
+      results.added.push(student.name);
     }
 
-    // Optional: Recalculate ranks for the class if needed
-    setTimeout(async () => {
-      await this.calculateAndUpdateRanks(classId, classEntity.term, schoolId);
-    }, 100);
-
     return {
-      message: `Successfully added ${students.length} student(s) to class ${classEntity.name}`,
-      count: students.length
+      message: `Added ${results.added.length} student(s) to class ${classEntity.name}`,
+      skipped: results.skipped,
+      addedCount: results.added.length,
+      skippedCount: results.skipped.length
     };
   }
+
+  // async addStudentsToClass(classId: string, studentIds: string[], schoolId?: string) {
+  //   // First verify the class exists and belongs to this school
+  //   const classEntity = await this.classRepository.findOne({
+  //     where: {
+  //       id: classId,
+  //       ...(schoolId && { schoolId })
+  //     }
+  //   });
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException(`Class ${classId} not found in your school`);
+  //   }
+
+  //   // Get all the students to update
+  //   const students = await this.studentRepository.find({
+  //     where: {
+  //       id: In(studentIds),
+  //       ...(schoolId && { schoolId })
+  //     },
+  //     relations: ['class'] // Load current class to check
+  //   });
+
+  //   if (students.length === 0) {
+  //     throw new NotFoundException('No valid students found to add');
+  //   }
+
+  //   // Update each student's class
+  //   for (const student of students) {
+  //     student.class = classEntity;
+  //     await this.studentRepository.save(student);
+  //   }
+
+  //   // Optional: Recalculate ranks for the class if needed
+  //   setTimeout(async () => {
+  //     await this.calculateAndUpdateRanks(classId, classEntity.term, schoolId);
+  //   }, 100);
+
+  //   return {
+  //     message: `Successfully added ${students.length} student(s) to class ${classEntity.name}`,
+  //     count: students.length
+  //   };
+  // }
 
   // ===== START MODIFIED: Added schoolId parameter =====
   async getClassStudents(classId: string, schoolId?: string) {
