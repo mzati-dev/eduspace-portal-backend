@@ -222,6 +222,14 @@ export class ClassesController {
     return this.studentsService.deleteClass(id, schoolId);
   }
 
+  @Post('add-students')
+  async addStudentsToClass(
+    @Body() body: { classId: string; studentIds: string[] },
+    @Query('schoolId') schoolId?: string
+  ) {
+    return this.studentsService.addStudentsToClass(body.classId, body.studentIds, schoolId);
+  }
+
   @Post('publish-assessment')
   async publishAssessment(
     @Body() body: { classId: string; term: string; assessmentType: 'qa1' | 'qa2' | 'endOfTerm'; publish: boolean },

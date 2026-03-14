@@ -1217,6 +1217,49 @@ export class StudentsService {
   }
   // ===== END MODIFIED =====
 
+  async addStudentsToClass(classId: string, studentIds: string[], schoolId?: string) {
+    // First verify the class exists and belongs to this school
+    const classEntity = await this.classRepository.findOne({
+      where: {
+        id: classId,
+        ...(schoolId && { schoolId })
+      }
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${classId} not found in your school`);
+    }
+
+    // Get all the students to update
+    const students = await this.studentRepository.find({
+      where: {
+        id: In(studentIds),
+        ...(schoolId && { schoolId })
+      },
+      relations: ['class'] // Load current class to check
+    });
+
+    if (students.length === 0) {
+      throw new NotFoundException('No valid students found to add');
+    }
+
+    // Update each student's class
+    for (const student of students) {
+      student.class = classEntity;
+      await this.studentRepository.save(student);
+    }
+
+    // Optional: Recalculate ranks for the class if needed
+    setTimeout(async () => {
+      await this.calculateAndUpdateRanks(classId, classEntity.term, schoolId);
+    }, 100);
+
+    return {
+      message: `Successfully added ${students.length} student(s) to class ${classEntity.name}`,
+      count: students.length
+    };
+  }
+
   // ===== START MODIFIED: Added schoolId parameter =====
   async getClassStudents(classId: string, schoolId?: string) {
     const query = this.classRepository
@@ -2045,64 +2088,6 @@ export class StudentsService {
     return { message: `Assessment ${publish ? 'published' : 'unpublished'} successfully` };
   }
 
-  // async lockResults(classId: string, term: string, lock: boolean) {
-  //   // First, get the class to verify term matches
-  //   const classEntity = await this.classRepository.findOne({
-  //     where: { id: classId, term: term }
-  //   });
-
-  //   if (!classEntity) {
-  //     throw new NotFoundException('Class not found for this term');
-  //   }
-
-  //   // Update assessments by class ID only (term is on the class)
-  //   await this.assessmentRepository.update(
-  //     {
-  //       class: { id: classId }
-  //     },
-  //     { is_locked: lock } // You need to add is_locked column to Assessment entity first
-  //   );
-
-  //   return { message: `Results ${lock ? 'locked' : 'unlocked'} successfully` };
-  // }
-
-  // async lockResults(
-  //   classId: string,
-  //   term: string,
-  //   assessmentType: 'qa1' | 'qa2' | 'endOfTerm',
-  //   lock: boolean,
-  //   studentIds?: string[] // Add this parameter - if empty array, lock all students
-  // ) {
-  //   // First, get the class to verify term matches
-  //   const classEntity = await this.classRepository.findOne({
-  //     where: { id: classId, term: term }
-  //   });
-
-  //   if (!classEntity) {
-  //     throw new NotFoundException('Class not found for this term');
-  //   }
-
-  //   // Build the query
-  //   const queryBuilder = this.assessmentRepository
-  //     .createQueryBuilder()
-  //     .update(Assessment)
-  //     .set({ is_locked: lock })
-  //     .where('classId = :classId', { classId })
-  //     .andWhere('assessmentType = :assessmentType', { assessmentType });
-
-  //   // If specific student IDs are provided, lock only those students
-  //   if (studentIds && studentIds.length > 0) {
-  //     queryBuilder.andWhere('studentId IN (:...studentIds)', { studentIds });
-  //   }
-
-  //   const result = await queryBuilder.execute();
-
-  //   return {
-  //     message: `Results ${lock ? 'locked' : 'unlocked'} successfully for ${assessmentType}`,
-  //     studentCount: studentIds?.length || 'all',
-  //     affectedCount: result.affected
-  //   };
-  // }
 
   async lockResults(
     classId: string,
@@ -2145,58 +2130,6 @@ export class StudentsService {
       affectedCount: result.affected
     };
   }
-
-  // async archiveTermResults(classId: string, term: string, academicYear: string) {
-  //   // Create archive record
-  //   const archive = this.archiveRepository.create({
-  //     classId,
-  //     term,
-  //     academicYear,
-  //     results: await this.getClassResults(classId, undefined, undefined, 'overall'),
-  //     archivedAt: new Date()
-  //   });
-
-  //   await this.archiveRepository.save(archive);
-
-  //   // Optional: Clear current results?
-  //   // await this.clearCurrentResults(classId, term);
-
-  //   return { message: 'Results archived successfully' };
-  // }
-
-  // async archiveTermResults(classId: string, term: string, academicYear: string) {
-  //   // First, get the class entity
-  //   const classEntity = await this.classRepository.findOne({
-  //     where: { id: classId }
-  //   });
-
-  //   if (!classEntity) {
-  //     throw new NotFoundException(`Class with ID ${classId} not found`);
-  //   }
-
-  //   // Get the results
-  //   const results = await this.getClassResults(classId, undefined, undefined, 'overall');
-
-  //   // Create archive record with both class relation and classId
-  //   const archive = this.archiveRepository.create({
-  //     class: classEntity, // Set the relation
-  //     classId: classId,   // Set the foreign key
-  //     term,
-  //     academicYear,
-  //     results: results,
-  //     archivedAt: new Date(),
-  //     is_published: false,
-  //     locked_by_admin: false
-  //   });
-
-  //   const savedArchive = await this.archiveRepository.save(archive);
-  //   console.log('Archive saved successfully:', savedArchive.id);
-
-  //   return {
-  //     message: 'Results archived successfully',
-  //     archive: savedArchive
-  //   };
-  // }
 
   async archiveTermResults(classId: string, term: string, academicYear: string) {
     // First, get the class entity
@@ -2249,11 +2182,6 @@ export class StudentsService {
     };
   }
 
-  // async getArchivedResults(classId: string, term: string, academicYear: string) {
-  //   return this.archiveRepository.findOne({
-  //     where: { classId, term, academicYear }
-  //   });
-  // }
 
   async getArchivedResults(classId: string, term: string, academicYear: string) {
     const result = await this.archiveRepository.findOne({
@@ -2263,15 +2191,7 @@ export class StudentsService {
     // Return empty array if no results found
     return result || [];
   }
-  // async getLockedAssessments(classId: string, term: string, schoolId?: string) {
-  //   return this.assessmentRepository.find({
-  //     where: {
-  //       class: { id: classId },
-  //       is_locked: true
-  //     },
-  //     relations: ['student', 'subject']
-  //   });
-  // }
+
 
   async getLockedAssessments(classId: string, term: string, schoolId?: string) {
     return this.assessmentRepository.find({
