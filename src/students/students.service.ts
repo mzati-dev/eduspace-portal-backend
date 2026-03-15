@@ -11,6 +11,7 @@ import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.
 import { TeachersService } from '../teachers/teachers.service';
 import { Archive } from './entities/archive.entity';
 import { StudentReportArchive } from './entities/student-report-archive.entity';
+import bcrypt from 'bcryptjs/umd/types';
 
 @Injectable()
 export class StudentsService {
@@ -241,6 +242,10 @@ export class StudentsService {
 
   //   return studentData;
   // }
+  private async hashPassword(password: string): Promise<string> {
+    const saltRounds = 10;
+    return bcrypt.hash(password, saltRounds);
+  }
 
   async findByExamNumber(examNumber: string, schoolId?: string) {
     const query = this.studentRepository
@@ -605,6 +610,21 @@ export class StudentsService {
       throw new NotFoundException(`Class ${studentData.class_id} not found in your school`);
     }
 
+    // START NEW CODE: Check if parent phone already exists
+    if (studentData.parent_phone) {
+      const existingParent = await this.studentRepository.findOne({
+        where: {
+          parentPhone: studentData.parent_phone,
+          ...(schoolId && { schoolId })
+        }
+      });
+
+      if (existingParent) {
+        throw new ConflictException(`Parent phone number ${studentData.parent_phone} is already registered to student ${existingParent.name} (${existingParent.examNumber})`);
+      }
+    }
+    // END NEW CODE
+
     const currentYear = new Date().getFullYear().toString().slice(-2);
     const classNumberMatch = classEntity.name.match(/\d+/);
     const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
@@ -630,13 +650,39 @@ export class StudentsService {
 
     const examNumber = `${schoolId ? schoolId.substring(0, 3) : 'SCH'}-${currentYear}-${classNumber}${nextNumber.toString().padStart(3, '0')}`;
 
+    // START NEW CODE: Hash password only if provided
+    let hashedPassword: string | undefined = undefined;
+    if (studentData.parent_password) {
+      hashedPassword = await this.hashPassword(studentData.parent_password);
+    }
+    // END NEW CODE
+
     const student = this.studentRepository.create({
       name: studentData.name,
       examNumber: examNumber,
       class: classEntity,
       photoUrl: studentData.photo_url,
       schoolId: schoolId,
+
+      // NEW FIELDS FROM FRONTEND FORM
+      emisCode: studentData.emis_code,
+      parentName: studentData.parent_name,
+      parentPhone: studentData.parent_phone,
+      parentEmail: studentData.parent_email,
+      whatsappNumber: studentData.parent_phone, // Using parent_phone for WhatsApp
+      parentNationalId: studentData.parent_national_id,
+      parentRelationship: studentData.parent_relationship,
+      parentAlternatePhone: studentData.parent_alternate_phone,
+      parentAddress: studentData.parent_address,
+      parentOccupation: studentData.parent_occupation,
+      preferredContact: studentData.preferred_contact,
+      emergencyContactName: studentData.emergency_contact_name,
+      emergencyContactPhone: studentData.emergency_contact_phone,
+      emergencyContactRelationship: studentData.emergency_contact_relationship,
+      parentPassword: hashedPassword, // Use hashed password
+      sendCredentials: studentData.send_credentials || false,
     });
+    // END NEW CODE
 
     return this.studentRepository.save(student);
   }
@@ -659,7 +705,41 @@ export class StudentsService {
       throw new NotFoundException(`Student ${id} not found`);
     }
 
-    const allowedUpdates = ['name', 'photoUrl'];
+    // START NEW CODE: Check if parent phone is being updated and already exists
+    if (updates.parent_phone && updates.parent_phone !== student.parentPhone) {
+      const existingParent = await this.studentRepository.findOne({
+        where: {
+          parentPhone: updates.parent_phone,
+          ...(schoolId && { schoolId })
+        }
+      });
+
+      if (existingParent && existingParent.id !== id) {
+        throw new ConflictException(`Parent phone number ${updates.parent_phone} is already registered to student ${existingParent.name} (${existingParent.examNumber})`);
+      }
+    }
+    // END NEW CODE
+
+    const allowedUpdates = [
+      'name',
+      'photoUrl',
+      'emisCode',
+      'parentName',
+      'parentPhone',
+      'parentEmail',
+      'whatsappNumber',
+      'parentNationalId',
+      'parentRelationship',
+      'parentAlternatePhone',
+      'parentAddress',
+      'parentOccupation',
+      'preferredContact',
+      'emergencyContactName',
+      'emergencyContactPhone',
+      'emergencyContactRelationship',
+      'sendCredentials'
+
+    ];
 
     if (updates.class_id) {
       const classEntity = await this.classRepository.findOne({
@@ -675,9 +755,43 @@ export class StudentsService {
       student.class = classEntity;
     }
 
-    allowedUpdates.forEach(field => {
-      if (updates[field] !== undefined) {
-        student[field] = updates[field];
+    // START NEW CODE: Handle password separately with hashing
+    if (updates.parent_password) {
+      student.parentPassword = await this.hashPassword(updates.parent_password);
+    }
+    // END NEW CODE
+
+
+    // Map form fields to entity fields - USE THIS APPROACH, not allowedUpdates.forEach
+    const fieldMapping = {
+      name: 'name',
+      photo_url: 'photoUrl',
+      emis_code: 'emisCode',
+      parent_name: 'parentName',
+      parent_phone: 'parentPhone',
+      parent_email: 'parentEmail',
+      whatsapp_number: 'whatsappNumber',
+      parent_national_id: 'parentNationalId',
+      parent_relationship: 'parentRelationship',
+      parent_alternate_phone: 'parentAlternatePhone',
+      parent_address: 'parentAddress',
+      parent_occupation: 'parentOccupation',
+      preferred_contact: 'preferredContact',
+      emergency_contact_name: 'emergencyContactName',
+      emergency_contact_phone: 'emergencyContactPhone',
+      emergency_contact_relationship: 'emergencyContactRelationship',
+      send_credentials: 'sendCredentials'
+    };
+
+    // allowedUpdates.forEach(field => {
+    //   if (updates[field] !== undefined) {
+    //     student[field] = updates[field];
+    //   }
+    // });
+    Object.keys(fieldMapping).forEach(formField => {
+      const entityField = fieldMapping[formField];
+      if (updates[formField] !== undefined) {
+        student[entityField] = updates[formField];
       }
     });
 

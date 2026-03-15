@@ -27,6 +27,48 @@ export class Student {
     @Column({ nullable: true })
     whatsappNumber?: string;
 
+    // Add these fields to your existing Student entity class
+    // Place them after the existing parentEmail, parentPhone, whatsappNumber fields
+
+    @Column({ nullable: true })
+    emisCode: string;
+
+    @Column({ nullable: true })
+    parentName: string;
+
+    @Column({ nullable: true })
+    parentNationalId: string;
+
+    @Column({ nullable: true })
+    parentRelationship: string;
+
+    @Column({ nullable: true })
+    parentAlternatePhone: string;
+
+    @Column({ nullable: true, type: 'text' })
+    parentAddress: string;
+
+    @Column({ nullable: true })
+    parentOccupation: string;
+
+    @Column({ nullable: true, default: 'sms' })
+    preferredContact: string;
+
+    @Column({ nullable: true })
+    emergencyContactName: string;
+
+    @Column({ nullable: true })
+    emergencyContactPhone: string;
+
+    @Column({ nullable: true })
+    emergencyContactRelationship: string;
+
+    @Column({ nullable: true })
+    parentPassword: string;
+
+    @Column({ default: false })
+    sendCredentials: boolean;
+
     // CLASS RELATION
     @ManyToOne(() => Class, (cls) => cls.students,
         { nullable: true, onDelete: 'CASCADE' })
