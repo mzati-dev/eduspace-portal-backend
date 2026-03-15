@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { School } from '../schools/entities/school.entity';
 import { TeachersService } from '../teachers/teachers.service'; // ADD THIS IMPORT
 import { Teacher } from '../teachers/entities/teacher.entity';
+import { Student } from 'src/students/entities/student.entity';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,8 @@ export class AuthService {
         @InjectRepository(Teacher) // ADD THIS
         private teacherRepository: Repository<Teacher>, // ADD THIS
         private jwtService: JwtService,
+        @InjectRepository(Student)
+        private studentRepository: Repository<Student>,
         // private emailService: EmailService,
 
     ) { }
@@ -106,6 +109,46 @@ export class AuthService {
     // }
     // ===== END: TEACHER VALIDATION METHOD =====
     // ===== START: FIXED validateTeacher method =====
+
+    // ===== START: PARENT VALIDATION METHOD =====
+    async validateParent(phone: string, password: string): Promise<any> {
+        // Find parent by phone number in students table
+        const student = await this.studentRepository.findOne({
+            where: { parentPhone: phone },
+            relations: ['class', 'school'] // Load relations if needed
+        });
+
+        if (!student) {
+            throw new UnauthorizedException('Invalid phone number or password');
+        }
+
+        // Check if student has a parent name (valid parent record)
+        if (!student.parentName) {
+            throw new UnauthorizedException('No parent record found for this phone number');
+        }
+
+        // Compare passwords (password is hashed in student.parentPassword)
+        const isPasswordValid = await bcrypt.compare(password, student.parentPassword || '');
+
+        if (!isPasswordValid) {
+            throw new UnauthorizedException('Invalid phone number or password');
+        }
+
+        // Return parent data without sensitive info
+        return {
+            id: student.id,
+            parentName: student.parentName,
+            parentPhone: student.parentPhone,
+            parentEmail: student.parentEmail,
+            preferredContact: student.preferredContact,
+            schoolId: student.schoolId,
+            childId: student.id,
+            childName: student.name,
+            childExamNumber: student.examNumber,
+            childClass: student.class?.name,
+        };
+    }
+    // ===== END: PARENT VALIDATION METHOD =====
     async validateTeacher(email: string, password: string): Promise<any> {
         // Find teacher by email in teachers table
         const teacher = await this.teacherRepository.findOne({
@@ -187,6 +230,35 @@ export class AuthService {
         };
     }
     // ===== END: TEACHER LOGIN METHOD =====
+
+    // ===== START: PARENT LOGIN METHOD =====
+    async parentLogin(parent: any) {
+        const payload = {
+            phone: parent.parentPhone,
+            sub: parent.id,
+            parentName: parent.parentName,
+            role: 'parent',
+            schoolId: parent.schoolId,
+        };
+
+        return {
+            user: {
+                id: parent.id,
+                parentName: parent.parentName,
+                parentPhone: parent.parentPhone,
+                parentEmail: parent.parentEmail,
+                preferredContact: parent.preferredContact,
+                role: 'parent',
+                schoolId: parent.schoolId,
+                childId: parent.childId,
+                childName: parent.childName,
+                childExamNumber: parent.childExamNumber,
+                childClass: parent.childClass,
+            },
+            access_token: this.jwtService.sign(payload),
+        };
+    }
+    // ===== END: PARENT LOGIN METHOD =====
 
     async register(fullName: string, email: string, password: string) {
         // Check if user already exists

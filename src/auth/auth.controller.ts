@@ -45,6 +45,12 @@ export class AuthController {
   }
   // ===== END: TEACHER LOGIN ENDPOINT =====
 
+  @Post('parent-login')
+  async parentLogin(@Body() loginDto: { phone: string; password: string }) {
+    const parent = await this.authService.validateParent(loginDto.phone, loginDto.password);
+    return this.authService.parentLogin(parent);
+  }
+
   @Post('register')
   @ApiOperation({ summary: 'User registration' })
   @ApiBody({ type: RegisterDto })
