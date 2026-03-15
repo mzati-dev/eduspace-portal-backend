@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SchoolsModule } from './schools/schools.module';
 import { TeachersModule } from './teachers/teachers.module';
+import { ParentsModule } from './parents/parents.module';
 
 @Module({
   imports: [
@@ -79,6 +80,8 @@ import { TeachersModule } from './teachers/teachers.module';
     SchoolsModule,
 
     TeachersModule,
+
+    ParentsModule,
 
 
 
