@@ -10,7 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { School } from '../schools/entities/school.entity';
 import { TeachersService } from '../teachers/teachers.service'; // ADD THIS IMPORT
 import { Teacher } from '../teachers/entities/teacher.entity';
-import { Student } from 'src/students/entities/student.entity';
+import { Student } from '../students/entities/student.entity';
 
 @Injectable()
 export class AuthService {
