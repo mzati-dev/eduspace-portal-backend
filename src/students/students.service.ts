@@ -705,21 +705,6 @@ export class StudentsService {
       throw new NotFoundException(`Student ${id} not found`);
     }
 
-    // START NEW CODE: Check if parent phone is being updated and already exists
-    // if (updates.parent_phone && updates.parent_phone !== student.parentPhone) {
-    //   const existingParent = await this.studentRepository.findOne({
-    //     where: {
-    //       parentPhone: updates.parent_phone,
-    //       ...(schoolId && { schoolId })
-    //     }
-    //   });
-
-    //   if (existingParent && existingParent.id !== id) {
-    //     throw new ConflictException(`Parent phone number ${updates.parent_phone} is already registered to student ${existingParent.name} (${existingParent.examNumber})`);
-    //   }
-    // }
-    // END NEW CODE
-
     const allowedUpdates = [
       'name',
       'photoUrl',
