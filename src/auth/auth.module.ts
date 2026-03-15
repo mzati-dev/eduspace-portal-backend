@@ -13,10 +13,12 @@ import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { School } from '../schools/entities/school.entity';
 import { Teacher } from '../teachers/entities/teacher.entity';
+import { Student } from 'src/students/entities/student.entity';
+import { StudentsModule } from 'src/students/students.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, PasswordResetToken, School, Teacher]),
+    TypeOrmModule.forFeature([User, PasswordResetToken, School, Teacher, Student]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -29,6 +31,7 @@ import { Teacher } from '../teachers/entities/teacher.entity';
       }),
     }),
     UsersModule,
+    StudentsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
