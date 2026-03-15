@@ -611,18 +611,18 @@ export class StudentsService {
     }
 
     // START NEW CODE: Check if parent phone already exists
-    if (studentData.parent_phone) {
-      const existingParent = await this.studentRepository.findOne({
-        where: {
-          parentPhone: studentData.parent_phone,
-          ...(schoolId && { schoolId })
-        }
-      });
+    // if (studentData.parent_phone) {
+    //   const existingParent = await this.studentRepository.findOne({
+    //     where: {
+    //       parentPhone: studentData.parent_phone,
+    //       ...(schoolId && { schoolId })
+    //     }
+    //   });
 
-      if (existingParent) {
-        throw new ConflictException(`Parent phone number ${studentData.parent_phone} is already registered to student ${existingParent.name} (${existingParent.examNumber})`);
-      }
-    }
+    //   if (existingParent) {
+    //     throw new ConflictException(`Parent phone number ${studentData.parent_phone} is already registered to student ${existingParent.name} (${existingParent.examNumber})`);
+    //   }
+    // }
     // END NEW CODE
 
     const currentYear = new Date().getFullYear().toString().slice(-2);
