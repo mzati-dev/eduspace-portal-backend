@@ -11,7 +11,7 @@ import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.
 import { TeachersService } from '../teachers/teachers.service';
 import { Archive } from './entities/archive.entity';
 import { StudentReportArchive } from './entities/student-report-archive.entity';
-import bcrypt from 'bcryptjs/umd/types';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class StudentsService {
