@@ -638,11 +638,34 @@ export class AttendanceService {
         };
     }
 
+    // async getByStudentId(studentId: string) {
+    //     const records = await this.attendanceRepo.find({
+    //         where: { studentId: studentId },
+    //         order: { date: 'DESC' }
+    //     });
+
+    //     return records.map(record => ({
+    //         id: record.id,
+    //         date: record.date,
+    //         status: record.status,
+    //         checkInTime: record.checkInTime,
+    //         remarks: record.notes
+    //     }));
+    // }
     async getByStudentId(studentId: string) {
+        console.log('🔍 Searching attendance for studentId:', studentId);
+
         const records = await this.attendanceRepo.find({
             where: { studentId: studentId },
             order: { date: 'DESC' }
         });
+
+        console.log('📊 Found records:', records.length);
+        if (records.length > 0) {
+            console.log('First record:', records[0]);
+        } else {
+            console.log('❌ No records found for studentId:', studentId);
+        }
 
         return records.map(record => ({
             id: record.id,
