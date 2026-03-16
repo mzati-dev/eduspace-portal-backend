@@ -161,4 +161,18 @@ export class AttendanceController {
             return { success: false, message: error.message };
         }
     }
+    @Get('analytics/patterns')
+    async getAttendancePatterns(
+        @Query('classId') classId: string,
+        @Query('startDate') startDate: string,
+        @Query('endDate') endDate: string,
+        @Query('teacherId') teacherId: string
+    ) {
+        try {
+            const data = await this.attendanceService.getAttendancePatterns(classId, startDate, endDate, teacherId);
+            return { success: true, data };
+        } catch (error) {
+            return { success: false, message: error.message };
+        }
+    }
 }

@@ -491,4 +491,76 @@ export class AttendanceService {
 
         return alerts;
     }
+
+    async getAttendancePatterns(classId: string, startDate: string, endDate: string, teacherId: string) {
+        const hasAccess = await this.verifyTeacherAccess(teacherId, classId);
+        if (!hasAccess) {
+            throw new ForbiddenException('You do not have access to this class');
+        }
+
+        // Get attendance records
+        const attendances = await this.attendanceRepo.find({
+            where: {
+                classId: classId,
+                date: Between(startDate, endDate)
+            },
+            relations: ['student']
+        });
+
+        // Group by day of week
+        const dayStats = {
+            'Monday': { total: 0, absent: 0, present: 0, late: 0 },
+            'Tuesday': { total: 0, absent: 0, present: 0, late: 0 },
+            'Wednesday': { total: 0, absent: 0, present: 0, late: 0 },
+            'Thursday': { total: 0, absent: 0, present: 0, late: 0 },
+            'Friday': { total: 0, absent: 0, present: 0, late: 0 }
+        };
+
+        attendances.forEach(att => {
+            const day = new Date(att.date).toLocaleDateString('en-US', { weekday: 'long' });
+            if (dayStats[day]) {
+                dayStats[day].total++;
+                dayStats[day][att.status]++;
+            }
+        });
+
+        // Find highest absence day
+        let highestAbsenceDay = '';
+        let highestAbsenceRate = 0;
+        let bestAttendanceDay = '';
+        let bestAttendanceRate = 0;
+
+        Object.entries(dayStats).forEach(([day, stats]) => {
+            if (stats.total > 0) {
+                const absenceRate = (stats.absent / stats.total) * 100;
+                const attendanceRate = ((stats.present + stats.late) / stats.total) * 100;
+
+                if (absenceRate > highestAbsenceRate) {
+                    highestAbsenceRate = absenceRate;
+                    highestAbsenceDay = day;
+                }
+                if (attendanceRate > bestAttendanceRate) {
+                    bestAttendanceRate = attendanceRate;
+                    bestAttendanceDay = day;
+                }
+            }
+        });
+
+        // Find peak late time
+        const lateTimes = attendances
+            .filter(a => a.status === 'late' && a.checkInTime)
+            .map(a => a.checkInTime);
+
+        const peakLateTime = lateTimes.length > 0
+            ? lateTimes.sort((a, b) =>
+                lateTimes.filter(v => v === a).length - lateTimes.filter(v => v === b).length
+            ).pop()
+            : '8:45 AM';
+
+        return {
+            dailyPatterns: [],
+            classPerformance: [],
+            peakLateTimes: [{ time: peakLateTime, count: lateTimes.length, day: highestAbsenceDay }]
+        };
+    }
 }
