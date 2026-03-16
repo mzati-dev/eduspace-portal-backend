@@ -508,13 +508,19 @@ export class AttendanceService {
         });
 
         // Group by day of week
-        const dayStats = {
-            'Monday': { total: 0, absent: 0, present: 0, late: 0 },
-            'Tuesday': { total: 0, absent: 0, present: 0, late: 0 },
-            'Wednesday': { total: 0, absent: 0, present: 0, late: 0 },
-            'Thursday': { total: 0, absent: 0, present: 0, late: 0 },
-            'Friday': { total: 0, absent: 0, present: 0, late: 0 }
+        const dayStats: any = {
+            'Monday': { total: 0, absent: 0, present: 0, late: 0, excused: 0 },
+            'Tuesday': { total: 0, absent: 0, present: 0, late: 0, excused: 0 },
+            'Wednesday': { total: 0, absent: 0, present: 0, late: 0, excused: 0 },
+            'Thursday': { total: 0, absent: 0, present: 0, late: 0, excused: 0 },
+            'Friday': { total: 0, absent: 0, present: 0, late: 0, excused: 0 },
+            'Saturday': { total: 0, absent: 0, present: 0, late: 0, excused: 0 },
+            'Sunday': { total: 0, absent: 0, present: 0, late: 0, excused: 0 }
         };
+
+        // Create daily patterns array
+        const dailyPatterns: any[] = [];
+        const dateMap = new Map();
 
         attendances.forEach(att => {
             const day = new Date(att.date).toLocaleDateString('en-US', { weekday: 'long' });
@@ -522,6 +528,40 @@ export class AttendanceService {
                 dayStats[day].total++;
                 dayStats[day][att.status]++;
             }
+
+            // Group by date for daily patterns
+            if (!dateMap.has(att.date)) {
+                dateMap.set(att.date, {
+                    date: att.date,
+                    present: 0,
+                    absent: 0,
+                    late: 0,
+                    excused: 0,
+                    total: 0
+                });
+            }
+            const dayData = dateMap.get(att.date);
+            dayData[att.status]++;
+            dayData.total++;
+        });
+
+        // Convert dateMap to array with day names
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        dateMap.forEach((stats: any, date: string) => {
+            const dayIndex = new Date(date).getDay();
+            const present = stats.present + stats.late;
+            const rate = stats.total > 0 ? Number(((present / stats.total) * 100).toFixed(1)) : 0;
+
+            dailyPatterns.push({
+                date: date,
+                day: days[dayIndex],
+                present: stats.present,
+                absent: stats.absent,
+                late: stats.late,
+                excused: stats.excused,
+                total: stats.total,
+                rate: rate
+            });
         });
 
         // Find highest absence day
@@ -530,7 +570,7 @@ export class AttendanceService {
         let bestAttendanceDay = '';
         let bestAttendanceRate = 0;
 
-        Object.entries(dayStats).forEach(([day, stats]) => {
+        Object.entries(dayStats).forEach(([day, stats]: [string, any]) => {
             if (stats.total > 0) {
                 const absenceRate = (stats.absent / stats.total) * 100;
                 const attendanceRate = ((stats.present + stats.late) / stats.total) * 100;
@@ -551,16 +591,50 @@ export class AttendanceService {
             .filter(a => a.status === 'late' && a.checkInTime)
             .map(a => a.checkInTime);
 
-        const peakLateTime = lateTimes.length > 0
-            ? lateTimes.sort((a, b) =>
-                lateTimes.filter(v => v === a).length - lateTimes.filter(v => v === b).length
-            ).pop()
-            : '8:45 AM';
+        const timeCount: any = {};
+        lateTimes.forEach(time => {
+            if (time) {
+                timeCount[time] = (timeCount[time] || 0) + 1;
+            }
+        });
+
+        let peakLateTime = '8:45 AM';
+        let maxCount = 0;
+        Object.entries(timeCount).forEach(([time, count]: [string, any]) => {
+            if (count > maxCount) {
+                maxCount = count;
+                peakLateTime = time;
+            }
+        });
+
+        // Get total students for class performance
+        const totalStudents = await this.studentRepo.count({
+            where: { class: { id: classId } }
+        });
+
+        // Get class name
+        const classEntity = await this.classRepo.findOne({ where: { id: classId } });
+
+        // Calculate average rate safely
+        let averageRate = 0;
+        if (dailyPatterns.length > 0) {
+            const sum = dailyPatterns.reduce((acc: number, curr: any) => acc + curr.rate, 0);
+            averageRate = Number((sum / dailyPatterns.length).toFixed(1));
+        }
+
+        // Create class performance array
+        const classPerformance = [{
+            classId,
+            className: classEntity?.name || '',
+            averageRate: averageRate,
+            totalStudents,
+            trend: 'stable' as 'up' | 'down' | 'stable'
+        }];
 
         return {
-            dailyPatterns: [],
-            classPerformance: [],
-            peakLateTimes: [{ time: peakLateTime, count: lateTimes.length, day: highestAbsenceDay }]
+            dailyPatterns,
+            classPerformance,
+            peakLateTimes: [{ time: peakLateTime, count: lateTimes.length, day: highestAbsenceDay || 'Monday' }]
         };
     }
 }
