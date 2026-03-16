@@ -117,6 +117,35 @@ export class AttendanceService {
      * Save multiple attendance records in batch
      */
     // Save multiple attendance records in batch
+    // async saveBatch(records: any[], teacherId: string) {
+    //     if (records.length === 0) return [];
+
+    //     // Verify teacher has access to the class (all records should be same class)
+    //     const classId = records[0].classId;
+    //     const hasAccess = await this.verifyTeacherAccess(teacherId, classId);
+    //     if (!hasAccess) {
+    //         throw new ForbiddenException('You do not have access to this class');
+    //     }
+
+    //     const savedRecords: Attendance[] = [];
+
+    //     for (const record of records) {
+    //         try {
+    //             const saved = await this.save(record, teacherId);
+    //             if (saved) {
+    //                 savedRecords.push(saved);
+    //             }
+    //         } catch (error) {
+    //             console.error(`Failed to save attendance for student ${record.studentId}:`, error.message);
+    //         }
+    //     }
+
+    //     return savedRecords;
+    // }
+
+    /**
+ * Save multiple attendance records in batch - AUTO-MARKS PRESENT for unsubmitted students
+ */
     async saveBatch(records: any[], teacherId: string) {
         if (records.length === 0) return [];
 
@@ -127,6 +156,29 @@ export class AttendanceService {
             throw new ForbiddenException('You do not have access to this class');
         }
 
+        // Get ALL students in this class
+        const allStudents = await this.studentRepo.find({
+            where: { class: { id: classId } }
+        });
+
+        // Get IDs of students who were submitted
+        const submittedStudentIds = records.map(r => r.studentId);
+
+        // Create present records for students who weren't submitted
+        for (const student of allStudents) {
+            if (!submittedStudentIds.includes(student.id)) {
+                records.push({
+                    studentId: student.id,
+                    classId: classId,
+                    date: records[0].date,
+                    status: 'present',
+                    checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    notes: 'Auto-marked present'
+                });
+            }
+        }
+
+        // Save all records (both submitted and auto-generated)
         const savedRecords: Attendance[] = [];
 
         for (const record of records) {
