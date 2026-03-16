@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import {
   StudentsController,
@@ -18,6 +18,7 @@ import { Class } from './entities/class.entity'; // ADD THIS
 import { TeachersModule } from '../teachers/teachers.module';
 import { Archive } from './entities/archive.entity';
 import { StudentReportArchive } from './entities/student-report-archive.entity';
+import { AttendanceModule } from '../attendance/attendance.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { StudentReportArchive } from './entities/student-report-archive.entity';
 
     ]),
     TeachersModule,
+    forwardRef(() => AttendanceModule),
   ],
   controllers: [
     StudentsController,

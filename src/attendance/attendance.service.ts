@@ -637,4 +637,19 @@ export class AttendanceService {
             peakLateTimes: [{ time: peakLateTime, count: lateTimes.length, day: highestAbsenceDay || 'Monday' }]
         };
     }
+
+    async getByStudentId(studentId: string) {
+        const records = await this.attendanceRepo.find({
+            where: { studentId: studentId },
+            order: { date: 'DESC' }
+        });
+
+        return records.map(record => ({
+            id: record.id,
+            date: record.date,
+            status: record.status,
+            checkInTime: record.checkInTime,
+            remarks: record.notes
+        }));
+    }
 }

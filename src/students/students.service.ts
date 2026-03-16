@@ -12,6 +12,8 @@ import { TeachersService } from '../teachers/teachers.service';
 import { Archive } from './entities/archive.entity';
 import { StudentReportArchive } from './entities/student-report-archive.entity';
 import * as bcrypt from 'bcryptjs';
+// import { Attendance } from 'src/attendance/entities/attendance.entity';
+import { AttendanceService } from '../attendance/attendance.service';
 
 @Injectable()
 export class StudentsService {
@@ -34,6 +36,7 @@ export class StudentsService {
     @InjectRepository(StudentReportArchive) // ADD THIS
     private studentReportArchiveRepository: Repository<StudentReportArchive>, // ADD THIS
     private teachersService: TeachersService,
+    private attendanceService: AttendanceService,
   ) { }
 
 
@@ -2670,6 +2673,10 @@ export class StudentsService {
     query.orderBy('archive.archivedAt', 'DESC');
 
     return query.getMany();
+  }
+
+  async getStudentAttendance(studentId: string) {
+    return this.attendanceService.getByStudentId(studentId);
   }
 
 }

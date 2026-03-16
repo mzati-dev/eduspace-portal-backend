@@ -362,4 +362,9 @@ export class ClassesController {
     return this.studentsService.getStudentReportArchives(classId, term, schoolId);
   }
 
+  @Get(':studentId/attendance')
+  async getStudentAttendance(@Param('studentId') studentId: string) {
+    return this.studentsService.getStudentAttendance(studentId);
+  }
+
 }
