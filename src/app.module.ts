@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { SchoolsModule } from './schools/schools.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { ParentsModule } from './parents/parents.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -82,6 +83,8 @@ import { ParentsModule } from './parents/parents.module';
     TeachersModule,
 
     ParentsModule,
+
+    AttendanceModule,
 
 
 

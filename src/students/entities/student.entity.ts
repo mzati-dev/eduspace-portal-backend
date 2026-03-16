@@ -4,6 +4,7 @@ import { Assessment } from './assessment.entity';
 import { ReportCard } from './report-card.entity';
 import { Class } from './class.entity';
 import { School } from '../../schools/entities/school.entity';
+import { Attendance } from '../../attendance/entities/attendance.entity';
 
 
 @Entity('students')
@@ -97,6 +98,8 @@ export class Student {
 
     @OneToMany(() => ReportCard, (reportCard) => reportCard.student)
     reportCards: ReportCard[];
+    @OneToMany(() => Attendance, (attendance) => attendance.student)
+    attendances: Attendance[];
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
