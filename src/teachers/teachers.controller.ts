@@ -37,8 +37,29 @@ export class TeachersController {
     }
 
     // GET teachers
+    // @Get()
+    // async getTeachers(@Query('schoolId') schoolId: string) {
+    //     if (!schoolId) {
+    //         return {
+    //             success: false,
+    //             message: 'School ID is required'
+    //         };
+    //     }
+
+    //     const teachers = await this.teachersService.getTeachersBySchool(schoolId);
+
+    //     return {
+    //         success: true,
+    //         data: teachers
+    //     };
+    // }
+
+    // GET teachers (LIST) OR get single teacher profile (if teacherId provided)
     @Get()
-    async getTeachers(@Query('schoolId') schoolId: string) {
+    async getTeachers(
+        @Query('schoolId') schoolId: string,
+        @Query('teacherId') teacherId?: string  // ← ADDED optional teacherId parameter
+    ) {
         if (!schoolId) {
             return {
                 success: false,
@@ -46,11 +67,12 @@ export class TeachersController {
             };
         }
 
-        const teachers = await this.teachersService.getTeachersBySchool(schoolId);
+        // ===== MODIFIED: Now passing teacherId to service =====
+        const result = await this.teachersService.getTeachersBySchool(schoolId, teacherId);
 
         return {
             success: true,
-            data: teachers
+            data: result
         };
     }
 
@@ -232,6 +254,32 @@ export class TeachersController {
     }
     // ===== END: CLASS TEACHER ENDPOINTS =====
     // ===== START: TEACHER PROFILE ENDPOINTS =====
+
+    // ===== START: TEACHER SELF-UPDATE ENDPOINT (FOR TEACHER TO UPDATE THEIR OWN PROFILE) =====
+    /**
+     * Update teacher profile (used by teacher after login)
+     */
+    @Patch(':teacherId/profile')
+    async updateTeacherProfile(
+        @Param('teacherId') teacherId: string,
+        @Body() body: any,
+        @Query('schoolId') schoolId: string
+    ) {
+        try {
+            const profile = await this.teachersService.updateTeacherProfile(teacherId, body, schoolId);
+            return {
+                success: true,
+                message: 'Profile updated successfully',
+                data: profile
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.message
+            };
+        }
+    }
+    // ===== END: TEACHER SELF-UPDATE ENDPOINT =====
 
     /**
      * Get teacher profile

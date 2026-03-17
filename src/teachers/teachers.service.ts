@@ -86,13 +86,81 @@ export class TeachersService {
      * Get all teachers for a school
      * @param schoolId - School ID to filter by
      */
-    async getTeachersBySchool(schoolId: string) {
+    // async getTeachersBySchool(schoolId: string) {
+    //     const teachers = await this.teachersRepo.find({
+    //         where: { school_id: schoolId },
+    //         order: { created_at: 'DESC' },
+    //     });
+
+    //     // Return exactly what frontend expects
+    //     return teachers.map(teacher => ({
+    //         id: teacher.id,
+    //         name: teacher.name,
+    //         email: teacher.email,
+    //         created_at: teacher.created_at
+    //     }));
+    // }
+
+    /**
+ * Get all teachers for a school
+ * @param schoolId - School ID to filter by
+ * ===== MODIFIED: Added optional teacherId parameter for single teacher profile =====
+ */
+    async getTeachersBySchool(schoolId: string, teacherId?: string) {  // ← ADDED teacherId parameter
+        // ===== START: NEW CODE FOR SINGLE TEACHER PROFILE =====
+        if (teacherId) {
+            // Get specific teacher with full details
+            const teacher = await this.teachersRepo.findOne({
+                where: { id: teacherId, school_id: schoolId }
+            });
+
+            if (!teacher) {
+                throw new NotFoundException('Teacher not found');
+            }
+
+            // Get stats (classes, subjects, students)
+            const assignments = await this.getTeacherAssignments(teacherId);
+            const classes = await this.getTeacherClasses(teacherId);
+            const subjects = await this.getTeacherSubjects(teacherId);
+
+            // Get student count from assigned classes
+            const classIds = assignments.map(a => a.classId);
+            let totalStudents = 0;
+            if (classIds.length > 0) {
+                totalStudents = await this.studentRepo.count({
+                    where: { class: { id: In(classIds) } }
+                });
+            }
+
+            // Return full profile with all fields
+            return {
+                id: teacher.id,
+                name: teacher.name,
+                email: teacher.email,
+                phone: teacher.phone || '',
+                address: teacher.address || '',
+                dateOfBirth: teacher.dateOfBirth || '',
+                gender: teacher.gender || 'other',
+                profileImage: teacher.profileImage || '',
+                emergencyContactName: teacher.emergencyContactName || '',
+                emergencyContactPhone: teacher.emergencyContactPhone || '',
+                emergencyContactRelation: teacher.emergencyContactRelation || '',
+                totalClasses: classes.length,
+                totalSubjects: subjects.length,
+                totalStudents,
+                lastLogin: teacher.lastLogin,
+                created_at: teacher.created_at
+            };
+        }
+        // ===== END: NEW CODE FOR SINGLE TEACHER PROFILE =====
+
+        // ===== EXISTING CODE FOR TEACHER LIST (UNCHANGED) =====
         const teachers = await this.teachersRepo.find({
             where: { school_id: schoolId },
             order: { created_at: 'DESC' },
         });
 
-        // Return exactly what frontend expects
+        // Return exactly what frontend expects for list view
         return teachers.map(teacher => ({
             id: teacher.id,
             name: teacher.name,
@@ -1109,6 +1177,52 @@ export class TeachersService {
 
     //     return this.getTeacherProfile(teacherId, schoolId);
     // }
+
+
+
+    // ===== START: MODIFIED UPDATE METHOD =====
+    /**
+     * Update teacher profile (used by teacher after login)
+     */
+    async updateTeacherProfile(teacherId: string, data: any, schoolId?: string) {
+        const query = this.teachersRepo
+            .createQueryBuilder('teacher')
+            .where('teacher.id = :teacherId', { teacherId });
+
+        if (schoolId) {
+            query.andWhere('teacher.school_id = :schoolId', { schoolId });
+        }
+
+        const teacher = await query.getOne();
+
+        if (!teacher) {
+            throw new NotFoundException('Teacher not found');
+        }
+
+        // Update allowed fields - ADDED profileImage
+        const allowedUpdates = [
+            'phone',
+            'address',
+            'dateOfBirth',
+            'gender',
+            'emergencyContactName',
+            'emergencyContactPhone',
+            'emergencyContactRelation',
+            'profileImage'  // ← ADD THIS LINE
+        ];
+
+        allowedUpdates.forEach(field => {
+            if (data[field] !== undefined) {
+                teacher[field] = data[field];
+            }
+        });
+
+        await this.teachersRepo.save(teacher);
+
+        // ===== FIX: Pass schoolId only if it exists, otherwise use teacher.school_id =====
+        return this.getTeachersBySchool(schoolId || teacher.school_id, teacherId);
+    }
+    // ===== END: MODIFIED UPDATE METHOD =====
 
     /**
      * Upload profile image
