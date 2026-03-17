@@ -1020,6 +1020,158 @@ export class TeachersService {
 
         return results;
     }
+
+    // ===== START: TEACHER PROFILE METHODS =====
+
+    /**
+     * Get teacher profile by ID
+     */
+    async getTeacherProfile(teacherId: string, schoolId?: string) {
+        const query = this.teachersRepo
+            .createQueryBuilder('teacher')
+            .where('teacher.id = :teacherId', { teacherId });
+
+        if (schoolId) {
+            query.andWhere('teacher.school_id = :schoolId', { schoolId });
+        }
+
+        const teacher = await query.getOne();
+
+        if (!teacher) {
+            throw new NotFoundException('Teacher not found');
+        }
+
+        // Get stats (classes, subjects, students)
+        const assignments = await this.getTeacherAssignments(teacherId);
+        const classes = await this.getTeacherClasses(teacherId);
+        const subjects = await this.getTeacherSubjects(teacherId);
+
+        // Get student count from assigned classes
+        const classIds = assignments.map(a => a.classId);
+        let totalStudents = 0;
+        if (classIds.length > 0) {
+            totalStudents = await this.studentRepo.count({
+                where: { class: { id: In(classIds) } }
+            });
+        }
+
+        return {
+            id: teacher.id,
+            name: teacher.name,
+            email: teacher.email,
+            phone: teacher.phone || '',
+            address: teacher.address || '',
+            dateOfBirth: teacher.dateOfBirth || '',
+            gender: teacher.gender || 'other',
+            profileImage: teacher.profileImage || '',
+            emergencyContactName: teacher.emergencyContactName || '',
+            emergencyContactPhone: teacher.emergencyContactPhone || '',
+            emergencyContactRelation: teacher.emergencyContactRelation || '',
+            totalClasses: classes.length,
+            totalSubjects: subjects.length,
+            totalStudents,
+            lastLogin: teacher.lastLogin,
+            createdAt: teacher.created_at
+        };
+    }
+
+    /**
+     * Update teacher profile
+     */
+    async updateTeacherProfile(teacherId: string, data: any, schoolId?: string) {
+        const query = this.teachersRepo
+            .createQueryBuilder('teacher')
+            .where('teacher.id = :teacherId', { teacherId });
+
+        if (schoolId) {
+            query.andWhere('teacher.school_id = :schoolId', { schoolId });
+        }
+
+        const teacher = await query.getOne();
+
+        if (!teacher) {
+            throw new NotFoundException('Teacher not found');
+        }
+
+        // Update only allowed fields
+        const allowedUpdates = [
+            'phone', 'address', 'dateOfBirth', 'gender',
+            'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation'
+        ];
+
+        allowedUpdates.forEach(field => {
+            if (data[field] !== undefined) {
+                teacher[field] = data[field];
+            }
+        });
+
+        await this.teachersRepo.save(teacher);
+
+        return this.getTeacherProfile(teacherId, schoolId);
+    }
+
+    /**
+     * Upload profile image
+     */
+    async uploadProfileImage(teacherId: string, file: any, schoolId?: string) {
+        const query = this.teachersRepo
+            .createQueryBuilder('teacher')
+            .where('teacher.id = :teacherId', { teacherId });
+
+        if (schoolId) {
+            query.andWhere('teacher.school_id = :schoolId', { schoolId });
+        }
+
+        const teacher = await query.getOne();
+
+        if (!teacher) {
+            throw new NotFoundException('Teacher not found');
+        }
+
+        // In production, you'd upload to cloud storage and save the URL
+        // For now, we'll save the file path or base64
+        const imageUrl = `/uploads/teachers/${teacherId}-${Date.now()}.jpg`;
+        teacher.profileImage = imageUrl;
+
+        await this.teachersRepo.save(teacher);
+
+        return { imageUrl };
+    }
+
+    /**
+     * Change teacher password
+     */
+    async changePassword(teacherId: string, currentPassword: string, newPassword: string, schoolId?: string) {
+        const query = this.teachersRepo
+            .createQueryBuilder('teacher')
+            .where('teacher.id = :teacherId', { teacherId })
+            .addSelect('teacher.password');
+
+        if (schoolId) {
+            query.andWhere('teacher.school_id = :schoolId', { schoolId });
+        }
+
+        const teacher = await query.getOne();
+
+        if (!teacher) {
+            throw new NotFoundException('Teacher not found');
+        }
+
+        // Verify current password
+        const isPasswordValid = await bcrypt.compare(currentPassword, teacher.password);
+        if (!isPasswordValid) {
+            throw new ForbiddenException('Current password is incorrect');
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        teacher.password = hashedPassword;
+
+        await this.teachersRepo.save(teacher);
+
+        return { message: 'Password changed successfully' };
+    }
+    // ===== END: TEACHER PROFILE METHODS =====
 }
 
 // import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';

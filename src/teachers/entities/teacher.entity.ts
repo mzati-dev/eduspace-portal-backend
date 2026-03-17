@@ -16,6 +16,39 @@ export class Teacher {
     @Column()
     password: string;
 
+    // 👇 ADD THESE NEW PROFILE FIELDS
+    @Column({ nullable: true })
+    phone?: string;
+
+    @Column({ nullable: true, type: 'text' })
+    address?: string;
+
+    @Column({ nullable: true })
+    dateOfBirth?: string;
+
+    @Column({
+        nullable: true,
+        type: 'enum',
+        enum: ['male', 'female', 'other']
+    })
+    gender?: string;
+
+    @Column({ nullable: true })
+    profileImage?: string;
+
+    @Column({ nullable: true })
+    emergencyContactName?: string;
+
+    @Column({ nullable: true })
+    emergencyContactPhone?: string;
+
+    @Column({ nullable: true })
+    emergencyContactRelation?: string;
+
+    @Column({ nullable: true })
+    lastLogin?: Date;
+    // 👆 END NEW PROFILE FIELDS
+
     @ManyToOne(() => School, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'school_id' })
     school: School;
