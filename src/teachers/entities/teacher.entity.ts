@@ -23,9 +23,6 @@ export class Teacher {
     @Column({ nullable: true, type: 'text' })
     address?: string;
 
-    @Column({ nullable: true })
-    dateOfBirth?: string;
-
     @Column({
         nullable: true,
         type: 'enum',
@@ -33,19 +30,22 @@ export class Teacher {
     })
     gender?: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, name: 'dateofbirth' })
+    dateOfBirth?: string;
+
+    @Column({ nullable: true, name: 'profileimage' })
     profileImage?: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, name: 'emergencycontactname' })
     emergencyContactName?: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, name: 'emergencycontactphone' })
     emergencyContactPhone?: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, name: 'emergencycontactrelation' })
     emergencyContactRelation?: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, name: 'lastlogin' })
     lastLogin?: Date;
     // 👆 END NEW PROFILE FIELDS
 
