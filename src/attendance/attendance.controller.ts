@@ -109,14 +109,14 @@ export class AttendanceController {
     async getStudentPerformance(
         @Param('classId') classId: string,
         @Query('type') type: 'best' | 'needs-improvement',
-        @Query('limit') limit: number,
+
         @Query('teacherId') teacherId: string
     ) {
         try {
             const data = await this.attendanceService.getStudentPerformance(
                 classId,
                 type,
-                limit || 3,
+
                 teacherId
             );
             return { success: true, data };
