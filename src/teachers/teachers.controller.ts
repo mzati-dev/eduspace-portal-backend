@@ -236,74 +236,74 @@ export class TeachersController {
     /**
      * Get teacher profile
      */
-    @Get(':teacherId/profile')
-    async getTeacherProfile(
-        @Param('teacherId') teacherId: string,
-        @Query('schoolId') schoolId: string
-    ) {
-        try {
-            const profile = await this.teachersService.getTeacherProfile(teacherId, schoolId);
-            return {
-                success: true,
-                data: profile
-            };
-        } catch (error) {
-            return {
-                success: false,
-                message: error.message
-            };
-        }
-    }
+    // @Get(':teacherId/profile')
+    // async getTeacherProfile(
+    //     @Param('teacherId') teacherId: string,
+    //     @Query('schoolId') schoolId: string
+    // ) {
+    //     try {
+    //         const profile = await this.teachersService.getTeacherProfile(teacherId, schoolId);
+    //         return {
+    //             success: true,
+    //             data: profile
+    //         };
+    //     } catch (error) {
+    //         return {
+    //             success: false,
+    //             message: error.message
+    //         };
+    //     }
+    // }
 
     /**
      * Update teacher profile
      */
-    @Patch(':teacherId/profile')
-    async updateTeacherProfile(
-        @Param('teacherId') teacherId: string,
-        @Body() body: any,
-        @Query('schoolId') schoolId: string
-    ) {
-        try {
-            const profile = await this.teachersService.updateTeacherProfile(teacherId, body, schoolId);
-            return {
-                success: true,
-                message: 'Profile updated successfully',
-                data: profile
-            };
-        } catch (error) {
-            return {
-                success: false,
-                message: error.message
-            };
-        }
-    }
+    // @Patch(':teacherId/profile')
+    // async updateTeacherProfile(
+    //     @Param('teacherId') teacherId: string,
+    //     @Body() body: any,
+    //     @Query('schoolId') schoolId: string
+    // ) {
+    //     try {
+    //         const profile = await this.teachersService.updateTeacherProfile(teacherId, body, schoolId);
+    //         return {
+    //             success: true,
+    //             message: 'Profile updated successfully',
+    //             data: profile
+    //         };
+    //     } catch (error) {
+    //         return {
+    //             success: false,
+    //             message: error.message
+    //         };
+    //     }
+    // }
 
     /**
      * Upload profile image
      */
-    @Post(':teacherId/profile-image')
-    async uploadProfileImage(
-        @Param('teacherId') teacherId: string,
-        @Body() body: any, // In real app, use @UploadedFile() with multer
-        @Query('schoolId') schoolId: string
-    ) {
-        try {
-            // For now, we'll just return success
-            // In production, handle file upload with multer
-            const result = await this.teachersService.uploadProfileImage(teacherId, body, schoolId);
-            return {
-                success: true,
-                message: 'Profile image uploaded successfully',
-                data: result
-            };
-        } catch (error) {
-            return {
-                success: false,
-                message: error.message
-            };
-        }
-    }
+    // @Post(':teacherId/profile-image')
+    // async uploadProfileImage(
+    //     @Param('teacherId') teacherId: string,
+    //     @Body() body: any, // In real app, use @UploadedFile() with multer
+    //     @Query('schoolId') schoolId: string
+    // ) {
+    //     try {
+    //         // For now, we'll just return success
+    //         // In production, handle file upload with multer
+    //         const result = await this.teachersService.uploadProfileImage(teacherId, body, schoolId);
+    //         return {
+    //             success: true,
+    //             message: 'Profile image uploaded successfully',
+    //             data: result
+    //         };
+    //     } catch (error) {
+    //         return {
+    //             success: false,
+    //             message: error.message
+    //         };
+    //     }
+    // }
 
     /**
      * Change password
