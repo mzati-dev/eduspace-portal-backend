@@ -108,11 +108,18 @@ export class TeachersService {
  */
     async getTeachersBySchool(schoolId: string, teacherId?: string) {  // ← ADDED teacherId parameter
         // ===== START: NEW CODE FOR SINGLE TEACHER PROFILE =====
+        // if (teacherId) {
+        //     // Get specific teacher with full details
+        //     const teacher = await this.teachersRepo.findOne({
+        //         where: { id: teacherId, school_id: schoolId }
+        //     });
         if (teacherId) {
-            // Get specific teacher with full details
-            const teacher = await this.teachersRepo.findOne({
-                where: { id: teacherId, school_id: schoolId }
-            });
+            // Get specific teacher with full details - FIXED for PostgreSQL case sensitivity
+            const teacher = await this.teachersRepo
+                .createQueryBuilder('teacher')
+                .where('teacher.id = :teacherId', { teacherId })
+                .andWhere('teacher.school_id = :schoolId', { schoolId })
+                .getOne();
 
             if (!teacher) {
                 throw new NotFoundException('Teacher not found');
