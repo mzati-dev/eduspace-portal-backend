@@ -391,7 +391,74 @@ export class AttendanceService {
     /**
      * Get top/bottom performing students by attendance
      */
-    async getStudentPerformance(classId: string, type: 'best' | 'needs-improvement', limit: number, teacherId: string) {
+    // async getStudentPerformance(classId: string, type: 'best' | 'needs-improvement', limit: number, teacherId: string) {
+    //     const hasAccess = await this.verifyTeacherAccess(teacherId, classId);
+    //     if (!hasAccess) {
+    //         throw new ForbiddenException('You do not have access to this class');
+    //     }
+
+    //     const students = await this.studentRepo.find({
+    //         where: { class: { id: classId } }
+    //     });
+
+    //     // Get last 30 days of attendance
+    //     const thirtyDaysAgo = new Date();
+    //     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    //     const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+    //     const endDate = new Date().toISOString().split('T')[0];
+
+    //     const attendances = await this.attendanceRepo.find({
+    //         where: {
+    //             classId: classId,
+    //             date: Between(startDate, endDate)
+    //         }
+    //     });
+
+    //     // Calculate attendance rate for each student
+    //     const studentRates = students.map(student => {
+    //         const studentAttendances = attendances.filter(a => a.studentId === student.id);
+
+    //         if (studentAttendances.length === 0) {
+    //             return {
+    //                 id: student.id,
+    //                 name: student.name,
+    //                 examNumber: student.examNumber,
+    //                 attendanceRate: 0,
+    //                 parentPhone: student.parentPhone,
+    //                 parentEmail: student.parentEmail
+    //             };
+    //         }
+
+    //         const presentDays = studentAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+    //         const rate = Number(((presentDays / studentAttendances.length) * 100).toFixed(1));
+
+    //         return {
+    //             id: student.id,
+    //             name: student.name,
+    //             examNumber: student.examNumber,
+    //             attendanceRate: rate,
+    //             parentPhone: student.parentPhone,
+    //             parentEmail: student.parentEmail
+    //         };
+    //     });
+
+    //     // Sort and filter based on type
+    //     if (type === 'best') {
+    //         return studentRates
+    //             .sort((a, b) => b.attendanceRate - a.attendanceRate)
+    //             .slice(0, limit);
+    //     } else {
+    //         return studentRates
+    //             .filter(s => s.attendanceRate > 0) // Only include students with some attendance data
+    //             .sort((a, b) => a.attendanceRate - b.attendanceRate)
+    //             .slice(0, limit);
+    //     }
+    // }
+
+    /**
+ * Get top/bottom performing students by attendance - NO LIMIT
+ */
+    async getStudentPerformance(classId: string, type: 'best' | 'needs-improvement', teacherId: string) {
         const hasAccess = await this.verifyTeacherAccess(teacherId, classId);
         if (!hasAccess) {
             throw new ForbiddenException('You do not have access to this class');
@@ -442,16 +509,15 @@ export class AttendanceService {
             };
         });
 
-        // Sort and filter based on type
+        // Sort all students by rate (highest to lowest)
+        const sortedByRate = [...studentRates].sort((a, b) => b.attendanceRate - a.attendanceRate);
+
         if (type === 'best') {
-            return studentRates
-                .sort((a, b) => b.attendanceRate - a.attendanceRate)
-                .slice(0, limit);
+            // Return ALL students with attendance rate >= 90% (top performers)
+            return sortedByRate.filter(s => s.attendanceRate >= 90);
         } else {
-            return studentRates
-                .filter(s => s.attendanceRate > 0) // Only include students with some attendance data
-                .sort((a, b) => a.attendanceRate - b.attendanceRate)
-                .slice(0, limit);
+            // Return ALL students with attendance rate < 70% (need improvement)
+            return sortedByRate.filter(s => s.attendanceRate > 0 && s.attendanceRate < 70);
         }
     }
 
