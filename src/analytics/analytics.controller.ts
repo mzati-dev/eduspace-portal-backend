@@ -2,8 +2,10 @@
 import { Controller, Get, Post, Query, Param, Res, Req, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { AnalyticsService, AtRiskStudent, ClassPerformance, SubjectPerformance, TrendData } from './analytics.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('analytics')
+@UseGuards(AuthGuard('jwt'))
 export class AnalyticsController {
     constructor(private readonly analyticsService: AnalyticsService) { }
 
