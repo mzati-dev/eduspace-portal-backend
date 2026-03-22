@@ -10,6 +10,7 @@ import { ParentsModule } from './parents/parents.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { TeacherMessagesModule } from './teacher-messages/teacher-messages.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -91,6 +92,8 @@ import { TeacherMessagesModule } from './teacher-messages/teacher-messages.modul
     MessagingModule,
 
     TeacherMessagesModule,
+
+    AnalyticsModule,
 
 
 
