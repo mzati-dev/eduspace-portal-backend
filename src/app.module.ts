@@ -8,6 +8,8 @@ import { SchoolsModule } from './schools/schools.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { ParentsModule } from './parents/parents.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { MessagingModule } from './messaging/messaging.module';
+import { TeacherMessagesModule } from './teacher-messages/teacher-messages.module';
 
 @Module({
   imports: [
@@ -85,6 +87,10 @@ import { AttendanceModule } from './attendance/attendance.module';
     ParentsModule,
 
     AttendanceModule,
+
+    MessagingModule,
+
+    TeacherMessagesModule,
 
 
 
