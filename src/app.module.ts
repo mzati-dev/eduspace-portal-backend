@@ -11,6 +11,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { TeacherMessagesModule } from './teacher-messages/teacher-messages.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { FeesModule } from './fees/fees.module';
 
 @Module({
   imports: [
@@ -94,6 +95,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
     TeacherMessagesModule,
 
     AnalyticsModule,
+
+    FeesModule,
 
 
 
