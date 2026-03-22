@@ -8,6 +8,7 @@ import { Student } from '../students/entities/student.entity';
 import { Assessment } from '../students/entities/assessment.entity';
 import { Attendance } from '../attendance/entities/attendance.entity';
 import { Class } from '../students/entities/class.entity';
+import { Subject } from '../students/entities/subject.entity';
 
 
 @Module({
@@ -17,7 +18,8 @@ import { Class } from '../students/entities/class.entity';
       Student,
       Assessment,
       Attendance,
-      Class
+      Class,
+      Subject,
     ]),
   ],
   controllers: [AnalyticsController],
