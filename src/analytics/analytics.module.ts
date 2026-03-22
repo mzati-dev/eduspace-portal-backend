@@ -9,6 +9,7 @@ import { Assessment } from '../students/entities/assessment.entity';
 import { Attendance } from '../attendance/entities/attendance.entity';
 import { Class } from '../students/entities/class.entity';
 import { Subject } from '../students/entities/subject.entity';
+import { GradeConfig } from '../students/entities/grade-config.entity';
 
 
 @Module({
@@ -20,6 +21,7 @@ import { Subject } from '../students/entities/subject.entity';
       Attendance,
       Class,
       Subject,
+      GradeConfig,
     ]),
   ],
   controllers: [AnalyticsController],
