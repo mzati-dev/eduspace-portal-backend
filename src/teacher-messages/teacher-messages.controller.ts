@@ -41,7 +41,7 @@ export class TeacherMessagesController {
   @UseInterceptors(FilesInterceptor('attachments'))
   async sendMessage(
     @Body() body: any,
-    @UploadedFiles() files: Express.Multer.File[],
+    @UploadedFiles() files: any[], // ← CHANGE THIS LINE
     @Req() req,
   ) {
     const data = await this.messagesService.sendMessage({
