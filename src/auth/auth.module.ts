@@ -31,7 +31,7 @@ import { StudentsModule } from '../students/students.module';
       }),
     }),
     UsersModule,
-    StudentsModule,
+    // StudentsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
