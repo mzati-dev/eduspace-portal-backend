@@ -74,7 +74,14 @@ export class FeesService {
             const feeStructureIds = feeStructures.map(fs => fs.id);
             if (feeStructureIds.length > 0) {
                 // This requires a more complex query - for now, filter in memory
-                const fees = await this.studentFeeRepository.find({ where });
+                let fees = await this.studentFeeRepository.find({ where });
+
+                // If no fees found, sync first
+                if (fees.length === 0) {
+                    await this.syncStudentFees(schoolId, filters.term);
+                    fees = await this.studentFeeRepository.find({ where });
+                }
+
                 return fees.filter(f => feeStructureIds.includes(f.feeStructureId));
             }
         }
@@ -83,7 +90,13 @@ export class FeesService {
             where.status = filters.status;
         }
 
-        const fees = await this.studentFeeRepository.find({ where });
+        let fees = await this.studentFeeRepository.find({ where });
+
+        // If no fees found and term is provided, sync first
+        if (fees.length === 0 && filters.term) {
+            await this.syncStudentFees(schoolId, filters.term);
+            fees = await this.studentFeeRepository.find({ where });
+        }
 
         // Apply date filters if needed
         if (filters.fromDate || filters.toDate) {
@@ -170,6 +183,149 @@ export class FeesService {
             paidThisMonth,
             paidThisTerm: paidThisTerm || 0,
         };
+    }
+
+    // Add this method to fees.service.ts
+    async syncStudentFees(schoolId: string, term?: string): Promise<{ created: number }> {
+        // Get all students in this school
+        const students = await this.studentRepository.find({
+            where: { schoolId: schoolId },
+            relations: ['class'],
+        });
+
+        if (students.length === 0) {
+            return { created: 0 };
+        }
+
+        // Get active fee structures
+        const where: any = { isActive: true };
+        if (term) where.term = term;
+
+        const feeStructures = await this.feeStructureRepository.find({ where });
+
+        if (feeStructures.length === 0) {
+            return { created: 0 };
+        }
+
+        let created = 0;
+
+        for (const student of students) {
+            // Find the appropriate fee structure (by term and class)
+            const feeStructure = feeStructures.find(fs =>
+                fs.term === (term || 'Term 1') &&
+                (!fs.classId || fs.classId === student.class?.id)
+            );
+
+            if (!feeStructure) continue;
+
+            // Check if student fee record already exists
+            const existing = await this.studentFeeRepository.findOne({
+                where: {
+                    studentId: student.id,
+                    feeStructureId: feeStructure.id
+                }
+            });
+
+            if (!existing) {
+                // Create new student fee record
+                const studentFee = this.studentFeeRepository.create({
+                    studentId: student.id,
+                    studentName: student.name,
+                    examNumber: student.examNumber,
+                    class: student.class?.name || 'N/A',
+                    classId: student.class?.id || '',
+                    parentPhone: student.parentPhone,
+                    parentEmail: student.parentEmail,
+                    feeStructureId: feeStructure.id,
+                    feeStructure: {
+                        id: feeStructure.id,
+                        term: feeStructure.term,
+                        academicYear: feeStructure.academicYear,
+                        tuition: feeStructure.tuition,
+                        development: feeStructure.development,
+                        sports: feeStructure.sports,
+                        library: feeStructure.library,
+                        transport: feeStructure.transport,
+                        total: feeStructure.total,
+                        dueDate: feeStructure.dueDate,
+                    },
+                    paid: 0,
+                    balance: feeStructure.total,
+                    status: 'unpaid',
+                });
+
+                await this.studentFeeRepository.save(studentFee);
+                created++;
+            }
+        }
+
+        return { created };
+    }
+
+    async createFeeStructure(schoolId: string, data: any): Promise<FeeStructure> {
+        const classes = await this.classRepository.find({
+            where: { schoolId: schoolId }
+        });
+
+        // 1. Intercept the 'any' type here by casting to Partial<FeeStructure>
+        // This forces TypeORM to recognize we are working with a single object
+        const feeData: Partial<FeeStructure> = {
+            ...data,
+            total: data.tuition + data.development + data.sports + data.library + data.transport,
+            isActive: true,
+            classId: data.classId || null,
+            className: data.classId ? classes.find(c => c.id === data.classId)?.name : null
+        };
+
+        // 2. Pass the strictly typed object into create()
+        const feeStructure = this.feeStructureRepository.create(feeData);
+
+        // 3. Now TypeORM correctly saves and returns a single FeeStructure
+        const saved = await this.feeStructureRepository.save(feeStructure);
+
+        // Auto-create student fees for this structure
+        await this.syncStudentFees(schoolId, data.term);
+
+        return saved;
+    }
+
+    async updateFeeStructure(schoolId: string, id: string, data: any): Promise<FeeStructure> {
+        const feeStructure = await this.feeStructureRepository.findOne({
+            where: { id, isActive: true }
+        });
+
+        if (!feeStructure) {
+            throw new NotFoundException('Fee structure not found');
+        }
+
+        const updated = await this.feeStructureRepository.save({
+            ...feeStructure,
+            ...data,
+            total: (data.tuition || feeStructure.tuition) +
+                (data.development || feeStructure.development) +
+                (data.sports || feeStructure.sports) +
+                (data.library || feeStructure.library) +
+                (data.transport || feeStructure.transport)
+        });
+
+        // Update student fees with new amounts
+        await this.syncStudentFees(schoolId, updated.term);
+
+        return updated;
+    }
+
+    async deleteFeeStructure(schoolId: string, id: string): Promise<void> {
+        const feeStructure = await this.feeStructureRepository.findOne({
+            where: { id, isActive: true }
+        });
+
+        if (!feeStructure) {
+            throw new NotFoundException('Fee structure not found');
+        }
+
+        // Soft delete - mark as inactive
+        feeStructure.isActive = false;
+        await this.feeStructureRepository.save(feeStructure);
     }
 
     async recordPayment(data: any, userId: string): Promise<Payment> {

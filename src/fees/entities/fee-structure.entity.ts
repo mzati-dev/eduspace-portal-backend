@@ -26,6 +26,14 @@ export class FeeStructure {
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
     transport: number;
+    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    meal: number;
+
+    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    exam: number;
+
+    @Column({ type: 'jsonb', nullable: true })
+    customFees: { id: string; name: string; amount: number }[];
 
     @Column({ type: 'decimal', precision: 10, scale: 2 })
     total: number;

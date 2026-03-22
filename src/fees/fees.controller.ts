@@ -1,5 +1,5 @@
 // src/modules/fees/fees.controller.ts
-import { Controller, Get, Post, Body, Param, Query, Res, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Res, UseGuards, Req, Delete, Patch } from '@nestjs/common';
 import { Response } from 'express';
 import { FeesService } from './fees.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -18,6 +18,37 @@ export class FeesController {
         const schoolId = req.user?.schoolId;
         const data = await this.feesService.getFeeStructures(schoolId, term, academicYear);
         return { success: true, data };
+    }
+
+    @Post('structures')
+    async createFeeStructure(
+        @Req() req,
+        @Body() body: any,
+    ) {
+        const schoolId = req.user?.schoolId;
+        const data = await this.feesService.createFeeStructure(schoolId, body);
+        return { success: true, data };
+    }
+
+    @Patch('structures/:id')
+    async updateFeeStructure(
+        @Req() req,
+        @Param('id') id: string,
+        @Body() body: any,
+    ) {
+        const schoolId = req.user?.schoolId;
+        const data = await this.feesService.updateFeeStructure(schoolId, id, body);
+        return { success: true, data };
+    }
+
+    @Delete('structures/:id')
+    async deleteFeeStructure(
+        @Req() req,
+        @Param('id') id: string,
+    ) {
+        const schoolId = req.user?.schoolId;
+        await this.feesService.deleteFeeStructure(schoolId, id);
+        return { success: true, message: 'Fee structure deleted' };
     }
 
     @Get('students')
