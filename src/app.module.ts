@@ -13,6 +13,7 @@ import { TeacherMessagesModule } from './teacher-messages/teacher-messages.modul
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FeesModule } from './fees/fees.module';
 import { TimetableModule } from './timetable/timetable.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -100,6 +101,8 @@ import { TimetableModule } from './timetable/timetable.module';
     FeesModule,
 
     TimetableModule,
+
+    SettingsModule,
 
 
 
