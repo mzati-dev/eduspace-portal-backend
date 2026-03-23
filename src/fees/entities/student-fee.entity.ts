@@ -64,6 +64,9 @@ export class StudentFee {
         sports: number;
         library: number;
         transport: number;
+        meal: number;           // ← ADD THIS
+        exam: number;           // ← ADD THIS
+        customFees: { id: string; name: string; amount: number }[]; // ← ADD THIS
         total: number;
         dueDate: string;
         classId?: string;
