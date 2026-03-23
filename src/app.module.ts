@@ -12,6 +12,7 @@ import { MessagingModule } from './messaging/messaging.module';
 import { TeacherMessagesModule } from './teacher-messages/teacher-messages.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FeesModule } from './fees/fees.module';
+import { TimetableModule } from './timetable/timetable.module';
 
 @Module({
   imports: [
@@ -97,6 +98,8 @@ import { FeesModule } from './fees/fees.module';
     AnalyticsModule,
 
     FeesModule,
+
+    TimetableModule,
 
 
 
