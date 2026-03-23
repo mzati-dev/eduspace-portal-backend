@@ -136,6 +136,84 @@ export class FeesService {
         return fees;
     }
 
+    // async getFeeSummary(schoolId: string, term?: string, classId?: string): Promise<any> {
+    //     const students = await this.studentRepository.find({
+    //         where: { schoolId: schoolId },
+    //         relations: ['class'],
+    //     });
+
+    //     let filteredStudents = students;
+
+    //     if (classId) {
+    //         filteredStudents = students.filter(s => s.class?.id === classId);
+    //     }
+
+    //     const studentIds = filteredStudents.map(s => s.id);
+
+    //     // Get all payments for these students
+    //     const payments = await this.paymentRepository.find({
+    //         where: { studentId: In(studentIds), status: 'completed' },
+    //         order: { date: 'DESC' }
+    //     });
+
+    //     // Get all student fees
+    //     const studentFees = await this.studentFeeRepository.find({
+    //         where: { studentId: In(studentIds) }
+    //     });
+
+    //     const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+    //     const expectedRevenue = studentFees.reduce((sum, sf) => sum + (sf.feeStructure?.total || 0), 0);
+
+    //     const today = new Date().toISOString().split('T')[0];
+    //     const todayPayments = payments.filter(p => p.date === today);
+    //     const paidToday = todayPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    //     // Get payments this month
+    //     const thisMonth = new Date().getMonth();
+    //     const thisMonthPayments = payments.filter(p => new Date(p.date).getMonth() === thisMonth);
+    //     const paidThisMonth = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    //     // Get payments this term
+    //     let paidThisTerm = 0;
+    //     if (term) {
+    //         const termPayments = await this.paymentRepository.find({
+    //             where: { studentId: In(studentIds), status: 'completed' },
+    //             order: { date: 'DESC' }
+    //         });
+    //         paidThisTerm = termPayments.reduce((sum, p) => sum + p.amount, 0);
+    //     }
+
+    //     const overdue = studentFees.filter(sf => sf.status === 'overdue').length;
+
+    //     // FIX: Calculate pendingThisWeek based on due dates within next 7 days
+    //     const todayDate = new Date();
+    //     todayDate.setHours(0, 0, 0, 0);
+    //     const nextWeekDate = new Date(todayDate);
+    //     nextWeekDate.setDate(todayDate.getDate() + 7);
+
+    //     const pendingThisWeek = studentFees.filter(sf => {
+    //         if (!sf.feeStructure?.dueDate) return false;
+    //         if (sf.status === 'paid') return false;
+
+    //         const dueDate = new Date(sf.feeStructure.dueDate);
+    //         dueDate.setHours(0, 0, 0, 0);
+
+    //         // Check if due date is between today and next 7 days (inclusive)
+    //         return dueDate >= todayDate && dueDate <= nextWeekDate;
+    //     }).reduce((sum, sf) => sum + sf.balance, 0);
+
+    //     return {
+    //         totalCollected,
+    //         expectedRevenue,
+    //         collectionRate: expectedRevenue > 0 ? (totalCollected / expectedRevenue) * 100 : 0,
+    //         overdue,
+    //         paidToday,
+    //         pendingThisWeek,
+    //         paidThisMonth,
+    //         paidThisTerm: paidThisTerm || 0,
+    //     };
+    // }
+
     async getFeeSummary(schoolId: string, term?: string, classId?: string): Promise<any> {
         const students = await this.studentRepository.find({
             where: { schoolId: schoolId },
@@ -143,74 +221,61 @@ export class FeesService {
         });
 
         let filteredStudents = students;
-
         if (classId) {
             filteredStudents = students.filter(s => s.class?.id === classId);
         }
 
         const studentIds = filteredStudents.map(s => s.id);
 
-        // Get all payments for these students
+        // Get all payments
         const payments = await this.paymentRepository.find({
             where: { studentId: In(studentIds), status: 'completed' },
-            order: { date: 'DESC' }
         });
 
         // Get all student fees
         const studentFees = await this.studentFeeRepository.find({
-            where: { studentId: In(studentIds) }
+            where: { studentId: In(studentIds) },
         });
 
-        const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
-        const expectedRevenue = studentFees.reduce((sum, sf) => sum + (sf.feeStructure?.total || 0), 0);
-
-        const today = new Date().toISOString().split('T')[0];
-        const todayPayments = payments.filter(p => p.date === today);
-        const paidToday = todayPayments.reduce((sum, p) => sum + p.amount, 0);
-
-        // Get payments this month
-        const thisMonth = new Date().getMonth();
-        const thisMonthPayments = payments.filter(p => new Date(p.date).getMonth() === thisMonth);
-        const paidThisMonth = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-
-        // Get payments this term
-        let paidThisTerm = 0;
-        if (term) {
-            const termPayments = await this.paymentRepository.find({
-                where: { studentId: In(studentIds), status: 'completed' },
-                order: { date: 'DESC' }
-            });
-            paidThisTerm = termPayments.reduce((sum, p) => sum + p.amount, 0);
+        // Calculate totals using loops (NOT join or map)
+        let totalCollected = 0;
+        for (const p of payments) {
+            totalCollected += Number(p.amount);
         }
 
-        const overdue = studentFees.filter(sf => sf.status === 'overdue').length;
+        let expectedRevenue = 0;
+        for (const sf of studentFees) {
+            if (sf.feeStructure && sf.feeStructure.total) {
+                expectedRevenue += Number(sf.feeStructure.total);
+            }
+        }
 
-        // FIX: Calculate pendingThisWeek based on due dates within next 7 days
-        const todayDate = new Date();
-        todayDate.setHours(0, 0, 0, 0);
-        const nextWeekDate = new Date(todayDate);
-        nextWeekDate.setDate(todayDate.getDate() + 7);
+        const today = new Date().toISOString().split('T')[0];
 
-        const pendingThisWeek = studentFees.filter(sf => {
-            if (!sf.feeStructure?.dueDate) return false;
-            if (sf.status === 'paid') return false;
+        let paidToday = 0;
+        for (const p of payments) {
+            if (p.date === today) {
+                paidToday += Number(p.amount);
+            }
+        }
 
-            const dueDate = new Date(sf.feeStructure.dueDate);
-            dueDate.setHours(0, 0, 0, 0);
-
-            // Check if due date is between today and next 7 days (inclusive)
-            return dueDate >= todayDate && dueDate <= nextWeekDate;
-        }).reduce((sum, sf) => sum + sf.balance, 0);
+        // Calculate pending this week
+        let pendingThisWeek = 0;
+        for (const sf of studentFees) {
+            if (sf.status !== 'paid') {
+                pendingThisWeek += Number(sf.balance || 0);
+            }
+        }
 
         return {
             totalCollected,
             expectedRevenue,
             collectionRate: expectedRevenue > 0 ? (totalCollected / expectedRevenue) * 100 : 0,
-            overdue,
+            overdue: studentFees.filter(sf => sf.status === 'overdue').length,
             paidToday,
             pendingThisWeek,
-            paidThisMonth,
-            paidThisTerm: paidThisTerm || 0,
+            paidThisMonth: totalCollected,
+            paidThisTerm: totalCollected,
         };
     }
 
