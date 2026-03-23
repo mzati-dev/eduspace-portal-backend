@@ -225,4 +225,15 @@ export class TimetableController {
         await this.timetableService.deleteTemplate(schoolId, id);
         return { success: true, message: 'Template deleted successfully' };
     }
+
+    @Patch('time-slots/:id')
+    async updateTimeSlot(
+        @Req() req,
+        @Param('id') id: string,
+        @Body() body: { startTime: string; endTime: string; break: boolean },
+    ) {
+        const schoolId = req.user?.schoolId;
+        const data = await this.timetableService.updateTimeSlot(id, body);
+        return { success: true, data };
+    }
 }

@@ -402,4 +402,14 @@ export class TimetableService {
 
         await this.templateRepository.delete(id);
     }
+
+    async updateTimeSlot(id: string, data: { startTime: string; endTime: string; break: boolean }): Promise<TimeSlot> {
+        const slot = await this.timeSlotRepository.findOne({ where: { id } });
+        if (!slot) {
+            throw new NotFoundException('Time slot not found');
+        }
+
+        Object.assign(slot, data);
+        return this.timeSlotRepository.save(slot);
+    }
 }
