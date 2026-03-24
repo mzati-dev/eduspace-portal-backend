@@ -14,6 +14,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { FeesModule } from './fees/fees.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { SettingsModule } from './settings/settings.module';
+import { TimetableTeacherModule } from './timetable-teacher/timetable-teacher.module';
 
 @Module({
   imports: [
@@ -103,6 +104,8 @@ import { SettingsModule } from './settings/settings.module';
     TimetableModule,
 
     SettingsModule,
+
+    TimetableTeacherModule,
 
 
 
