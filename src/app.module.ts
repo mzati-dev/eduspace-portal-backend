@@ -15,6 +15,7 @@ import { FeesModule } from './fees/fees.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { SettingsModule } from './settings/settings.module';
 import { TimetableTeacherModule } from './timetable-teacher/timetable-teacher.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -106,6 +107,8 @@ import { TimetableTeacherModule } from './timetable-teacher/timetable-teacher.mo
     SettingsModule,
 
     TimetableTeacherModule,
+
+    ReportsModule,
 
 
 
