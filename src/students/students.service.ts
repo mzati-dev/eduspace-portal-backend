@@ -405,14 +405,20 @@ export class StudentsService {
       } else if (asm.assessmentType === 'end_of_term') {
         subjectMap[subjectName].endOfTerm = asm.score === null ? '' : asm.score;
         subjectMap[subjectName].endOfTerm_absent = asm.isAbsent || false;
+        // subjectMap[subjectName].grade = asm.isAbsent ? 'AB' :
+        //   (asm.score === null ? 'N/A' : this.calculateGrade(asm.score, gradeConfig));
+        // To this:
+        const className = student.class?.name;
         subjectMap[subjectName].grade = asm.isAbsent ? 'AB' :
-          (asm.score === null ? 'N/A' : this.calculateGrade(asm.score, gradeConfig));
+          (asm.score === null ? 'N/A' : this.calculateGrade(asm.score, gradeConfig, false, className));
       }
     });
 
+    const className = student.class?.name;
+
     Object.values(subjectMap).forEach((subject: any) => {
       subject.finalScore = this.calculateFinalScore(subject, gradeConfig, student.assessments);
-      subject.grade = this.calculateGrade(subject.finalScore, gradeConfig, subject.endOfTerm_absent);
+      subject.grade = this.calculateGrade(subject.finalScore, gradeConfig, subject.endOfTerm_absent, className);
     });
 
     // Use report card for current class term so classRank matches class results table (was: [0] = wrong term)
@@ -421,7 +427,7 @@ export class StudentsService {
       ? (student.reportCards.find((rc: any) => rc.term === currentTerm) || student.reportCards[0] || {})
       : (student.reportCards?.[0] || {});
 
-    const className = student.class ? student.class.name : 'Unknown';
+    // const className = student.class ? student.class.name : 'Unknown';
     const term = student.class ? student.class.term : 'Term 1, 2024/2025';
     const academicYear = student.class ? student.class.academic_year : '2024/2025';
 
@@ -533,9 +539,10 @@ export class StudentsService {
     const qa2Average = subjects.reduce((sum, s) => sum + s.qa2, 0) / subjects.length;
     const endOfTermAverage = subjects.reduce((sum, s) => sum + s.endOfTerm, 0) / subjects.length;
 
-    const qa1Grade = this.calculateGrade(qa1Average, gradeConfig);
-    const qa2Grade = this.calculateGrade(qa2Average, gradeConfig);
-    const endOfTermGrade = this.calculateGrade(endOfTermAverage, gradeConfig);
+    const className = studentData.class;
+    const qa1Grade = this.calculateGrade(qa1Average, gradeConfig, false, className);
+    const qa2Grade = this.calculateGrade(qa2Average, gradeConfig, false, className);
+    const endOfTermGrade = this.calculateGrade(endOfTermAverage, gradeConfig, false, className);
 
     let overallAverage = (qa1Average + qa2Average + endOfTermAverage) / 3;
     if (gradeConfig) {
@@ -961,7 +968,7 @@ export class StudentsService {
     } else {
       // Numeric score (including 0)
       score = Number(assessmentData.score);
-      grade = this.calculateGrade(score, activeConfig);
+      grade = this.calculateGrade(score, activeConfig, false, student?.class?.name);
     }
 
     const data = {
@@ -1147,10 +1154,33 @@ export class StudentsService {
 
   // ===== NO CHANGES =====
   // calculateGrade(score: number, gradeConfig?: any): string {
-  calculateGrade(score: number, gradeConfig?: any, isAbsent?: boolean): string {
+  // calculateGrade(score: number, gradeConfig?: any, isAbsent?: boolean): string {
+  calculateGrade(score: number, gradeConfig?: any, isAbsent?: boolean, className?: string): string {
     // If student was absent, return 'AB'
     if (isAbsent) return 'AB';
     const passMark = gradeConfig?.pass_mark || 50;
+
+    // Check if this is Form 3 or Form 4
+    const isForm3Or4 = className && (
+      className.includes('Form 3') ||
+      className.includes('Form 4') ||
+      className.includes('Form3') ||
+      className.includes('Form4')
+    );
+
+    // POINTS SYSTEM for Form 3 & 4 (Malawi MSCE)
+    if (isForm3Or4) {
+      if (score >= 80) return '1';
+      if (score >= 75) return '2';
+      if (score >= 70) return '3';
+      if (score >= 65) return '4';
+      if (score >= 60) return '5';
+      if (score >= 55) return '6';
+      if (score >= 51) return '7';
+      if (score >= passMark) return '8';  // DYNAMIC: from passMark up to 50
+      return '9';                         // Below passMark = FAIL
+    }
+
     if (score >= 80) return 'A';
     if (score >= 70) return 'B';
     if (score >= 60) return 'C';
@@ -2057,7 +2087,7 @@ export class StudentsService {
       if (subjects.length > 0) {
         const enhancedSubjects = subjects.map(subject => {
           const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
-          const grade = this.calculateGrade(finalScore, activeGradeConfig);
+          const grade = this.calculateGrade(finalScore, activeGradeConfig, false, classEntity.name);
           return {
             ...subject,
             finalScore,
@@ -2121,7 +2151,7 @@ export class StudentsService {
           qa1Average: qa1Average, // 👈 Added
           qa2Average: qa2Average, // 👈 Added
           endTermAverage: endTermAverage, // 👈 Added
-          overallGrade: this.calculateGrade(average, activeGradeConfig),
+          overallGrade: this.calculateGrade(average, activeGradeConfig, false, classEntity.name),
           subjects: enhancedSubjects.map(subject => ({
             name: subject.name,
             qa1: subject.qa1,
@@ -2214,7 +2244,7 @@ export class StudentsService {
       const overallAverage = subjectCount > 0 ? totalScore / subjectCount : 0;
 
       reportCard.overallAverage = overallAverage;
-      reportCard.overallGrade = this.calculateGrade(overallAverage, gradeConfig);
+      reportCard.overallGrade = this.calculateGrade(overallAverage, gradeConfig, false, student.class?.name);
 
       await this.reportCardRepository.save(reportCard);
     }
@@ -2441,6 +2471,7 @@ export class StudentsService {
   }
 
   async generateStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
+
     console.log(`--- GENERATING REPORT CARDS FOR CLASS ${classId}, TERM ${term}, TYPE ${assessmentType} ---`);
 
     // 1. Get all students in the class with their assessments and report cards
@@ -2462,6 +2493,7 @@ export class StudentsService {
 
     // 2. For each student, generate their report card data matching StudentData interface
     for (const student of students) {
+      const className = student.class?.name;
       const reportCard = student.reportCards?.find(rc => rc.term === term);
 
       // Group assessments by subject
@@ -2506,7 +2538,7 @@ export class StudentsService {
       // Calculate final scores for each subject
       subjectMap.forEach(subject => {
         subject.finalScore = this.calculateFinalScoreForReportCard(subject, activeGradeConfig);
-        subject.grade = this.calculateGrade(subject.finalScore, activeGradeConfig, subject.endOfTerm_absent);
+        subject.grade = this.calculateGrade(subject.finalScore, activeGradeConfig, subject.endOfTerm_absent, className);
       });
 
       const subjects = Array.from(subjectMap.values());
@@ -2550,17 +2582,17 @@ export class StudentsService {
           qa1: {
             classRank: reportCard?.qa1Rank || 0,
             termAverage: parseFloat(qa1Average.toFixed(1)),
-            overallGrade: this.calculateGrade(qa1Average, activeGradeConfig)
+            overallGrade: this.calculateGrade(qa1Average, activeGradeConfig, false, className)
           },
           qa2: {
             classRank: reportCard?.qa2Rank || 0,
             termAverage: parseFloat(qa2Average.toFixed(1)),
-            overallGrade: this.calculateGrade(qa2Average, activeGradeConfig)
+            overallGrade: this.calculateGrade(qa2Average, activeGradeConfig, false, className)
           },
           endOfTerm: {
             classRank: reportCard?.classRank || 0,
             termAverage: parseFloat(endOfTermAverage.toFixed(1)),
-            overallGrade: this.calculateGrade(endOfTermAverage, activeGradeConfig),
+            overallGrade: this.calculateGrade(endOfTermAverage, activeGradeConfig, false, className),
             attendance: {
               present: reportCard?.daysPresent || 0,
               absent: reportCard?.daysAbsent || 0,

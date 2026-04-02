@@ -483,11 +483,46 @@ export class TeachersService {
      * @param gradeConfig - Grade configuration
      * @param isAbsent - Whether student was absent
      */
-    calculateGrade(score: number, gradeConfig?: any, isAbsent?: boolean): string {
+    // calculateGrade(score: number, gradeConfig?: any, isAbsent?: boolean): string {
+    //     // If student was absent, return 'AB'
+    //     if (isAbsent) return 'AB';
+
+    //     const passMark = gradeConfig?.pass_mark || 50;
+    //     if (score >= 80) return 'A';
+    //     if (score >= 70) return 'B';
+    //     if (score >= 60) return 'C';
+    //     if (score >= passMark) return 'D';
+    //     return 'F';
+    // }
+
+    calculateGrade(score: number, gradeConfig?: any, isAbsent?: boolean, className?: string): string {
         // If student was absent, return 'AB'
         if (isAbsent) return 'AB';
 
         const passMark = gradeConfig?.pass_mark || 50;
+
+        // Check if this is Form 3 or Form 4
+        const isForm3Or4 = className && (
+            className.includes('Form 3') ||
+            className.includes('Form 4') ||
+            className.includes('Form3') ||
+            className.includes('Form4')
+        );
+
+        // POINTS SYSTEM for Form 3 & 4 (Malawi MSCE)
+        if (isForm3Or4) {
+            if (score >= 80) return '1';
+            if (score >= 75) return '2';
+            if (score >= 70) return '3';
+            if (score >= 65) return '4';
+            if (score >= 60) return '5';
+            if (score >= 55) return '6';
+            if (score >= 51) return '7';
+            if (score >= passMark) return '8';
+            return '9';
+        }
+
+        // LETTER GRADES for Primary & Form 1/2
         if (score >= 80) return 'A';
         if (score >= 70) return 'B';
         if (score >= 60) return 'C';
@@ -662,7 +697,8 @@ export class TeachersService {
         } else {
             // CASE 3: Numeric score (including 0)
             score = Number(assessmentData.score);
-            grade = this.calculateGrade(score, activeConfig);
+            // grade = this.calculateGrade(score, activeConfig);
+            grade = this.calculateGrade(score, activeConfig, false, student.class?.name);
         }
 
         const data = {
@@ -1043,7 +1079,8 @@ export class TeachersService {
                 // Calculate final scores and grades
                 const enhancedSubjects = subjects.map(subject => {
                     const finalScore = this.calculateFinalScore(subject, activeGradeConfig);
-                    const grade = this.calculateGrade(finalScore, activeGradeConfig);
+                    // const grade = this.calculateGrade(finalScore, activeGradeConfig);
+                    const grade = this.calculateGrade(finalScore, activeGradeConfig, false, classEntity.name);
                     return {
                         ...subject,
                         finalScore,
@@ -1062,7 +1099,8 @@ export class TeachersService {
                     classRank: reportCard?.classRank || 0,
                     totalScore: totalScore,
                     average: average,
-                    overallGrade: this.calculateGrade(average, activeGradeConfig),
+                    // overallGrade: this.calculateGrade(average, activeGradeConfig),
+                    overallGrade: this.calculateGrade(average, activeGradeConfig, false, classEntity.name),
                     subjects: enhancedSubjects.map(subject => ({
                         name: subject.name,
                         qa1: subject.qa1,
