@@ -4,22 +4,22 @@ import { Class } from './class.entity';
 @Entity('archives')
 export class Archive {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @ManyToOne(() => Class, { onDelete: 'CASCADE' })
-    class: Class;
+    class!: Class;
 
     @Column()
-    classId: string;
+    classId!: string;
 
     @Column()
-    term: string;
+    term!: string;
 
     @Column()
-    academicYear: string;
+    academicYear!: string;
 
     @Column('jsonb')
-    results: {
+    results!: {
         overall: any[];
         qa1: any[];
         qa2: any[];
@@ -34,13 +34,13 @@ export class Archive {
     };
 
     @Column({ default: false })
-    is_published: boolean;
+    is_published!: boolean;
 
     @Column({ default: false })
-    locked_by_admin: boolean;
+    locked_by_admin!: boolean;
 
     @CreateDateColumn()
-    archivedAt: Date;
+    archivedAt!: Date;
 }
 
 // @Entity('archives')

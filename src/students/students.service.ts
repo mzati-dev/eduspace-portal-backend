@@ -2096,7 +2096,21 @@ export class StudentsService {
         });
 
         const totalScore = enhancedSubjects.reduce((sum, subject) => sum + subject.finalScore, 0);
-        const average = enhancedSubjects.length > 0 ? totalScore / enhancedSubjects.length : 0;
+
+        // Check if this is Form 3 or Form 4
+        const isForm3Or4 = classEntity.name && (
+          classEntity.name.includes('Form 3') ||
+          classEntity.name.includes('Form 4') ||
+          classEntity.name.includes('Form3') ||
+          classEntity.name.includes('Form4')
+        );
+        let average;
+        if (isForm3Or4) {
+          // For Form 3/4: use best 6 subjects including English
+          average = this.calculateBestSixAverage(subjects, activeGradeConfig);
+        } else {
+          average = enhancedSubjects.length > 0 ? totalScore / enhancedSubjects.length : 0;
+        }
 
         // 🔴 ADDED: Calculate specific QA averages (matching your calculateAndUpdateRanks logic)
         let qa1Total = 0, qa1Count = 0;
@@ -2468,6 +2482,30 @@ export class StudentsService {
       default:
         return (qa1 + qa2 + endOfTerm) / 3;
     }
+  }
+
+  private calculateBestSixAverage(subjects: any[], gradeConfig: any): number {
+    const bestSix = this.getBestSixSubjects(subjects, gradeConfig);
+    if (bestSix.length === 0) return 0;
+    const total = bestSix.reduce((sum, s) => sum + s.finalScore, 0);
+    return total / bestSix.length;
+  }
+
+  private getBestSixSubjects(subjects: any[], gradeConfig: any): any[] {
+    const subjectScores = subjects.map(subject => {
+      const finalScore = this.calculateFinalScore(subject, gradeConfig);
+      const isEnglish = subject.name.toLowerCase().includes('english') ||
+        subject.name.toLowerCase() === 'eng';
+
+      return { ...subject, finalScore, isEnglish };
+    });
+
+    const englishSubject = subjectScores.find(s => s.isEnglish);
+    const nonEnglishSubjects = subjectScores.filter(s => !s.isEnglish);
+    nonEnglishSubjects.sort((a, b) => b.finalScore - a.finalScore);
+    const topNonEnglish = nonEnglishSubjects.slice(0, 5);
+
+    return englishSubject ? [englishSubject, ...topNonEnglish] : topNonEnglish;
   }
 
   async generateStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
