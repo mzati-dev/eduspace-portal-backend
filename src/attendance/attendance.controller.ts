@@ -5,6 +5,13 @@ import { AttendanceService } from './attendance.service';
 export class AttendanceController {
     constructor(private readonly attendanceService: AttendanceService) { }
 
+
+    // Helper method for error handling
+    private handleError(error: unknown): { success: false; message: string } {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred';
+        return { success: false, message };
+    }
+
     /**
      * Get attendance for a class on a specific date
      * GET /attendance/class/:classId?date=2024-03-20
@@ -19,7 +26,7 @@ export class AttendanceController {
             const data = await this.attendanceService.getByClassAndDate(classId, date, teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -34,7 +41,7 @@ export class AttendanceController {
             const data = await this.attendanceService.save(record, teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -49,7 +56,7 @@ export class AttendanceController {
             const data = await this.attendanceService.saveBatch(records, teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -64,7 +71,7 @@ export class AttendanceController {
             const data = await this.attendanceService.markAllPresent(classId, date, studentIds, teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -83,7 +90,7 @@ export class AttendanceController {
             const data = await this.attendanceService.getWeeklyStats(classId, startDate, endDate, teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -97,7 +104,7 @@ export class AttendanceController {
             const data = await this.attendanceService.getClassSummaries(teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -121,7 +128,7 @@ export class AttendanceController {
             );
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -136,7 +143,7 @@ export class AttendanceController {
             const data = await this.attendanceService.sendAlerts(alertData, teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 
@@ -158,7 +165,7 @@ export class AttendanceController {
             );
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
     @Get('analytics/patterns')
@@ -172,7 +179,7 @@ export class AttendanceController {
             const data = await this.attendanceService.getAttendancePatterns(classId, startDate, endDate, teacherId);
             return { success: true, data };
         } catch (error) {
-            return { success: false, message: error.message };
+            return this.handleError(error);
         }
     }
 }

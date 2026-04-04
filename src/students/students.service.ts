@@ -2298,15 +2298,56 @@ export class StudentsService {
   }
 
 
+  // async lockResults(
+  //   classId: string,
+  //   term: string,
+  //   assessmentType: 'qa1' | 'qa2' | 'endOfTerm',
+  //   lock: boolean,
+  //   lockReason: 'fee' | 'teacher', // ADD THIS PARAMETER
+  //   studentIds?: string[]
+  // ) {
+  //   // First, get the class to verify term matches
+  //   const classEntity = await this.classRepository.findOne({
+  //     where: { id: classId, term: term }
+  //   });
+
+  //   if (!classEntity) {
+  //     throw new NotFoundException('Class not found for this term');
+  //   }
+
+  //   // Build the query
+  //   const queryBuilder = this.assessmentRepository
+  //     .createQueryBuilder()
+  //     .update(Assessment)
+  //     .set({
+  //       is_locked: lock,
+  //       lock_reason: lock ? lockReason : undefined // Change null to undefined
+  //     })
+  //     .where('classId = :classId', { classId })
+  //     .andWhere('assessmentType = :assessmentType', { assessmentType });
+
+  //   // If specific student IDs are provided, lock only those students
+  //   if (studentIds && studentIds.length > 0) {
+  //     queryBuilder.andWhere('studentId IN (:...studentIds)', { studentIds });
+  //   }
+
+  //   const result = await queryBuilder.execute();
+
+  //   return {
+  //     message: `Results ${lock ? 'locked' : 'unlocked'} successfully for ${assessmentType}`,
+  //     studentCount: studentIds?.length || 'all',
+  //     affectedCount: result.affected
+  //   };
+  // }
+
   async lockResults(
     classId: string,
     term: string,
     assessmentType: 'qa1' | 'qa2' | 'endOfTerm',
     lock: boolean,
-    lockReason: 'fee' | 'teacher', // ADD THIS PARAMETER
+    lockReason: 'fee' | 'teacher',
     studentIds?: string[]
   ) {
-    // First, get the class to verify term matches
     const classEntity = await this.classRepository.findOne({
       where: { id: classId, term: term }
     });
@@ -2315,18 +2356,22 @@ export class StudentsService {
       throw new NotFoundException('Class not found for this term');
     }
 
-    // Build the query
+    // 🔴 ADD THIS CONVERSION
+    let dbAssessmentType: string = assessmentType;
+    if (assessmentType === 'endOfTerm') {
+      dbAssessmentType = 'end_of_term';
+    }
+
     const queryBuilder = this.assessmentRepository
       .createQueryBuilder()
       .update(Assessment)
       .set({
         is_locked: lock,
-        lock_reason: lock ? lockReason : undefined // Change null to undefined
+        lock_reason: lock ? lockReason : undefined
       })
       .where('classId = :classId', { classId })
-      .andWhere('assessmentType = :assessmentType', { assessmentType });
+      .andWhere('assessmentType = :assessmentType', { assessmentType: dbAssessmentType });  // ← USE CONVERTED VALUE
 
-    // If specific student IDs are provided, lock only those students
     if (studentIds && studentIds.length > 0) {
       queryBuilder.andWhere('studentId IN (:...studentIds)', { studentIds });
     }
