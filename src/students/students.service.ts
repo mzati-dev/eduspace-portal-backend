@@ -2447,8 +2447,27 @@ export class StudentsService {
   }
 
 
+  // async getLockedAssessments(classId: string, term: string, schoolId?: string) {
+  //   return this.assessmentRepository.find({
+  //     where: {
+  //       class: { id: classId },
+  //       is_locked: true
+  //     },
+  //     relations: ['student', 'subject'],
+  //     select: {
+  //       id: true,
+  //       assessmentType: true,
+  //       score: true,
+  //       is_locked: true,
+  //       lock_reason: true, // Make sure this is included
+  //       student: { id: true, name: true, examNumber: true },
+  //       subject: { id: true, name: true }
+  //     }
+  //   });
+  // }
+
   async getLockedAssessments(classId: string, term: string, schoolId?: string) {
-    return this.assessmentRepository.find({
+    const results = await this.assessmentRepository.find({
       where: {
         class: { id: classId },
         is_locked: true
@@ -2459,11 +2478,17 @@ export class StudentsService {
         assessmentType: true,
         score: true,
         is_locked: true,
-        lock_reason: true, // Make sure this is included
+        lock_reason: true,
         student: { id: true, name: true, examNumber: true },
         subject: { id: true, name: true }
       }
     });
+
+    // Convert 'end_of_term' to 'endOfTerm' for frontend
+    return results.map(item => ({
+      ...item,
+      assessmentType: item.assessmentType === 'end_of_term' ? 'endOfTerm' : item.assessmentType
+    }));
   }
 
 
