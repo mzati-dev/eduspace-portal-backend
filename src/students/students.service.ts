@@ -2980,6 +2980,9 @@ export class StudentsService {
    * Parse CSV or Excel file to extract student names
    */
 
+  /**
+ * Parse CSV or Excel file to extract student names
+ */
   private async parseStudentFile(file: any): Promise<{ name: string }[]> {
     const students: { name: string }[] = [];
 
@@ -2988,6 +2991,38 @@ export class StudentsService {
       file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
     const isCSV = file.originalname.match(/\.csv$/i) || file.mimetype === 'text/csv';
+
+    // Helper function to check if text looks like a header
+    const isHeaderText = (text: string): boolean => {
+      const lowerText = text.toLowerCase().trim();
+
+      // Common header variations
+      const headerKeywords = [
+        'name', 'student', 'student name', 'learner', 'learner name',
+        'full name', 'names', 'student names', 'name of learner',
+        'name of student', 'candidate', 'candidate name', 'examinee',
+        'first name', 'last name', 'surname', 'given name',
+        'fullname', 'studentname', 'learnername'
+      ];
+
+      // Check if matches any header keyword exactly or contains it
+      if (headerKeywords.some(keyword => lowerText === keyword || lowerText.includes(keyword))) {
+        return true;
+      }
+
+      // If text contains spaces and is longer than 30 chars, likely a header/description
+      if (lowerText.includes(' ') && lowerText.length > 30) {
+        return true;
+      }
+
+      // If text contains common header words
+      const headerWords = ['name', 'student', 'learner', 'candidate', 'list', 'register', 'roll'];
+      if (headerWords.some(word => lowerText.includes(word) && lowerText.length < 30)) {
+        return true;
+      }
+
+      return false;
+    };
 
     if (isExcel) {
       const XLSX = require('xlsx');
@@ -3000,9 +3035,7 @@ export class StudentsService {
       // Check if first row looks like a header
       if (data.length > 0) {
         const firstCell = data[0][0];
-        if (firstCell && (firstCell.toString().toLowerCase() === 'name' ||
-          firstCell.toString().toLowerCase() === 'student name' ||
-          firstCell.toString().toLowerCase() === 'student')) {
+        if (firstCell && isHeaderText(firstCell.toString())) {
           startRow = 1;
         }
       }
@@ -3019,9 +3052,10 @@ export class StudentsService {
       const lines = content.split('\n');
 
       let startLine = 0;
+      // Check if first line looks like a header
       if (lines.length > 0) {
         const firstLine = lines[0].toLowerCase().trim();
-        if (firstLine === 'name' || firstLine === 'student name' || firstLine === 'student') {
+        if (isHeaderText(firstLine)) {
           startLine = 1;
         }
       }
