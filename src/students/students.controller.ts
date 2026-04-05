@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Headers, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { StudentsService } from './students.service';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 // Main Students Controller
 @Controller('api/students')
@@ -365,6 +366,25 @@ export class ClassesController {
   @Get(':studentId/attendance')
   async getStudentAttendance(@Param('studentId') studentId: string) {
     return this.studentsService.getStudentAttendance(studentId);
+  }
+
+  // Add these endpoints to your ClassesController
+  @Post('import/preview')
+  @UseInterceptors(FileInterceptor('file'))
+  async previewImportFile(
+    @UploadedFile() file: any,
+    @Body('classId') classId: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    return this.studentsService.previewImportFile(file, classId, schoolId);
+  }
+
+  @Post('import/batch')
+  async importSelectedStudents(
+    @Body() body: { classId: string; students: Array<{ name: string; examNumber?: string }> },
+    @Query('schoolId') schoolId?: string
+  ) {
+    return this.studentsService.importSelectedStudents(body.classId, body.students, schoolId);
   }
 
 }

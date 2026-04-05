@@ -2818,5 +2818,201 @@ export class StudentsService {
   async getStudentAttendance(studentId: string) {
     return this.attendanceService.getByStudentId(studentId);
   }
+  // ====================== IMPORT STUDENTS FROM FILE ======================
+
+  /**
+   * Preview import file - parses CSV/Excel and generates exam numbers
+   */
+  async previewImportFile(file: any, classId: string, schoolId?: string) {
+    // 1. Get the class
+    const classEntity = await this.classRepository.findOne({
+      where: {
+        id: classId,
+        ...(schoolId && { schoolId })
+      }
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${classId} not found`);
+    }
+
+    // 2. Parse the file (CSV or Excel)
+    const students = await this.parseStudentFile(file);
+
+    if (!students || students.length === 0) {
+      throw new BadRequestException('No valid student names found in file');
+    }
+
+    // 3. Get current max exam number for this class
+    const currentYear = new Date().getFullYear().toString().slice(-2);
+    const classNumberMatch = classEntity.name.match(/\d+/);
+    const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
+    const prefix = `${schoolId ? schoolId.substring(0, 3) : 'SCH'}-${currentYear}-${classNumber}`;
+
+    // Find the highest exam number for this prefix
+    const existingStudents = await this.studentRepository.find({
+      select: ['examNumber'],
+      where: {
+        examNumber: Like(`${prefix}%`),
+        ...(schoolId && { schoolId })
+      },
+      order: { examNumber: 'DESC' },
+      take: 1
+    });
+
+    let lastNumber = 0;
+    if (existingStudents.length > 0 && existingStudents[0].examNumber) {
+      const lastNumberStr = existingStudents[0].examNumber.slice(prefix.length);
+      lastNumber = parseInt(lastNumberStr) || 0;
+    }
+
+    // 4. Generate preview with exam numbers
+    const previewStudents = students.map((student: { name: string }, index: number) => {
+      const nextNumber = lastNumber + index + 1;
+      const examNumber = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+
+      return {
+        name: student.name,
+        examNumber: examNumber,
+        selected: true,
+        isValid: true
+      };
+    });
+
+    return {
+      students: previewStudents,
+      totalCount: previewStudents.length,
+      classInfo: {
+        id: classEntity.id,
+        name: classEntity.name,
+        term: classEntity.term,
+        academicYear: classEntity.academic_year
+      }
+    };
+  }
+
+  /**
+   * Batch import selected students to class
+   */
+  async importSelectedStudents(
+    classId: string,
+    selectedStudents: Array<{ name: string; examNumber?: string }>,
+    schoolId?: string
+  ) {
+    // 1. Get the class
+    const classEntity = await this.classRepository.findOne({
+      where: {
+        id: classId,
+        ...(schoolId && { schoolId })
+      }
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class ${classId} not found`);
+    }
+
+    // 2. Get current max exam number for this class
+    const currentYear = new Date().getFullYear().toString().slice(-2);
+    const classNumberMatch = classEntity.name.match(/\d+/);
+    const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
+    const prefix = `${schoolId ? schoolId.substring(0, 3) : 'SCH'}-${currentYear}-${classNumber}`;
+
+    // Find existing students in this class to get the next number
+    const existingStudents = await this.studentRepository.find({
+      select: ['examNumber'],
+      where: {
+        examNumber: Like(`${prefix}%`),
+        ...(schoolId && { schoolId })
+      },
+      order: { examNumber: 'DESC' }
+    });
+
+    let lastNumber = 0;
+    if (existingStudents.length > 0) {
+      const lastNumberStr = existingStudents[0].examNumber.slice(prefix.length);
+      lastNumber = parseInt(lastNumberStr) || 0;
+    }
+
+    const addedStudents: Array<{ name: string; examNumber: string }> = [];
+
+    // 3. Create each student
+    for (let i = 0; i < selectedStudents.length; i++) {
+      const student = selectedStudents[i];
+      const nextNumber = lastNumber + i + 1;
+      const examNumber = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+
+      // Create new student
+      const newStudent = this.studentRepository.create({
+        name: student.name,
+        examNumber: examNumber,
+        class: classEntity,
+        schoolId: schoolId
+      });
+
+      const saved = await this.studentRepository.save(newStudent);
+      addedStudents.push({
+        name: saved.name,
+        examNumber: saved.examNumber
+      });
+    }
+
+    return {
+      message: `Successfully imported ${addedStudents.length} student(s) to ${classEntity.name}`,
+      addedCount: addedStudents.length,
+      added: addedStudents
+    };
+  }
+
+  /**
+   * Parse CSV or Excel file to extract student names
+   */
+  private async parseStudentFile(file: any): Promise<{ name: string }[]> {
+    const students: { name: string }[] = [];
+
+    const isExcel = file.originalname.match(/\.(xlsx|xls)$/i) ||
+      file.mimetype === 'application/vnd.ms-excel' ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    const isCSV = file.originalname.match(/\.csv$/i) || file.mimetype === 'text/csv';
+
+    if (isExcel) {
+      const XLSX = require('xlsx');
+      const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet);
+
+      for (const row of data) {
+        const name = row['name'] || row['Name'] || row['NAME'];
+        if (name && name.toString().trim()) {
+          students.push({ name: name.toString().trim() });
+        }
+      }
+    } else if (isCSV) {
+      const content = file.buffer.toString('utf-8');
+      const lines = content.split('\n');
+      const headers = lines[0].toLowerCase().split(',');
+      const nameIndex = headers.findIndex(h => h.trim() === 'name');
+
+      if (nameIndex === -1) {
+        throw new BadRequestException('CSV file must have a "name" column');
+      }
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        if (values[nameIndex] && values[nameIndex].trim()) {
+          students.push({ name: values[nameIndex].trim() });
+        }
+      }
+    } else {
+      throw new BadRequestException('Unsupported file format. Please upload CSV or Excel file.');
+    }
+
+    if (students.length === 0) {
+      throw new BadRequestException('No valid student names found in file');
+    }
+
+    return students;
+  }
 
 }
