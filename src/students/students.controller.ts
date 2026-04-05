@@ -374,17 +374,16 @@ export class ClassesController {
   async previewImportFile(
     @UploadedFile() file: any,
     @Body('classId') classId: string,
-    @Query('schoolId') schoolId?: string
+    @Body('schoolId') schoolId?: string  // ← Changed from @Query to @Body
   ) {
     return this.studentsService.previewImportFile(file, classId, schoolId);
   }
 
   @Post('import/batch')
   async importSelectedStudents(
-    @Body() body: { classId: string; students: Array<{ name: string; examNumber?: string }> },
-    @Query('schoolId') schoolId?: string
+    @Body() body: { classId: string; students: Array<{ name: string; examNumber?: string }>; schoolId?: string }
   ) {
-    return this.studentsService.importSelectedStudents(body.classId, body.students, schoolId);
+    return this.studentsService.importSelectedStudents(body.classId, body.students, body.schoolId);
   }
 
 }
