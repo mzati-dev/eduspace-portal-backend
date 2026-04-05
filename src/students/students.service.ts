@@ -2994,12 +2994,21 @@ export class StudentsService {
       const workbook = XLSX.read(file.buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-
-      // Get data as array of arrays (no header assumption)
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-      for (const row of data) {
-        // Take the first non-empty cell as the name
+      let startRow = 0;
+      // Check if first row looks like a header
+      if (data.length > 0) {
+        const firstCell = data[0][0];
+        if (firstCell && (firstCell.toString().toLowerCase() === 'name' ||
+          firstCell.toString().toLowerCase() === 'student name' ||
+          firstCell.toString().toLowerCase() === 'student')) {
+          startRow = 1;
+        }
+      }
+
+      for (let i = startRow; i < data.length; i++) {
+        const row = data[i];
         const name = row[0];
         if (name && name.toString().trim()) {
           students.push({ name: name.toString().trim() });
@@ -3009,15 +3018,18 @@ export class StudentsService {
       const content = file.buffer.toString('utf-8');
       const lines = content.split('\n');
 
-      for (const line of lines) {
-        // Split by comma and take the first value
-        const firstColumn = line.split(',')[0];
+      let startLine = 0;
+      if (lines.length > 0) {
+        const firstLine = lines[0].toLowerCase().trim();
+        if (firstLine === 'name' || firstLine === 'student name' || firstLine === 'student') {
+          startLine = 1;
+        }
+      }
+
+      for (let i = startLine; i < lines.length; i++) {
+        const firstColumn = lines[i].split(',')[0];
         if (firstColumn && firstColumn.trim()) {
-          // Skip if it looks like a header (optional: check for common header words)
-          const trimmed = firstColumn.trim().toLowerCase();
-          if (trimmed !== 'name' && trimmed !== 'student' && trimmed !== 'student name') {
-            students.push({ name: firstColumn.trim() });
-          }
+          students.push({ name: firstColumn.trim() });
         }
       }
     } else {
@@ -3030,6 +3042,57 @@ export class StudentsService {
 
     return students;
   }
+
+  // private async parseStudentFile(file: any): Promise<{ name: string }[]> {
+  //   const students: { name: string }[] = [];
+
+  //   const isExcel = file.originalname.match(/\.(xlsx|xls)$/i) ||
+  //     file.mimetype === 'application/vnd.ms-excel' ||
+  //     file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  //   const isCSV = file.originalname.match(/\.csv$/i) || file.mimetype === 'text/csv';
+
+  //   if (isExcel) {
+  //     const XLSX = require('xlsx');
+  //     const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+  //     const sheetName = workbook.SheetNames[0];
+  //     const worksheet = workbook.Sheets[sheetName];
+
+  //     // Get data as array of arrays (no header assumption)
+  //     const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+  //     for (const row of data) {
+  //       // Take the first non-empty cell as the name
+  //       const name = row[0];
+  //       if (name && name.toString().trim()) {
+  //         students.push({ name: name.toString().trim() });
+  //       }
+  //     }
+  //   } else if (isCSV) {
+  //     const content = file.buffer.toString('utf-8');
+  //     const lines = content.split('\n');
+
+  //     for (const line of lines) {
+  //       // Split by comma and take the first value
+  //       const firstColumn = line.split(',')[0];
+  //       if (firstColumn && firstColumn.trim()) {
+  //         // Skip if it looks like a header (optional: check for common header words)
+  //         const trimmed = firstColumn.trim().toLowerCase();
+  //         if (trimmed !== 'name' && trimmed !== 'student' && trimmed !== 'student name') {
+  //           students.push({ name: firstColumn.trim() });
+  //         }
+  //       }
+  //     }
+  //   } else {
+  //     throw new BadRequestException('Unsupported file format. Please upload CSV or Excel file.');
+  //   }
+
+  //   if (students.length === 0) {
+  //     throw new BadRequestException('No valid student names found in file');
+  //   }
+
+  //   return students;
+  // }
   // private async parseStudentFile(file: any): Promise<{ name: string }[]> {
   //   const students: { name: string }[] = [];
 
