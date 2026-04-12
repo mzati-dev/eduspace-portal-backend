@@ -1293,7 +1293,7 @@ export class StudentsService {
   // ===== END MODIFIED =====
 
   // ===== START MODIFIED: Added schoolId parameter =====
-  async createClass(classData: { name: string; academic_year: string; term: string }, schoolId?: string) {
+  async createClass(classData: { name: string; academic_year: string; term: string; start_date: string; end_date: string }, schoolId?: string) {
     const existingClass = await this.classRepository.findOne({
       where: {
         name: classData.name,

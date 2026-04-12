@@ -8,19 +8,25 @@ import { Assessment } from './assessment.entity';
 @Entity('classes')
 export class Class {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    name: string;
+    name!: string;
 
     @Column()
-    academic_year: string;
+    academic_year!: string;
 
     @Column()
-    term: string;
+    term!: string;
+
+    @Column({ type: 'date', nullable: true })
+    start_date!: string;
+
+    @Column({ type: 'date', nullable: true })
+    end_date!: string;
 
     @Column({ unique: true })
-    class_code: string;
+    class_code!: string;
 
     // ADD CLASS TEACHER RELATIONSHIP
     @ManyToOne(() => Teacher, { nullable: true, onDelete: 'CASCADE' })
@@ -38,15 +44,15 @@ export class Class {
     schoolId?: string;
 
     @OneToMany(() => Student, (student) => student.class)
-    students: Student[];
+    students!: Student[];
 
     // ADD THIS LINE:
     @OneToMany(() => Assessment, (assessment) => assessment.class)
-    assessments: Assessment[];
+    assessments!: Assessment[];
 
 
     @CreateDateColumn()
-    created_at: Date;
+    created_at!: Date;
 }
 
 // // src/students/entities/class.entity.ts

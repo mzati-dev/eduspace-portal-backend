@@ -209,7 +209,7 @@ export class ClassesController {
 
   @Post()
   async createClass(
-    @Body() classData: { name: string; academic_year: string; term: string },
+    @Body() classData: { name: string; academic_year: string; term: string; start_date: string; end_date: string },
     @Query('schoolId') schoolId?: string
   ) {
     return this.studentsService.createClass(classData, schoolId);

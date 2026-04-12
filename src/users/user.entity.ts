@@ -9,28 +9,28 @@ import { School } from '../schools/entities/school.entity';
 @Entity('users')
 export class User {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
     @IsNotEmpty()
-    fullName: string;
+    fullName!: string;
 
     @Column({ unique: true })
     @IsEmail()
     @IsNotEmpty()
-    email: string;
+    email!: string;
 
     @Column()
     @Exclude()
     @MinLength(8)
-    password: string;
+    password!: string;
 
     @Column({ default: false })
-    isEmailVerified: boolean;
+    isEmailVerified!: boolean;
 
     // ========== ADD THIS LINE ==========
     @Column({ default: 'user' })
-    role: string; // 'user', 'admin', 'super_admin'
+    role!: string; // 'user', 'admin', 'super_admin'
     // ========== END OF ADD ==========
 
     // ========== ADD SCHOOL RELATION HERE ==========
@@ -74,13 +74,13 @@ export class User {
     resetPasswordExpires?: Date;
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 
     @OneToMany(() => PasswordResetToken, token => token.user)
-    passwordResetTokens: PasswordResetToken[];
+    passwordResetTokens!: PasswordResetToken[];
 
     @BeforeInsert()
     async hashPassword() {

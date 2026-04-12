@@ -7,13 +7,13 @@ import { School } from '../../schools/entities/school.entity';
 @Unique(['name', 'schoolId'])
 export class Subject {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    name: string;
+    name!: string;
 
     @Column({ nullable: true })
-    description: string;
+    description!: string;
 
     // ADD SCHOOL RELATION
     @ManyToOne(() => School, school => school.subjects, {
@@ -27,5 +27,5 @@ export class Subject {
     schoolId?: string;
 
     @OneToMany(() => Assessment, (assessment) => assessment.subject)
-    assessments: Assessment[];
+    assessments!: Assessment[];
 }

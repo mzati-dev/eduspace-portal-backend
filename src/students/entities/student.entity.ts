@@ -10,13 +10,13 @@ import { Attendance } from '../../attendance/entities/attendance.entity';
 @Entity('students')
 export class Student {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column({ unique: true })
-    examNumber: string;
+    examNumber!: string;
 
     @Column()
-    name: string;
+    name!: string;
 
     // 👇 ADD THESE THREE FIELDS HERE
     @Column({ nullable: true })
@@ -32,43 +32,43 @@ export class Student {
     // Place them after the existing parentEmail, parentPhone, whatsappNumber fields
 
     @Column({ nullable: true })
-    emisCode: string;
+    emisCode!: string;
 
     @Column({ nullable: true })
-    parentName: string;
+    parentName!: string;
 
     @Column({ nullable: true })
-    parentNationalId: string;
+    parentNationalId!: string;
 
     @Column({ nullable: true })
-    parentRelationship: string;
+    parentRelationship!: string;
 
     @Column({ nullable: true })
-    parentAlternatePhone: string;
+    parentAlternatePhone!: string;
 
     @Column({ nullable: true, type: 'text' })
-    parentAddress: string;
+    parentAddress!: string;
 
     @Column({ nullable: true })
-    parentOccupation: string;
+    parentOccupation!: string;
 
     @Column({ nullable: true, default: 'sms' })
-    preferredContact: string;
+    preferredContact!: string;
 
     @Column({ nullable: true })
-    emergencyContactName: string;
+    emergencyContactName!: string;
 
     @Column({ nullable: true })
-    emergencyContactPhone: string;
+    emergencyContactPhone!: string;
 
     @Column({ nullable: true })
-    emergencyContactRelationship: string;
+    emergencyContactRelationship!: string;
 
     @Column({ nullable: true })
-    parentPassword: string;
+    parentPassword!: string;
 
     @Column({ default: false })
-    sendCredentials: boolean;
+    sendCredentials!: boolean;
 
     // CLASS RELATION
     @ManyToOne(() => Class, (cls) => cls.students,
@@ -80,7 +80,7 @@ export class Student {
     // classId?: string; // ADD THIS COLUMN
 
     @Column({ nullable: true })
-    photoUrl: string;
+    photoUrl!: string;
 
     // SCHOOL RELATION - ADD THIS
     @ManyToOne(() => School, school => school.students, {
@@ -94,16 +94,16 @@ export class Student {
     schoolId?: string;
 
     @OneToMany(() => Assessment, (assessment) => assessment.student)
-    assessments: Assessment[];
+    assessments!: Assessment[];
 
     @OneToMany(() => ReportCard, (reportCard) => reportCard.student)
-    reportCards: ReportCard[];
+    reportCards!: ReportCard[];
     @OneToMany(() => Attendance, (attendance) => attendance.student)
-    attendances: Attendance[];
+    attendances!: Attendance[];
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-    createdAt: Date;
+    createdAt!: Date;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
-    updatedAt: Date;
+    updatedAt!: Date;
 }
