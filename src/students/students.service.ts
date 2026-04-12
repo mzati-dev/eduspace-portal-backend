@@ -451,6 +451,7 @@ export class StudentsService {
       totalStudents: activeReport.totalStudents || 0,
       teacherRemarks: activeReport.teacherRemarks || 'No remarks available.',
       gradeConfiguration: gradeConfig,
+      reportCards: student.reportCards,
     };
 
     response.assessmentStats = this.calculateAssessmentStats(response, gradeConfig);
