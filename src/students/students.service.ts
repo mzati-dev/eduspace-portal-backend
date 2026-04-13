@@ -1406,7 +1406,8 @@ export class StudentsService {
 
       // Update student's class
       student.class = classEntity;
-      await this.studentRepository.save(student);
+      // await this.studentRepository.save(student);
+      await this.studentRepository.update(student.id, { class: classEntity });
       results.added.push(student.name);
     }
 
