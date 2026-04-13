@@ -309,14 +309,25 @@ export class ClassesController {
   }
 
   // In students.controller.ts
+  // @Post('archive-student-reports')
+  // async archiveStudentReports(
+  //   @Body() body: { classId: string; term: string; assessmentType: 'qa1' | 'qa2' | 'endOfTerm' } // 👈 FIXED
+  // ) {
+  //   return this.studentsService.archiveStudentReportCards(
+  //     body.classId,
+  //     body.term,
+  //     body.assessmentType
+  //   );
+  // }
   @Post('archive-student-reports')
   async archiveStudentReports(
-    @Body() body: { classId: string; term: string; assessmentType: 'qa1' | 'qa2' | 'endOfTerm' } // 👈 FIXED
+    @Body() body: { classId: string; term: string; assessmentType: 'qa1' | 'qa2' | 'endOfTerm'; studentIds?: string[] }
   ) {
     return this.studentsService.archiveStudentReportCards(
       body.classId,
       body.term,
-      body.assessmentType
+      body.assessmentType,
+      body.studentIds  // 👈 ADD THIS PARAMETER
     );
   }
 

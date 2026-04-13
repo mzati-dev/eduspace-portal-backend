@@ -3,25 +3,25 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeor
 @Entity('student_report_archives')
 export class StudentReportArchive {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    studentId: string;
+    studentId!: string;
 
     @Column()
-    studentName: string;
+    studentName!: string;
 
     @Column()
-    examNumber: string;
+    examNumber!: string;
 
     @Column()
-    classId: string;
+    classId!: string;
 
     @Column()
-    term: string;
+    term!: string;
 
     @Column()
-    assessmentType: string;
+    assessmentType!: string;
 
     @Column({ nullable: true })
     parentEmail?: string;
@@ -36,14 +36,14 @@ export class StudentReportArchive {
     reportCardData: any;
 
     @Column({ default: false })
-    sentViaEmail: boolean;
+    sentViaEmail!: boolean;
 
     @Column({ default: false })
-    sentViaWhatsApp: boolean;
+    sentViaWhatsApp!: boolean;
 
     @Column({ type: 'timestamp', nullable: true })
     sentAt?: Date;
 
     @CreateDateColumn()
-    archivedAt: Date;
+    archivedAt!: Date;
 }

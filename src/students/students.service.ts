@@ -2765,17 +2765,64 @@ export class StudentsService {
   }
 
   // In students.service.ts
-  async archiveStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
+  // async archiveStudentReportCards(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm') {
+  //   // First generate the report cards matching your frontend structure
+  //   const result = await this.generateStudentReportCards(classId, term, assessmentType);
+
+  //   // Check if we got a message (no students found)
+  //   if ('message' in result) {
+  //     return { message: result.message, archives: [] };
+  //   }
+
+  //   // Now TypeScript knows result is an array of report cards
+  //   const reportCards = result as any[]; // Type assertion to avoid 'never' error
+  //   const archives: StudentReportArchive[] = [];
+
+  //   for (const reportCard of reportCards) {
+  //     const student = await this.studentRepository.findOne({
+  //       where: { id: reportCard.id }
+  //     });
+
+  //     const archive = this.studentReportArchiveRepository.create({
+  //       studentId: reportCard.id,
+  //       studentName: reportCard.name,
+  //       examNumber: reportCard.examNumber,
+  //       classId,
+  //       term,
+  //       assessmentType,
+  //       parentEmail: student?.parentEmail,
+  //       parentPhone: student?.parentPhone,
+  //       whatsappNumber: student?.whatsappNumber,
+  //       reportCardData: reportCard, // Now stores the complete StudentData object
+  //       archivedAt: new Date()
+  //     });
+
+  //     const savedArchive = await this.studentReportArchiveRepository.save(archive);
+  //     archives.push(savedArchive);
+  //   }
+
+  //   return archives;
+  // }
+
+  async archiveStudentReportCards(
+    classId: string,
+    term: string,
+    assessmentType: 'qa1' | 'qa2' | 'endOfTerm',
+    studentIds?: string[]  // 👈 ADD THIS PARAMETER
+  ) {
     // First generate the report cards matching your frontend structure
     const result = await this.generateStudentReportCards(classId, term, assessmentType);
 
-    // Check if we got a message (no students found)
     if ('message' in result) {
       return { message: result.message, archives: [] };
     }
 
-    // Now TypeScript knows result is an array of report cards
-    const reportCards = result as any[]; // Type assertion to avoid 'never' error
+    // 👈 FILTER BY SELECTED STUDENT IDs
+    let reportCards = result as any[];
+    if (studentIds && studentIds.length > 0) {
+      reportCards = reportCards.filter(rc => studentIds.includes(rc.id));
+    }
+
     const archives: StudentReportArchive[] = [];
 
     for (const reportCard of reportCards) {
@@ -2793,7 +2840,7 @@ export class StudentsService {
         parentEmail: student?.parentEmail,
         parentPhone: student?.parentPhone,
         whatsappNumber: student?.whatsappNumber,
-        reportCardData: reportCard, // Now stores the complete StudentData object
+        reportCardData: reportCard,
         archivedAt: new Date()
       });
 
