@@ -1355,6 +1355,7 @@ export class StudentsService {
   }
   // ===== END MODIFIED =====
 
+
   async addStudentsToClass(classId: string, studentIds: string[], schoolId?: string) {
     // First verify the class exists and belongs to this school
     const classEntity = await this.classRepository.findOne({
@@ -1402,12 +1403,17 @@ export class StudentsService {
 
         // Different term or different academic year - ALLOWED
         console.log(`Student ${student.name} moving from ${student.class.academic_year} ${student.class.term} to ${classEntity.academic_year} ${classEntity.term}`);
+
+        // 🔴🔴🔴 THE FIX: Delete old assessments when moving to new class
+        await this.assessmentRepository.delete({
+          student: { id: student.id },
+          class: { id: student.class.id }
+        });
       }
 
       // Update student's class
       student.class = classEntity;
-      // await this.studentRepository.save(student);
-      await this.studentRepository.update(student.id, { class: classEntity });
+      await this.studentRepository.save(student);
       results.added.push(student.name);
     }
 
@@ -1445,22 +1451,44 @@ export class StudentsService {
   //     throw new NotFoundException('No valid students found to add');
   //   }
 
-  //   // Update each student's class
+  //   const results = {
+  //     added: [] as string[],
+  //     skipped: [] as { student: string; reason: string }[]
+  //   };
+
+  //   // Update each student's class with term AND academic year validation
   //   for (const student of students) {
+  //     // Check if student already has a class
+  //     if (student.class) {
+  //       // Same academic year AND same term - NOT ALLOWED
+  //       if (student.class.academic_year === classEntity.academic_year &&
+  //         student.class.term === classEntity.term) {
+  //         results.skipped.push({
+  //           student: student.name,
+  //           reason: `Already in class ${student.class.name} for ${student.class.academic_year} ${student.class.term}`
+  //         });
+  //         continue;
+  //       }
+
+  //       // Different term or different academic year - ALLOWED
+  //       console.log(`Student ${student.name} moving from ${student.class.academic_year} ${student.class.term} to ${classEntity.academic_year} ${classEntity.term}`);
+  //     }
+
+  //     // Update student's class
   //     student.class = classEntity;
   //     await this.studentRepository.save(student);
+  //     results.added.push(student.name);
   //   }
 
-  //   // Optional: Recalculate ranks for the class if needed
-  //   setTimeout(async () => {
-  //     await this.calculateAndUpdateRanks(classId, classEntity.term, schoolId);
-  //   }, 100);
-
   //   return {
-  //     message: `Successfully added ${students.length} student(s) to class ${classEntity.name}`,
-  //     count: students.length
+  //     message: `Added ${results.added.length} student(s) to class ${classEntity.name}`,
+  //     skipped: results.skipped,
+  //     addedCount: results.added.length,
+  //     skippedCount: results.skipped.length
   //   };
   // }
+
+
 
   // ===== START MODIFIED: Added schoolId parameter =====
   async getClassStudents(classId: string, schoolId?: string) {
