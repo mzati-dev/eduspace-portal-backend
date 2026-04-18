@@ -1,5 +1,5 @@
 // src/attendance/attendance.controller.ts
-import { Controller, Get, Post, Delete, Body, Param, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 
 @Controller('attendance')
@@ -240,9 +240,8 @@ export class AttendanceController {
    * GET /attendance/analytics/all-classes
    */
     @Get('analytics/all-classes')
-    async getClassComparisons(@Req() req) {
+    async getClassComparisons(@Query('schoolId') schoolId?: string) {
         try {
-            const schoolId = req.user?.schoolId;
             const data = await this.attendanceService.getClassComparisons(schoolId);
             return { success: true, data };
         } catch (error) {

@@ -716,9 +716,10 @@ export class AttendanceService {
 
 
 
-    async getClassComparisons(schoolId: string): Promise<any[]> {
+    async getClassComparisons(schoolId?: string): Promise<any[]> {
+        const whereCondition = schoolId ? { schoolId: schoolId } : {};
         const classes = await this.classRepo.find({
-            where: { schoolId: schoolId },
+            where: whereCondition,
             relations: ['students']
         });
         const comparisons: any[] = [];
