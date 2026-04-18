@@ -714,8 +714,13 @@ export class AttendanceService {
         return this.termRepo.find({ order: { startDate: 'DESC' } });
     }
 
-    async getClassComparisons(): Promise<any[]> {
-        const classes = await this.classRepo.find({ relations: ['students'] });
+
+
+    async getClassComparisons(schoolId: string): Promise<any[]> {
+        const classes = await this.classRepo.find({
+            where: { schoolId: schoolId },
+            relations: ['students']
+        });
         const comparisons: any[] = [];
 
         for (const cls of classes) {
@@ -747,6 +752,40 @@ export class AttendanceService {
 
         return comparisons;
     }
+
+    // async getClassComparisons(): Promise<any[]> {
+    //     const classes = await this.classRepo.find({ relations: ['students'] });
+    //     const comparisons: any[] = [];
+
+    //     for (const cls of classes) {
+    //         const totalStudents = cls.students.length;
+    //         const thirtyDaysAgo = new Date();
+    //         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    //         const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+    //         const endDate = new Date().toISOString().split('T')[0];
+
+    //         const weeklyStats = await this.getWeeklyStats(cls.id, startDate, endDate);
+    //         let totalRate = 0;
+    //         for (const stat of weeklyStats) totalRate += stat.rate;
+    //         const averageRate = weeklyStats.length > 0 ? Number((totalRate / weeklyStats.length).toFixed(1)) : 0;
+
+    //         comparisons.push({
+    //             classId: cls.id,
+    //             name: cls.name,
+    //             attendanceRate: averageRate,
+    //             totalStudents: totalStudents,
+    //             trend: 'stable',
+    //             rank: 0,
+    //             isCurrent: false
+    //         });
+    //     }
+
+    //     // Sort by attendance rate and assign ranks
+    //     comparisons.sort((a, b) => b.attendanceRate - a.attendanceRate);
+    //     comparisons.forEach((c, i) => c.rank = i + 1);
+
+    //     return comparisons;
+    // }
 
     async getClassTerm(classId: string): Promise<any> {
         const classEntity = await this.classRepo.findOne({ where: { id: classId } });
