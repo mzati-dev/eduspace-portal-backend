@@ -5,38 +5,38 @@ import { Class } from '../../students/entities/class.entity';
 @Entity('attendances')
 export class Attendance {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column({ name: 'student_id' })
-    studentId: string;
+    studentId!: string;
 
     @Column({ name: 'class_id' })
-    classId: string;
+    classId!: string;
 
     @Column({ type: 'date' })
-    date: string;
+    date!: string;
 
     @Column({
         type: 'enum',
         enum: ['present', 'absent', 'late', 'excused'],
         default: 'present'
     })
-    status: string;
+    status!: string;
 
     @Column({ name: 'check_in_time', nullable: true })
-    checkInTime: string;
+    checkInTime!: string;
 
     @Column({ nullable: true })
-    notes: string;
+    notes!: string;
 
     @Column({ name: 'marked_by', nullable: true })
-    markedBy: string;
+    markedBy!: string;
 
     @CreateDateColumn({ name: 'created_at' })
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn({ name: 'updated_at' })
-    updatedAt: Date;
+    updatedAt!: Date;
 
     // Relations (optional for queries)
     @ManyToOne(() => Student, { onDelete: 'CASCADE' })

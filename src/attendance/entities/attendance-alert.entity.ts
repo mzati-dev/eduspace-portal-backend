@@ -4,39 +4,39 @@ import { Class } from '../../students/entities/class.entity';
 @Entity('attendance_alerts')
 export class AttendanceAlert {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @ManyToOne(() => Class)
     @JoinColumn({ name: 'class_id' })
-    class: Class;
+    class!: Class;
 
     @Column({ name: 'class_id' })
-    classId: string;
+    classId!: string;
 
     @Column({ type: 'date' })
-    date: string;
+    date!: string;
 
     @Column()
-    method: string; // 'sms' or 'email'
+    method!: string; // 'sms' or 'email'
 
     @Column({ name: 'recipient_count' })
-    recipientCount: number;
+    recipientCount!: number;
 
     @Column({ name: 'student_ids', type: 'simple-array', nullable: true })
-    studentIds: string[];
+    studentIds!: string[];
 
     @Column({ nullable: true })
-    subject: string;
+    subject!: string;
 
     @Column({ nullable: true, type: 'text' })
-    message: string;
+    message!: string;
 
     @Column({ default: 'sent' })
-    status: string;
+    status!: string;
 
     @Column({ name: 'sent_by' })
-    sentBy: string; // Teacher ID
+    sentBy!: string; // Teacher ID
 
     @CreateDateColumn({ name: 'sent_at' })
-    sentAt: Date;
+    sentAt!: Date;
 }

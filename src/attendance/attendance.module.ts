@@ -7,6 +7,9 @@ import { AttendanceAlert } from './entities/attendance-alert.entity';
 import { Student } from '../students/entities/student.entity';
 import { Class } from '../students/entities/class.entity';
 import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.entity';
+import { Term } from './entities/term.entity';
+import { SchoolHoliday } from './entities/school-holiday.entity';
+import { PublicHoliday } from './entities/public-holiday.entity';
 
 @Module({
   imports: [
@@ -16,6 +19,9 @@ import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.
       Student,
       Class,
       TeacherClassSubject,
+      Term,
+      SchoolHoliday,
+      PublicHoliday,
     ]),
   ],
   controllers: [AttendanceController],

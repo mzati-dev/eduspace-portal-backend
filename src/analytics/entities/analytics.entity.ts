@@ -4,60 +4,60 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 @Entity('analytics_data')
 export class AnalyticsData {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    studentId: string;
+    studentId!: string;
 
     @Column()
-    studentName: string;
+    studentName!: string;
 
     @Column()
-    examNumber: string;
+    examNumber!: string;
 
     @Column({ nullable: true })
-    classId: string;
+    classId!: string;
 
     @Column({ nullable: true })
-    className: string;
+    className!: string;
 
     @Column({ type: 'float', default: 0 })
-    academicScore: number;
+    academicScore!: number;
 
     @Column({ type: 'float', default: 0 })
-    attendanceRate: number;
+    attendanceRate!: number;
 
     @Column({ type: 'float', default: 0 })
-    behaviorScore: number;
+    behaviorScore!: number;
 
     @Column({ type: 'jsonb', nullable: true })
-    riskFactors: string[];
+    riskFactors!: string[];
 
     @Column({ type: 'float', default: 0 })
-    riskScore: number;
+    riskScore!: number;
 
     @Column({
         type: 'enum',
         enum: ['high', 'medium', 'low'],
         nullable: true
     })
-    riskLevel: string;
+    riskLevel!: string;
 
     @Column({ nullable: true })
-    predictedGrade: string;
+    predictedGrade!: string;
 
     @Column({ type: 'jsonb', nullable: true })
-    subjectScores: Record<string, number>;
+    subjectScores!: Record<string, number>;
 
     @Column({ type: 'jsonb', nullable: true })
-    trendData: Record<string, any>;
+    trendData!: Record<string, any>;
 
     @Column({ type: 'timestamp', nullable: true })
-    predictionGeneratedAt: Date;
+    predictionGeneratedAt!: Date;
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 }

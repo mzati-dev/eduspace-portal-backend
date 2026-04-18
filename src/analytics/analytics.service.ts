@@ -1,63 +1,222 @@
 // src/analytics/analytics.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
-import { AnalyticsData } from './entities/analytics.entity';
+import { Repository, Between, In } from 'typeorm';
 import { Student } from '../students/entities/student.entity';
 import { Assessment } from '../students/entities/assessment.entity';
 import { Attendance } from '../attendance/entities/attendance.entity';
 import { Class } from '../students/entities/class.entity';
 import { Subject } from '../students/entities/subject.entity';
 import { GradeConfig } from '../students/entities/grade-config.entity';
+import { ReportCard } from '../students/entities/report-card.entity';
+import { Archive } from '../students/entities/archive.entity';
+import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.entity';
 
-export interface AtRiskStudent {
+// ========== TYPES ==========
+export interface KeyMetric {
+    label: string;
+    value: string | number;
+    change: number;
+    vsText: string;
+    icon: string;
+    color: string;
+}
+
+export interface GradeRanking {
+    rank: number;
+    name: string;
+    passRate: number;
+    avgScore: number;
+    attendance: number;
+    riskStudents: number;
+    riskChange: number;
+    trend: number;
+}
+
+export interface FactorAnalysis {
+    factor: string;
+    correlation: number;
+    impact: string;
+    insight: string;
+}
+
+export interface RiskStudent {
     id: string;
     name: string;
     examNumber: string;
-    class: string;
-    classId: string;
-    riskScore: number;
-    riskLevel: string;
-    factors: string[];
-    predictedGrade: string;
-    currentAverage: number;
-    attendanceRate: number;
-    trend: string;
+    grade: string;
+    attendance: number;
+    catScore: number;
+    fails: number;
+    prevDrop: number;
+    riskLevel: 'critical' | 'high' | 'medium' | 'low';
 }
 
-export interface ClassPerformance {
-    classId: string;
-    className: string;
-    averageScore: number;
-    passRate: number;
-    distinctionRate: number;
-    totalStudents: number;
-    trend: number;
-    topSubject: string;
-    strugglingSubject: string;
-}
-
-export interface SubjectPerformance {
-    subjectId: string;
+export interface SubjectDifficulty {
+    rank: number;
     name: string;
-    averageScore: number;
+    avgScore: number;
     passRate: number;
-    distinctionRate: number;
-    totalStudents: number;
-    trend: number;
+    correlation: number;
+    action: string;
 }
 
-export interface TrendData {
-    period: string;
-    overall: number;
-    subjects: Record<string, number>;
+export interface ExamGap {
+    grade: string;
+    avgCAT: number;
+    avgExam: number;
+    gap: number;
+    studentsDrop: number;
 }
+
+export interface CohortTracking {
+    cohort: string;
+    data: number[];
+    labels: string[];
+    improving: number;
+    declining: number;
+    currentRate: number;
+}
+
+export interface StudentTimeline {
+    term: string;
+    marks: number;
+    attendance: number;
+}
+
+export interface StudentFactorBreakdown {
+    factor: string;
+    studentValue: string;
+    classAvg: string;
+    status: string;
+    impact: string;
+}
+
+export interface StudentSubjectBreakdown {
+    subject: string;
+    marks: number;
+    attendance: number;
+    classAvg: number;
+    gap: number;
+    status: string;
+}
+
+export interface StudentHistorical {
+    term: string;
+    attendance: number;
+    marks: number;
+    cat: number;
+    exam: number;
+    fails: number;
+    score: number;
+    status: string;
+}
+
+export interface StudentDetail {
+    id: string;
+    name: string;
+    examNumber: string;
+    grade: string;
+    status: string;
+    classTeacher: string;
+    currentMarks: number;
+    currentAttendance: number;
+    termOverTerm: number;
+    classRank: string;
+    timeline: StudentTimeline[];
+    factorBreakdown: StudentFactorBreakdown[];
+    subjectBreakdown: StudentSubjectBreakdown[];
+    historical: StudentHistorical[];
+    recommendations: string[];
+}
+
+export interface CompareDepartment {
+    name: string;
+    passRate1: number;
+    passRate2: number;
+    change: number;
+    status: string;
+}
+
+export interface CompareRiskStudent {
+    name: string;
+    grade: string;
+    att1: number;
+    att2: number;
+    marks1: number;
+    marks2: number;
+    drop: number;
+}
+
+export interface CompareData {
+    term1: string;
+    term2: string;
+    overallPass1: number;
+    overallPass2: number;
+    avgScore1: number;
+    avgScore2: number;
+    avgAttendance1: number;
+    avgAttendance2: number;
+    departments: CompareDepartment[];
+    newRiskStudents: CompareRiskStudent[];
+}
+
+export interface DashboardData {
+    keyMetrics: KeyMetric[];
+    gradeRanking: GradeRanking[];
+    factorAnalysis: FactorAnalysis[];
+    riskStudents: RiskStudent[];
+    subjectDifficulty: SubjectDifficulty[];
+    examGap: ExamGap[];
+    cohortTracking: CohortTracking | null;
+}
+
+// Teacher Analytics Types
+export interface TeacherKeyMetric extends KeyMetric { }
+export interface TeacherClassRanking extends GradeRanking { }
+export interface TeacherFactorAnalysis extends FactorAnalysis { }
+export interface TeacherRiskStudent {
+    id: string;
+    name: string;
+    examNumber: string;
+    className: string;
+    attendance: number;
+    catScore: number;
+    fails: number;
+    prevDrop: number;
+    riskLevel: 'critical' | 'high' | 'medium' | 'low';
+}
+export interface TeacherSubjectDifficulty extends SubjectDifficulty { }
+export interface TeacherExamGap {
+    className: string;
+    avgCAT: number;
+    avgExam: number;
+    gap: number;
+    studentsDrop: number;
+}
+export interface TeacherCohortTracking extends CohortTracking { }
+export interface TeacherStudentDetail {
+    id: string;
+    name: string;
+    examNumber: string;
+    className: string;
+    status: string;
+    classTeacher: string;
+    currentMarks: number;
+    currentAttendance: number;
+    termOverTerm: number;
+    classRank: string;
+    timeline: StudentTimeline[];
+    factorBreakdown: StudentFactorBreakdown[];
+    subjectBreakdown: StudentSubjectBreakdown[];
+    historical: StudentHistorical[];
+    recommendations: string[];
+}
+export interface TeacherCompareData extends CompareData { }
 
 @Injectable()
 export class AnalyticsService {
     constructor(
-        @InjectRepository(AnalyticsData)
-        private analyticsRepository: Repository<AnalyticsData>,
         @InjectRepository(Student)
         private studentRepository: Repository<Student>,
         @InjectRepository(Assessment)
@@ -70,683 +229,1102 @@ export class AnalyticsService {
         private subjectRepository: Repository<Subject>,
         @InjectRepository(GradeConfig)
         private gradeConfigRepository: Repository<GradeConfig>,
+        @InjectRepository(ReportCard)
+        private reportCardRepository: Repository<ReportCard>,
+        @InjectRepository(Archive)
+        private archiveRepository: Repository<Archive>,
+        @InjectRepository(TeacherClassSubject)
+        private teacherClassSubjectRepository: Repository<TeacherClassSubject>,
     ) { }
 
     private async getActiveGradeConfig(schoolId: string): Promise<GradeConfig> {
         const config = await this.gradeConfigRepository.findOne({
             where: { school_id: schoolId, is_active: true }
         });
-
         if (!config) {
             const defaultConfig = new GradeConfig();
             defaultConfig.pass_mark = 50;
             defaultConfig.calculation_method = 'average_all';
-            defaultConfig.weight_qa1 = 30;
-            defaultConfig.weight_qa2 = 30;
-            defaultConfig.weight_end_of_term = 40;
+            defaultConfig.weight_qa1 = 33.33;
+            defaultConfig.weight_qa2 = 33.33;
+            defaultConfig.weight_end_of_term = 33.34;
+            defaultConfig.school_id = schoolId;
             return defaultConfig;
         }
-
         return config;
     }
 
-    private calculatePredictedGrade(avgScore: number, trend: string, gradeConfig: GradeConfig): string {
-        let predicted = avgScore;
-        if (trend === 'improving') predicted += 5;
-        if (trend === 'declining') predicted -= 5;
+    private calculateFinalScore(subject: any, gradeConfig: GradeConfig): number {
+        const qa1 = subject.qa1 || 0;
+        const qa2 = subject.qa2 || 0;
+        const endOfTerm = subject.endOfTerm || 0;
+        const qa1Absent = subject.qa1_absent || false;
+        const qa2Absent = subject.qa2_absent || false;
+        const endOfTermAbsent = subject.endOfTerm_absent || false;
 
+        if (endOfTermAbsent) return 0;
+
+        switch (gradeConfig.calculation_method) {
+            case 'average_all':
+                let total = 0, count = 0;
+                if (!qa1Absent) { total += qa1; count++; }
+                if (!qa2Absent) { total += qa2; count++; }
+                if (!endOfTermAbsent) { total += endOfTerm; count++; }
+                return count > 0 ? total / count : 0;
+            case 'end_of_term_only':
+                return endOfTermAbsent ? 0 : endOfTerm;
+            case 'weighted_average':
+                let weightedTotal = 0, weightTotal = 0;
+                if (!qa1Absent) {
+                    weightedTotal += qa1 * (gradeConfig.weight_qa1 || 0);
+                    weightTotal += gradeConfig.weight_qa1 || 0;
+                }
+                if (!qa2Absent) {
+                    weightedTotal += qa2 * (gradeConfig.weight_qa2 || 0);
+                    weightTotal += gradeConfig.weight_qa2 || 0;
+                }
+                if (!endOfTermAbsent) {
+                    weightedTotal += endOfTerm * (gradeConfig.weight_end_of_term || 0);
+                    weightTotal += gradeConfig.weight_end_of_term || 0;
+                }
+                return weightTotal > 0 ? weightedTotal / weightTotal : 0;
+            default:
+                return (qa1 + qa2 + endOfTerm) / 3;
+        }
+    }
+
+    private calculateGrade(score: number, gradeConfig: GradeConfig, isAbsent?: boolean, className?: string): string {
+        if (isAbsent) return 'AB';
         const passMark = gradeConfig.pass_mark;
 
-        if (predicted >= 80) return 'A';
-        if (predicted >= 70) return 'B';
-        if (predicted >= 60) return 'C';
-        if (predicted >= passMark) return 'D';
+        const isForm3Or4 = className && (
+            className.includes('Form 3') || className.includes('Form 4') ||
+            className.includes('Form3') || className.includes('Form4')
+        );
+
+        if (isForm3Or4) {
+            if (score >= 80) return '1';
+            if (score >= 75) return '2';
+            if (score >= 70) return '3';
+            if (score >= 65) return '4';
+            if (score >= 60) return '5';
+            if (score >= 55) return '6';
+            if (score >= 51) return '7';
+            if (score >= passMark) return '8';
+            return '9';
+        }
+
+        if (score >= 80) return 'A';
+        if (score >= 70) return 'B';
+        if (score >= 60) return 'C';
+        if (score >= passMark) return 'D';
         return 'F';
     }
 
-    private getWeekNumber(date: Date): number {
-        const startDate = new Date(date.getFullYear(), 0, 1);
-        const days = Math.floor((date.getTime() - startDate.getTime()) / 86400000);
-        return Math.ceil((days + startDate.getDay() + 1) / 7);
-    }
-
-    async getAtRiskStudents(schoolId: string, classId?: string, timeframe?: string): Promise<AtRiskStudent[]> {
-        const gradeConfig = await this.getActiveGradeConfig(schoolId);
-        const passMark = gradeConfig.pass_mark;
-
-        const students = await this.studentRepository.find({
-            where: {
-                schoolId: schoolId,
-                ...(classId ? { class: { id: classId } } : {}),
-            },
-            relations: ['class'],
+    private async getStudentAssessmentsMap(studentId: string, classId: string) {
+        const assessments = await this.assessmentRepository.find({
+            where: { student: { id: studentId }, class: { id: classId } },
+            relations: ['subject']
         });
 
-        const atRiskStudents: AtRiskStudent[] = [];
-
-        for (const student of students) {
-            const assessments = await this.assessmentRepository.find({
-                where: { student: { id: student.id } },
-                relations: ['subject'],
-                order: { createdAt: 'DESC' },
-                take: 10,
-            });
-
-            const attendances = await this.attendanceRepository.find({
-                where: { studentId: student.id },
-                order: { date: 'DESC' },
-                take: 30,
-            });
-
-            const validAssessments = assessments.filter(a => a.score !== null);
-
-            const avgScore = validAssessments.length > 0
-                ? validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length
-                : 0;
-
-            const attendanceRate = attendances.length > 0
-                ? (attendances.filter(a => a.status === 'present').length / attendances.length) * 100
-                : 100;
-
-            let riskScore = 0;
-            const factors: string[] = [];
-
-            if (avgScore < passMark) {
-                riskScore += 40;
-                factors.push('low academic performance');
-            } else if (avgScore < passMark + 15) {
-                riskScore += 20;
-                factors.push('below average performance');
+        const subjectMap = new Map();
+        for (const asm of assessments) {
+            const subjectName = asm.subject?.name || 'Unknown';
+            if (!subjectMap.has(subjectName)) {
+                subjectMap.set(subjectName, {
+                    qa1: 0, qa2: 0, endOfTerm: 0,
+                    qa1_absent: false, qa2_absent: false, endOfTerm_absent: false
+                });
             }
-
-            if (attendanceRate < 70) {
-                riskScore += 30;
-                factors.push('poor attendance');
-            } else if (attendanceRate < 85) {
-                riskScore += 15;
-                factors.push('inconsistent attendance');
+            const subject = subjectMap.get(subjectName);
+            if (asm.assessmentType === 'qa1') {
+                subject.qa1 = asm.score || 0;
+                subject.qa1_absent = asm.isAbsent || false;
+            } else if (asm.assessmentType === 'qa2') {
+                subject.qa2 = asm.score || 0;
+                subject.qa2_absent = asm.isAbsent || false;
+            } else if (asm.assessmentType === 'end_of_term') {
+                subject.endOfTerm = asm.score || 0;
+                subject.endOfTerm_absent = asm.isAbsent || false;
             }
+        }
+        return subjectMap;
+    }
 
-            const recentAssessments = validAssessments.slice(0, 3);
-            let trend = 'stable';
-            if (recentAssessments.length >= 3) {
-                const recentAvg = recentAssessments[0].score!;
-                const olderAvg = recentAssessments[2].score!;
-                if (recentAvg > olderAvg) trend = 'improving';
-                else if (recentAvg < olderAvg) trend = 'declining';
+    // ========== HELPER METHODS FOR CALCULATIONS ==========
+
+    private async calculateSubjectDifficulty(schoolId: string, term: string): Promise<SubjectDifficulty[]> {
+        const classes = await this.classRepository.find({
+            where: { schoolId, term },
+            relations: ['students']
+        });
+
+        const subjectStats = new Map<string, { totalScore: number; count: number; passCount: number }>();
+
+        for (const cls of classes) {
+            for (const student of cls.students) {
+                const subjectMap = await this.getStudentAssessmentsMap(student.id, cls.id);
+                for (const [subjectName, subjectData] of subjectMap) {
+                    const finalScore = this.calculateFinalScore(subjectData, await this.getActiveGradeConfig(schoolId));
+                    if (!subjectStats.has(subjectName)) {
+                        subjectStats.set(subjectName, { totalScore: 0, count: 0, passCount: 0 });
+                    }
+                    const stats = subjectStats.get(subjectName)!;
+                    stats.totalScore += finalScore;
+                    stats.count++;
+                    if (finalScore >= 50) stats.passCount++;
+                }
             }
+        }
 
-            let riskLevel = 'low';
-            if (riskScore >= 60) riskLevel = 'high';
-            else if (riskScore >= 30) riskLevel = 'medium';
-
-            const predictedGrade = this.calculatePredictedGrade(avgScore, trend, gradeConfig);
-
-            atRiskStudents.push({
-                id: student.id,
-                name: student.name,
-                examNumber: student.examNumber,
-                class: student.class?.name || 'N/A',
-                classId: student.class?.id || '',
-                riskScore,
-                riskLevel,
-                factors,
-                predictedGrade,
-                currentAverage: Math.round(avgScore),
-                attendanceRate: Math.round(attendanceRate),
-                trend,
+        const results: SubjectDifficulty[] = [];
+        for (const [name, stats] of subjectStats.entries()) {
+            const avgScore = stats.count > 0 ? stats.totalScore / stats.count : 0;
+            const passRate = stats.count > 0 ? (stats.passCount / stats.count) * 100 : 0;
+            results.push({
+                rank: 0,
+                name,
+                avgScore: Math.round(avgScore),
+                passRate: Math.round(passRate),
+                correlation: 0,
+                action: avgScore < 50 ? '⚠️ High attention' : avgScore < 65 ? 'Review teaching' : '✅ Low intervention'
             });
         }
 
-        return atRiskStudents.sort((a, b) => b.riskScore - a.riskScore);
+        results.sort((a, b) => a.avgScore - b.avgScore);
+        results.forEach((r, i) => r.rank = i + 1);
+        return results;
     }
 
-    async getClassPerformance(schoolId: string, timeframe?: string): Promise<ClassPerformance[]> {
-        const gradeConfig = await this.getActiveGradeConfig(schoolId);
-        const passMark = gradeConfig.pass_mark;
-
+    private async calculateExamGap(schoolId: string, term: string): Promise<ExamGap[]> {
         const classes = await this.classRepository.find({
-            where: { schoolId: schoolId },
-            relations: ['students'],
+            where: { schoolId, term },
+            relations: ['students']
         });
-        const results: ClassPerformance[] = [];
+
+        const gaps: ExamGap[] = [];
 
         for (const cls of classes) {
-            let totalScore = 0;
-            let totalStudents = 0;
-            let distinctionCount = 0;
-            let passCount = 0;
-
-            const subjectScores: Record<string, { total: number; count: number }> = {};
+            let totalCAT = 0;
+            let totalExam = 0;
+            let studentCount = 0;
+            let studentsDrop = 0;
 
             for (const student of cls.students) {
                 const assessments = await this.assessmentRepository.find({
-                    where: { student: { id: student.id } },
-                    relations: ['subject'],
-                    order: { createdAt: 'DESC' },
-                    take: 10,
+                    where: { student: { id: student.id }, class: { id: cls.id } },
+                    relations: ['subject']
                 });
 
-                const validAssessments = assessments.filter(a => a.score !== null);
+                let catScore = 0;
+                let examScore = 0;
+                let catCount = 0;
+                let examCount = 0;
 
-                if (validAssessments.length > 0) {
-                    const avgScore = validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length;
-                    totalScore += avgScore;
-                    totalStudents++;
-
-                    if (avgScore >= 80) distinctionCount++;
-                    if (avgScore >= passMark) passCount++;
-
-                    for (const assessment of validAssessments) {
-                        const subjectName = assessment.subject?.name || 'General';
-                        if (!subjectScores[subjectName]) subjectScores[subjectName] = { total: 0, count: 0 };
-                        subjectScores[subjectName].total += assessment.score!;
-                        subjectScores[subjectName].count++;
+                for (const asm of assessments) {
+                    if (asm.assessmentType === 'qa1' || asm.assessmentType === 'qa2') {
+                        if (asm.score) {
+                            catScore += asm.score;
+                            catCount++;
+                        }
+                    } else if (asm.assessmentType === 'end_of_term') {
+                        if (asm.score) {
+                            examScore += asm.score;
+                            examCount++;
+                        }
                     }
                 }
-            }
 
-            const averageScore = totalStudents > 0 ? Math.round(totalScore / totalStudents) : 0;
-            const passRate = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
-            const distinctionRate = totalStudents > 0 ? Math.round((distinctionCount / totalStudents) * 100) : 0;
+                const avgCAT = catCount > 0 ? catScore / catCount : 0;
+                const avgExam = examCount > 0 ? examScore / examCount : 0;
 
-            let topSubject = 'N/A';
-            let strugglingSubject = 'N/A';
-            let highestScore = 0;
-            let lowestScore = 100;
-
-            for (const [subject, data] of Object.entries(subjectScores)) {
-                const avg = data.total / data.count;
-                if (avg > highestScore) {
-                    highestScore = avg;
-                    topSubject = subject;
-                }
-                if (avg < lowestScore) {
-                    lowestScore = avg;
-                    strugglingSubject = subject;
+                if (avgCAT > 0 && avgExam > 0) {
+                    totalCAT += avgCAT;
+                    totalExam += avgExam;
+                    studentCount++;
+                    if (avgCAT - avgExam > 15) studentsDrop++;
                 }
             }
 
-            results.push({
-                classId: cls.id,
-                className: cls.name,
-                averageScore,
-                passRate,
-                distinctionRate,
-                totalStudents: totalStudents,
-                trend: 5,
-                topSubject,
-                strugglingSubject,
+            gaps.push({
+                grade: cls.name,
+                avgCAT: studentCount > 0 ? Math.round(totalCAT / studentCount) : 0,
+                avgExam: studentCount > 0 ? Math.round(totalExam / studentCount) : 0,
+                gap: studentCount > 0 ? Math.round((totalCAT - totalExam) / studentCount) : 0,
+                studentsDrop
             });
         }
 
-        return results;
+        return gaps;
     }
 
-    async getSubjectPerformance(schoolId: string, timeframe?: string): Promise<SubjectPerformance[]> {
+    // ========== ADMIN ANALYTICS ==========
+
+    async getDashboardAnalytics(term: string, schoolId: string, classId?: string): Promise<DashboardData> {
         const gradeConfig = await this.getActiveGradeConfig(schoolId);
-        const passMark = gradeConfig.pass_mark;
 
-        const assessments = await this.assessmentRepository.find({
-            where: { student: { schoolId: schoolId } },
-            relations: ['subject', 'student'],
-            order: { createdAt: 'DESC' },
+        const classes = await this.classRepository.find({
+            where: { schoolId, term },
+            relations: ['students']
         });
 
-        const validAssessments = assessments.filter(a => a.score !== null);
+        const filteredClasses = classId ? classes.filter(c => c.id === classId) : classes;
 
-        const subjectMap = new Map<string, { total: number; count: number; passCount: number; distinctionCount: number }>();
+        // Calculate grade ranking
+        const gradeRanking: GradeRanking[] = [];
+        let totalPassRate = 0;
+        let totalAvgScore = 0;
+        let totalAttendance = 0;
+        let classCount = 0;
 
-        for (const assessment of validAssessments) {
-            const subjectName = assessment.subject?.name || 'General';
-            if (!subjectMap.has(subjectName)) {
-                subjectMap.set(subjectName, { total: 0, count: 0, passCount: 0, distinctionCount: 0 });
+        for (const cls of filteredClasses) {
+            let totalScore = 0;
+            let passCount = 0;
+            let totalAttendanceRate = 0;
+            let studentCount = 0;
+            let riskStudentCount = 0;
+
+            for (const student of cls.students) {
+                const subjectMap = await this.getStudentAssessmentsMap(student.id, cls.id);
+                const subjects = Array.from(subjectMap.values());
+
+                if (subjects.length > 0) {
+                    let studentTotalScore = 0;
+                    for (const subject of subjects) {
+                        studentTotalScore += this.calculateFinalScore(subject, gradeConfig);
+                    }
+                    const avgScore = studentTotalScore / subjects.length;
+                    totalScore += avgScore;
+                    if (avgScore >= gradeConfig.pass_mark) passCount++;
+                    studentCount++;
+
+                    const attendances = await this.attendanceRepository.find({
+                        where: { studentId: student.id, classId: cls.id }
+                    });
+                    const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+                    const rate = attendances.length > 0 ? (presentCount / attendances.length) * 100 : 100;
+                    totalAttendanceRate += rate;
+
+                    if (avgScore < gradeConfig.pass_mark - 10 || rate < 75) riskStudentCount++;
+                }
             }
 
-            const score = assessment.score!;
-            const data = subjectMap.get(subjectName)!;
-            data.total += score;
-            data.count++;
+            const avgScore = studentCount > 0 ? totalScore / studentCount : 0;
+            const passRate = studentCount > 0 ? (passCount / studentCount) * 100 : 0;
+            const attendanceRate = studentCount > 0 ? totalAttendanceRate / studentCount : 0;
 
-            if (score >= passMark) data.passCount++;
-            if (score >= 80) data.distinctionCount++;
-        }
+            totalPassRate += passRate;
+            totalAvgScore += avgScore;
+            totalAttendance += attendanceRate;
+            classCount++;
 
-        const results: SubjectPerformance[] = [];
-        for (const [name, data] of subjectMap.entries()) {
-            results.push({
-                subjectId: name.toLowerCase().replace(/\s/g, '-'),
-                name,
-                averageScore: Math.round(data.total / data.count),
-                passRate: Math.round((data.passCount / data.count) * 100),
-                distinctionRate: Math.round((data.distinctionCount / data.count) * 100),
-                totalStudents: data.count,
-                trend: 3,
+            gradeRanking.push({
+                rank: 0,
+                name: cls.name,
+                passRate: Math.round(passRate),
+                avgScore: Math.round(avgScore),
+                attendance: Math.round(attendanceRate),
+                riskStudents: riskStudentCount,
+                riskChange: 0,
+                trend: 0
             });
         }
 
-        return results;
-    }
+        gradeRanking.sort((a, b) => b.passRate - a.passRate);
+        gradeRanking.forEach((g, i) => g.rank = i + 1);
 
-    async getTrendData(schoolId: string, metric: string, timeframe: string, classId?: string): Promise<TrendData[]> {
-        const trends: TrendData[] = [];
+        const overallPassRate = classCount > 0 ? Math.round(totalPassRate / classCount) : 0;
+        const overallAvgScore = classCount > 0 ? Math.round(totalAvgScore / classCount) : 0;
+        const totalStudents = filteredClasses.reduce((sum, c) => sum + c.students.length, 0);
 
-        const students = await this.studentRepository.find({
-            where: {
-                schoolId: schoolId,
-                ...(classId ? { class: { id: classId } } : {}),
-            },
-            relations: ['class'],
-        });
+        const keyMetrics: KeyMetric[] = [
+            { label: 'Overall Pass %', value: `${overallPassRate}%`, change: 0, vsText: '', icon: 'trending-up', color: 'text-indigo-600' },
+            { label: 'Average Score', value: `${overallAvgScore}%`, change: 0, vsText: '', icon: 'graduation-cap', color: 'text-emerald-600' },
+            { label: 'Total Students', value: totalStudents, change: 0, vsText: '', icon: 'users', color: 'text-purple-600' },
+            { label: 'Att-Perf Correlation', value: 'Calculating...', change: 0, vsText: '', icon: 'brain', color: 'text-amber-600' }
+        ];
 
-        if (students.length === 0) {
-            return trends;
-        }
+        const subjectDifficulty = await this.calculateSubjectDifficulty(schoolId, term);
+        const examGap = await this.calculateExamGap(schoolId, term);
 
-        let startDate: Date;
-        const now = new Date();
-        let groupBy: 'day' | 'week' | 'month' = 'week';
-        let numberOfPeriods = 4;
+        // At Risk Students
+        const riskStudents: RiskStudent[] = [];
+        for (const cls of filteredClasses.slice(0, 3)) {
+            for (const student of cls.students.slice(0, 5)) {
+                const subjectMap = await this.getStudentAssessmentsMap(student.id, cls.id);
+                const subjects = Array.from(subjectMap.values());
+                let totalScore = 0;
+                for (const subject of subjects) {
+                    totalScore += this.calculateFinalScore(subject, gradeConfig);
+                }
+                const avgScore = subjects.length > 0 ? totalScore / subjects.length : 0;
 
-        switch (timeframe) {
-            case 'week':
-                startDate = new Date(now);
-                startDate.setDate(now.getDate() - 7);
-                groupBy = 'day';
-                numberOfPeriods = 7;
-                break;
-            case 'month':
-                startDate = new Date(now);
-                startDate.setMonth(now.getMonth() - 1);
-                groupBy = 'week';
-                numberOfPeriods = 4;
-                break;
-            case 'term':
-                startDate = new Date(now);
-                startDate.setMonth(now.getMonth() - 3);
-                groupBy = 'week';
-                numberOfPeriods = 12;
-                break;
-            case 'year':
-                startDate = new Date(now);
-                startDate.setFullYear(now.getFullYear() - 1);
-                groupBy = 'month';
-                numberOfPeriods = 12;
-                break;
-            default:
-                startDate = new Date(now);
-                startDate.setMonth(now.getMonth() - 1);
-                groupBy = 'week';
-                numberOfPeriods = 4;
-        }
+                const attendances = await this.attendanceRepository.find({
+                    where: { studentId: student.id, classId: cls.id }
+                });
+                const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+                const attendanceRate = attendances.length > 0 ? (presentCount / attendances.length) * 100 : 100;
 
-        const studentIds = students.map(s => s.id);
+                let riskLevel: 'critical' | 'high' | 'medium' | 'low' = 'low';
+                if (avgScore < gradeConfig.pass_mark - 20 || attendanceRate < 60) riskLevel = 'critical';
+                else if (avgScore < gradeConfig.pass_mark - 10 || attendanceRate < 75) riskLevel = 'high';
+                else if (avgScore < gradeConfig.pass_mark || attendanceRate < 85) riskLevel = 'medium';
 
-        const assessments = await this.assessmentRepository
-            .createQueryBuilder('assessment')
-            .leftJoinAndSelect('assessment.subject', 'subject')
-            .leftJoinAndSelect('assessment.student', 'student')
-            .where('assessment.studentId IN (:...studentIds)', { studentIds })
-            .andWhere('assessment.createdAt >= :startDate', { startDate })
-            .andWhere('assessment.score IS NOT NULL')
-            .orderBy('assessment.createdAt', 'ASC')
-            .getMany();
-
-        if (assessments.length === 0) {
-            return trends;
-        }
-
-        const periodMap = new Map<string, {
-            totalScore: number;
-            count: number;
-            subjects: Map<string, { total: number; count: number }>
-        }>();
-
-        for (const assessment of assessments) {
-            const date = new Date(assessment.createdAt);
-            let periodKey: string;
-
-            if (groupBy === 'day') {
-                periodKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            } else if (groupBy === 'week') {
-                const weekNumber = this.getWeekNumber(date);
-                periodKey = `Week ${weekNumber}`;
-            } else {
-                periodKey = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-            }
-
-            if (!periodMap.has(periodKey)) {
-                periodMap.set(periodKey, {
-                    totalScore: 0,
-                    count: 0,
-                    subjects: new Map()
+                riskStudents.push({
+                    id: student.id,
+                    name: student.name,
+                    examNumber: student.examNumber,
+                    grade: cls.name,
+                    attendance: Math.round(attendanceRate),
+                    catScore: Math.round(avgScore),
+                    fails: 0,
+                    prevDrop: 0,
+                    riskLevel
                 });
             }
+        }
 
-            const periodData = periodMap.get(periodKey)!;
-            const score = assessment.score!;
+        // Cohort Tracking from archives
+        let cohortTracking: CohortTracking | null = null;
+        const targetClassIds = classId ? [classId] : filteredClasses.map(c => c.id);
+        const archives = await this.archiveRepository.find({
+            where: { classId: In(targetClassIds) },
+            order: { archivedAt: 'ASC' }
+        });
 
-            periodData.totalScore += score;
-            periodData.count++;
-
-            const subjectName = assessment.subject?.name || 'General';
-            if (!periodData.subjects.has(subjectName)) {
-                periodData.subjects.set(subjectName, { total: 0, count: 0 });
+        if (archives.length > 0) {
+            const data: number[] = [];
+            const labels: string[] = [];
+            for (const archive of archives.slice(-6)) {
+                const overallResults = archive.results?.overall;
+                if (overallResults && overallResults.length > 0) {
+                    const avgPassRate = overallResults.reduce((sum: number, s: any) => sum + (s.passRate || 0), 0) / overallResults.length;
+                    data.push(Math.round(avgPassRate));
+                    labels.push(archive.term);
+                }
             }
-            const subjectData = periodData.subjects.get(subjectName)!;
-            subjectData.total += score;
-            subjectData.count++;
-        }
-
-        const sortedPeriods = Array.from(periodMap.keys()).sort();
-
-        for (const period of sortedPeriods) {
-            const data = periodMap.get(period)!;
-            const overall = data.count > 0 ? Math.round(data.totalScore / data.count) : 0;
-
-            const subjects: Record<string, number> = {};
-            for (const [name, subjectData] of data.subjects.entries()) {
-                subjects[name] = Math.round(subjectData.total / subjectData.count);
+            if (data.length > 0) {
+                cohortTracking = {
+                    cohort: `${filteredClasses[0]?.name || 'Class'} Cohort (${totalStudents} students)`,
+                    data,
+                    labels,
+                    improving: 0,
+                    declining: 0,
+                    currentRate: overallPassRate
+                };
             }
-
-            trends.push({
-                period,
-                overall,
-                subjects
-            });
         }
 
-        while (trends.length < numberOfPeriods) {
-            trends.unshift({
-                period: `${groupBy === 'day' ? 'Day' : groupBy === 'week' ? 'Week' : 'Month'} ${trends.length + 1}`,
-                overall: 0,
-                subjects: {}
-            });
-        }
-
-        return trends.slice(-numberOfPeriods);
+        return {
+            keyMetrics,
+            gradeRanking,
+            factorAnalysis: [],
+            riskStudents: riskStudents.slice(0, 5),
+            subjectDifficulty,
+            examGap,
+            cohortTracking
+        };
     }
 
-    async getKeyMetrics(schoolId: string, timeframe?: string, classId?: string): Promise<any> {
-        const gradeConfig = await this.getActiveGradeConfig(schoolId);
-        const passMark = gradeConfig.pass_mark;
-
-        const students = await this.studentRepository.find({
-            where: {
-                schoolId: schoolId,
-                ...(classId ? { class: { id: classId } } : {}),
-            },
-            relations: ['class'],
+    async getStudentDetail(studentId: string, term: string, schoolId: string): Promise<StudentDetail> {
+        const student = await this.studentRepository.findOne({
+            where: { id: studentId, schoolId },
+            relations: ['class', 'class.classTeacher']
         });
+        if (!student) throw new NotFoundException('Student not found');
+
+        const gradeConfig = await this.getActiveGradeConfig(schoolId);
+        const subjectMap = await this.getStudentAssessmentsMap(student.id, student.class?.id || '');
+        const subjects = Array.from(subjectMap.values());
 
         let totalScore = 0;
-        let totalStudents = 0;
-        let distinctionCount = 0;
-        let onTrackCount = 0;
+        for (const subject of subjects) {
+            totalScore += this.calculateFinalScore(subject, gradeConfig);
+        }
+        const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
 
-        for (const student of students) {
-            const assessments = await this.assessmentRepository.find({
-                where: { student: { id: student.id } },
-                order: { createdAt: 'DESC' },
-                take: 10,
-            });
+        const attendances = await this.attendanceRepository.find({
+            where: { studentId: student.id, classId: student.class?.id }
+        });
+        const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+        const currentAttendance = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
 
-            const validAssessments = assessments.filter(a => a.score !== null);
+        const reportCard = await this.reportCardRepository.findOne({
+            where: { student: { id: student.id }, term }
+        });
 
-            if (validAssessments.length > 0) {
-                const avgScore = validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length;
-                totalScore += avgScore;
-                totalStudents++;
+        const archives = await this.archiveRepository.find({
+            where: { classId: student.class?.id }
+        });
 
-                if (avgScore >= 80) distinctionCount++;
-                if (avgScore >= passMark) onTrackCount++;
+        const timeline: StudentTimeline[] = [];
+        const historical: StudentHistorical[] = [];
+
+        for (const archive of archives.slice(-4)) {
+            const studentResult = archive.results?.overall?.find((r: any) => r.id === student.id);
+            if (studentResult) {
+                timeline.push({
+                    term: archive.term,
+                    marks: Math.round(studentResult.average || 0),
+                    attendance: Math.round(studentResult.attendance || 0)
+                });
+                historical.push({
+                    term: archive.term,
+                    attendance: Math.round(studentResult.attendance || 0),
+                    marks: Math.round(studentResult.average || 0),
+                    cat: Math.round(studentResult.qa1Average || 0),
+                    exam: Math.round(studentResult.endTermAverage || 0),
+                    fails: 0,
+                    score: Math.round(studentResult.average || 0) / 10,
+                    status: (studentResult.average || 0) >= gradeConfig.pass_mark ? 'Pass' : 'Fail'
+                });
             }
         }
 
-        const overallPerformance = totalStudents > 0 ? Math.round(totalScore / totalStudents) : 0;
+        const subjectBreakdown: StudentSubjectBreakdown[] = [];
+        for (const [name, subject] of subjectMap) {
+            const finalScore = this.calculateFinalScore(subject, gradeConfig);
+            subjectBreakdown.push({
+                subject: name,
+                marks: Math.round(finalScore),
+                attendance: currentAttendance,
+                classAvg: 0,
+                gap: 0,
+                status: finalScore >= gradeConfig.pass_mark ? 'On track' : 'Needs support'
+            });
+        }
 
         return {
-            overallPerformance,
-            performanceTrend: 5,
-            studentsOnTrack: onTrackCount,
-            studentsOnTrackPercentage: totalStudents > 0 ? Math.round((onTrackCount / totalStudents) * 100) : 0,
-            studentsAtRisk: totalStudents - onTrackCount,
-            distinctions: distinctionCount,
-            distinctionsTrend: 8,
-            targetAchievement: Math.min(100, Math.round((overallPerformance / 75) * 100)),
+            id: student.id,
+            name: student.name,
+            examNumber: student.examNumber,
+            grade: student.class?.name || 'N/A',
+            status: currentMarks >= gradeConfig.pass_mark ? 'On Track' : 'At Risk',
+            classTeacher: student.class?.classTeacher?.name || 'Not assigned',
+            currentMarks,
+            currentAttendance,
+            termOverTerm: 0,
+            classRank: reportCard?.classRank ? `${reportCard.classRank}/${reportCard.totalStudents}` : 'N/A',
+            timeline,
+            factorBreakdown: [],
+            subjectBreakdown,
+            historical,
+            recommendations: []
         };
     }
 
-    async getPredictionSummary(schoolId: string, timeframe?: string): Promise<any> {
-        const gradeConfig = await this.getActiveGradeConfig(schoolId);
-        const passMark = gradeConfig.pass_mark;
-
-        const students = await this.studentRepository.find({
-            where: { schoolId: schoolId }
+    async getCompareTermsData(term1: string, term2: string, schoolId: string, classId?: string): Promise<CompareData> {
+        const classes = await this.classRepository.find({
+            where: { schoolId },
+            select: ['id']
         });
-        let improving = 0;
-        let declining = 0;
-        let stable = 0;
+        const classIds = classes.map(c => c.id);
 
-        for (const student of students) {
-            const assessments = await this.assessmentRepository.find({
-                where: { student: { id: student.id } },
-                order: { createdAt: 'DESC' },
-                take: 6,
+        const archives = await this.archiveRepository.find({
+            where: { classId: In(classIds), term: In([term1, term2]) }
+        });
+
+        const archive1 = archives.find(a => a.term === term1);
+        const archive2 = archives.find(a => a.term === term2);
+
+        const results1 = archive1?.results?.overall || [];
+        const results2 = archive2?.results?.overall || [];
+
+        const filtered1 = classId ? results1.filter((r: any) => r.classId === classId) : results1;
+        const filtered2 = classId ? results2.filter((r: any) => r.classId === classId) : results2;
+
+        const overallPass1 = filtered1.length > 0 ? filtered1.reduce((sum: number, r: any) => sum + (r.passRate || 0), 0) / filtered1.length : 0;
+        const overallPass2 = filtered2.length > 0 ? filtered2.reduce((sum: number, r: any) => sum + (r.passRate || 0), 0) / filtered2.length : 0;
+        const avgScore1 = filtered1.length > 0 ? filtered1.reduce((sum: number, r: any) => sum + (r.average || 0), 0) / filtered1.length : 0;
+        const avgScore2 = filtered2.length > 0 ? filtered2.reduce((sum: number, r: any) => sum + (r.average || 0), 0) / filtered2.length : 0;
+
+        const schoolClasses = await this.classRepository.find({ where: { schoolId } });
+        const departments: CompareDepartment[] = [];
+
+        for (const cls of schoolClasses) {
+            const archive1Class = archive1?.results?.overall?.find((r: any) => r.classId === cls.id);
+            const archive2Class = archive2?.results?.overall?.find((r: any) => r.classId === cls.id);
+            departments.push({
+                name: cls.name,
+                passRate1: archive1Class?.passRate || 0,
+                passRate2: archive2Class?.passRate || 0,
+                change: (archive2Class?.passRate || 0) - (archive1Class?.passRate || 0),
+                status: (archive2Class?.passRate || 0) > (archive1Class?.passRate || 0) ? 'Improved' : 'Declined'
             });
+        }
 
-            const validAssessments = assessments.filter(a => a.score !== null);
+        return {
+            term1,
+            term2,
+            overallPass1: Math.round(overallPass1),
+            overallPass2: Math.round(overallPass2),
+            avgScore1: Math.round(avgScore1),
+            avgScore2: Math.round(avgScore2),
+            avgAttendance1: 0,
+            avgAttendance2: 0,
+            departments,
+            newRiskStudents: []
+        };
+    }
 
-            if (validAssessments.length >= 4) {
-                const recent = validAssessments.slice(0, 2).reduce((sum, a) => sum + a.score!, 0) / 2;
-                const older = validAssessments.slice(2, 4).reduce((sum, a) => sum + a.score!, 0) / 2;
+    async getGradeStudents(gradeName: string, term: string, schoolId: string): Promise<any[]> {
+        const classEntity = await this.classRepository.findOne({
+            where: { name: gradeName, schoolId, term },
+            relations: ['students']
+        });
+        if (!classEntity) return [];
 
-                if (recent > older + 5) improving++;
-                else if (recent < older - 5) declining++;
-                else stable++;
+        const gradeConfig = await this.getActiveGradeConfig(schoolId);
+        const studentsWithData: any[] = [];
+
+        for (const student of classEntity.students) {
+            const subjectMap = await this.getStudentAssessmentsMap(student.id, classEntity.id);
+            const subjects = Array.from(subjectMap.values());
+            let totalScore = 0;
+            for (const subject of subjects) {
+                totalScore += this.calculateFinalScore(subject, gradeConfig);
+            }
+            const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
+
+            const attendances = await this.attendanceRepository.find({
+                where: { studentId: student.id, classId: classEntity.id }
+            });
+            const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+            const attendanceRate = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
+
+            let riskLevel = 'low';
+            if (currentMarks < gradeConfig.pass_mark - 20 || attendanceRate < 60) riskLevel = 'critical';
+            else if (currentMarks < gradeConfig.pass_mark - 10 || attendanceRate < 75) riskLevel = 'high';
+            else if (currentMarks < gradeConfig.pass_mark || attendanceRate < 85) riskLevel = 'medium';
+
+            studentsWithData.push({
+                id: student.id,
+                name: student.name,
+                examNumber: student.examNumber,
+                grade: gradeName,
+                attendance: attendanceRate,
+                catScore: currentMarks,
+                fails: 0,
+                currentMarks: currentMarks,
+                riskLevel: riskLevel
+            });
+        }
+
+        return studentsWithData;
+    }
+
+    async getAvailableTerms(schoolId: string): Promise<{ value: string; label: string }[]> {
+        const classes = await this.classRepository.find({
+            where: { schoolId },
+            select: ['id', 'term', 'academic_year']
+        });
+
+        const classIds = classes.map(c => c.id);
+
+        const archives = await this.archiveRepository.find({
+            where: { classId: In(classIds) },
+            order: { archivedAt: 'DESC' }
+        });
+
+        const uniqueTerms = new Map<string, string>();
+        for (const archive of archives) {
+            const key = `${archive.term}, ${archive.academicYear}`;
+            if (!uniqueTerms.has(key)) {
+                uniqueTerms.set(key, key);
             }
         }
 
-        const total = improving + declining + stable;
-
-        // Calculate predicted pass rate based on current performance
-        let totalPassCount = 0;
-        for (const student of students) {
-            const assessments = await this.assessmentRepository.find({
-                where: { student: { id: student.id } },
-                take: 10,
-            });
-            const validAssessments = assessments.filter(a => a.score !== null);
-            const avgScore = validAssessments.length > 0
-                ? validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length
-                : 0;
-            if (avgScore >= passMark) totalPassCount++;
-        }
-        const predictedPassRate = students.length > 0 ? Math.round((totalPassCount / students.length) * 100) : 0;
-
-        return {
-            predictedPassRate,
-            studentsImproving: improving,
-            studentsImprovingPercentage: total > 0 ? Math.round((improving / total) * 100) : 0,
-            studentsDeclining: declining,
-            studentsDecliningPercentage: total > 0 ? Math.round((declining / total) * 100) : 0,
-            studentsStable: stable,
-            studentsStablePercentage: total > 0 ? Math.round((stable / total) * 100) : 0,
-            predictedDistinctions: Math.floor(students.length * 0.15),
-        };
-    }
-
-    async getInterventionSummary(schoolId: string): Promise<any> {
-        const gradeConfig = await this.getActiveGradeConfig(schoolId);
-        const passMark = gradeConfig.pass_mark;
-
-        const students = await this.studentRepository.find({
-            where: { schoolId: schoolId }
-        });
-        const assessments = await this.assessmentRepository.find({
-            where: { student: { schoolId: schoolId } },
-            relations: ['student'],
-        });
-
-        let needsSupport = 0;
-        let honorRoll = 0;
-
-        for (const student of students) {
-            const studentAssessments = assessments.filter(a => a.student?.id === student.id && a.score !== null);
-            const avgScore = studentAssessments.length > 0
-                ? studentAssessments.reduce((sum, a) => sum + a.score!, 0) / studentAssessments.length
-                : 0;
-
-            if (avgScore < passMark) needsSupport++;
-            if (avgScore >= 80) honorRoll++;
+        for (const cls of classes) {
+            const key = `${cls.term}, ${cls.academic_year}`;
+            if (!uniqueTerms.has(key)) {
+                uniqueTerms.set(key, key);
+            }
         }
 
-        return {
-            studentsNeedingSupport: needsSupport,
-            honorRollCount: honorRoll,
-            chronicAbsenteeism: 12,
-        };
+        return Array.from(uniqueTerms.keys()).map(key => ({
+            value: key,
+            label: key
+        }));
     }
 
-    async generatePredictions(schoolId: string): Promise<any> {
-        const gradeConfig = await this.getActiveGradeConfig(schoolId);
-        const passMark = gradeConfig.pass_mark;
+    // ========== TEACHER ANALYTICS ==========
 
-        const students = await this.studentRepository.find({
-            where: { schoolId: schoolId },
+    async getTeacherDashboardAnalytics(teacherId: string, term: string, schoolId: string, classId?: string): Promise<any> {
+        const assignments = await this.teacherClassSubjectRepository.find({
+            where: { teacherId },
             relations: ['class']
         });
 
-        for (const student of students) {
-            const assessments = await this.assessmentRepository.find({
-                where: { student: { id: student.id } },
-                order: { createdAt: 'DESC' },
-            });
-
-            const validAssessments = assessments.filter(a => a.score !== null);
-
-            const avgScore = validAssessments.length > 0
-                ? validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length
-                : 0;
-
-            let riskScore = 0;
-            const factors: string[] = [];
-
-            if (avgScore < passMark) {
-                riskScore += 40;
-                factors.push('low academic performance');
-            } else if (avgScore < passMark + 15) {
-                riskScore += 20;
-                factors.push('below average performance');
-            }
-
-            let riskLevel = 'low';
-            if (riskScore >= 60) riskLevel = 'high';
-            else if (riskScore >= 30) riskLevel = 'medium';
-
-            const predictedGrade = this.calculatePredictedGrade(avgScore, 'stable', gradeConfig);
-
-            await this.analyticsRepository.upsert(
-                {
-                    studentId: student.id,
-                    studentName: student.name,
-                    examNumber: student.examNumber,
-                    classId: student.class?.id,
-                    className: student.class?.name,
-                    academicScore: avgScore,
-                    riskScore,
-                    riskLevel,
-                    riskFactors: factors,
-                    predictedGrade,
-                    predictionGeneratedAt: new Date(),
-                },
-                ['studentId'],
-            );
+        let classIds = [...new Set(assignments.map(a => a.classId))];
+        const classTeacherClasses = await this.classRepository.find({
+            where: { classTeacherId: teacherId }
+        });
+        for (const cls of classTeacherClasses) {
+            if (!classIds.includes(cls.id)) classIds.push(cls.id);
         }
 
-        return { generatedAt: new Date(), totalStudents: students.length };
+        if (classId) {
+            if (!classIds.includes(classId)) throw new NotFoundException('Class not found for this teacher');
+            classIds = [classId];
+        }
+
+        const classes = await this.classRepository.find({
+            where: { id: In(classIds), term },
+            relations: ['students']
+        });
+
+        const gradeConfig = await this.getActiveGradeConfig(schoolId);
+        const classRanking: TeacherClassRanking[] = [];
+
+        for (const cls of classes) {
+            let totalScore = 0;
+            let passCount = 0;
+            let studentCount = 0;
+            let riskStudentCount = 0;
+
+            for (const student of cls.students) {
+                const subjectMap = await this.getStudentAssessmentsMap(student.id, cls.id);
+                const subjects = Array.from(subjectMap.values());
+                if (subjects.length > 0) {
+                    let studentTotalScore = 0;
+                    for (const subject of subjects) {
+                        studentTotalScore += this.calculateFinalScore(subject, gradeConfig);
+                    }
+                    const avgScore = studentTotalScore / subjects.length;
+                    totalScore += avgScore;
+                    if (avgScore >= gradeConfig.pass_mark) passCount++;
+                    studentCount++;
+                    if (avgScore < gradeConfig.pass_mark - 10) riskStudentCount++;
+                }
+            }
+
+            const avgScore = studentCount > 0 ? totalScore / studentCount : 0;
+            const passRate = studentCount > 0 ? (passCount / studentCount) * 100 : 0;
+
+            classRanking.push({
+                rank: 0,
+                name: cls.name,
+                passRate: Math.round(passRate),
+                avgScore: Math.round(avgScore),
+                attendance: 0,
+                riskStudents: riskStudentCount,
+                riskChange: 0,
+                trend: 0
+            });
+        }
+
+        classRanking.sort((a, b) => b.passRate - a.passRate);
+        classRanking.forEach((c, i) => c.rank = i + 1);
+
+        const totalStudents = classes.reduce((sum, c) => sum + c.students.length, 0);
+        const overallPassRate = classRanking.length > 0 ? classRanking.reduce((sum, c) => sum + c.passRate, 0) / classRanking.length : 0;
+
+        const keyMetrics: TeacherKeyMetric[] = [
+            { label: 'Overall Pass %', value: `${Math.round(overallPassRate)}%`, change: 0, vsText: '', icon: 'trending-up', color: 'text-indigo-600' },
+            { label: 'Average Score', value: `${Math.round(classRanking.reduce((sum, c) => sum + c.avgScore, 0) / (classRanking.length || 1))}%`, change: 0, vsText: '', icon: 'graduation-cap', color: 'text-emerald-600' },
+            { label: 'Total Students', value: totalStudents, change: 0, vsText: '', icon: 'users', color: 'text-purple-600' },
+            { label: 'Att-Perf Correlation', value: 'Calculating...', change: 0, vsText: '', icon: 'brain', color: 'text-amber-600' }
+        ];
+
+        return {
+            keyMetrics,
+            classRanking,
+            factorAnalysis: [],
+            riskStudents: [],
+            subjectDifficulty: [],
+            examGap: [],
+            cohortTracking: null
+        };
     }
 
-    async exportReport(schoolId: string, format: string, timeframe?: string, classId?: string): Promise<{ buffer: Buffer; filename: string }> {
-        const data = {
-            atRisk: await this.getAtRiskStudents(schoolId, classId, timeframe),
-            classPerformance: await this.getClassPerformance(schoolId, timeframe),
-            subjectPerformance: await this.getSubjectPerformance(schoolId, timeframe),
-            metrics: await this.getKeyMetrics(schoolId, timeframe, classId),
-            predictions: await this.getPredictionSummary(schoolId, timeframe),
-            interventions: await this.getInterventionSummary(schoolId),
-            generatedAt: new Date().toISOString(),
+    async getTeacherStudentDetail(studentId: string, term: string, schoolId: string): Promise<TeacherStudentDetail> {
+        const student = await this.studentRepository.findOne({
+            where: { id: studentId, schoolId },
+            relations: ['class', 'class.classTeacher']
+        });
+        if (!student) throw new NotFoundException('Student not found');
+
+        const gradeConfig = await this.getActiveGradeConfig(schoolId);
+        const subjectMap = await this.getStudentAssessmentsMap(student.id, student.class?.id || '');
+        const subjects = Array.from(subjectMap.values());
+
+        let totalScore = 0;
+        for (const subject of subjects) {
+            totalScore += this.calculateFinalScore(subject, gradeConfig);
+        }
+        const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
+
+        const attendances = await this.attendanceRepository.find({
+            where: { studentId: student.id, classId: student.class?.id }
+        });
+        const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+        const currentAttendance = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
+
+        const reportCard = await this.reportCardRepository.findOne({
+            where: { student: { id: student.id }, term }
+        });
+
+        const subjectBreakdown: StudentSubjectBreakdown[] = [];
+        for (const [name, subject] of subjectMap) {
+            const finalScore = this.calculateFinalScore(subject, gradeConfig);
+            subjectBreakdown.push({
+                subject: name,
+                marks: Math.round(finalScore),
+                attendance: currentAttendance,
+                classAvg: 0,
+                gap: 0,
+                status: finalScore >= gradeConfig.pass_mark ? 'On track' : 'Needs support'
+            });
+        }
+
+        return {
+            id: student.id,
+            name: student.name,
+            examNumber: student.examNumber,
+            className: student.class?.name || 'N/A',
+            status: currentMarks >= gradeConfig.pass_mark ? 'On Track' : 'At Risk',
+            classTeacher: student.class?.classTeacher?.name || 'Not assigned',
+            currentMarks,
+            currentAttendance,
+            termOverTerm: 0,
+            classRank: reportCard?.classRank ? `${reportCard.classRank}/${reportCard.totalStudents}` : 'N/A',
+            timeline: [],
+            factorBreakdown: [],
+            subjectBreakdown,
+            historical: [],
+            recommendations: []
         };
+    }
 
-        const jsonString = JSON.stringify(data, null, 2);
-        const buffer = Buffer.from(jsonString);
-        const filename = `analytics-report-${new Date().toISOString().split('T')[0]}.json`;
+    async getTeacherCompareTermsData(teacherId: string, term1: string, term2: string, schoolId: string, classId?: string): Promise<TeacherCompareData> {
+        const assignments = await this.teacherClassSubjectRepository.find({
+            where: { teacherId },
+            relations: ['class']
+        });
 
-        return { buffer, filename };
+        let classIds = [...new Set(assignments.map(a => a.classId))];
+        if (classId) {
+            if (!classIds.includes(classId)) throw new NotFoundException('Class not found for this teacher');
+            classIds = [classId];
+        }
+
+        const classes = await this.classRepository.find({
+            where: { id: In(classIds) }
+        });
+
+        // Get archives for these classes
+        const archives = await this.archiveRepository.find({
+            where: { classId: In(classIds), term: In([term1, term2]) }
+        });
+
+        const departments: CompareDepartment[] = [];
+
+        for (const cls of classes) {
+            const archive1 = archives.find(a => a.classId === cls.id && a.term === term1);
+            const archive2 = archives.find(a => a.classId === cls.id && a.term === term2);
+
+            const passRate1 = archive1?.results?.overall?.[0]?.passRate || 0;
+            const passRate2 = archive2?.results?.overall?.[0]?.passRate || 0;
+
+            departments.push({
+                name: cls.name,
+                passRate1,
+                passRate2,
+                change: passRate2 - passRate1,
+                status: passRate2 > passRate1 ? 'Improved' : passRate2 < passRate1 ? 'Declined' : 'Stable'
+            });
+        }
+
+        const overallPass1 = departments.length > 0 ? departments.reduce((sum, d) => sum + d.passRate1, 0) / departments.length : 0;
+        const overallPass2 = departments.length > 0 ? departments.reduce((sum, d) => sum + d.passRate2, 0) / departments.length : 0;
+
+        return {
+            term1,
+            term2,
+            overallPass1: Math.round(overallPass1),
+            overallPass2: Math.round(overallPass2),
+            avgScore1: 0,
+            avgScore2: 0,
+            avgAttendance1: 0,
+            avgAttendance2: 0,
+            departments,
+            newRiskStudents: []
+        };
+    }
+
+    async getTeacherGradeStudents(teacherId: string, className: string, term: string, schoolId: string): Promise<any[]> {
+        const assignments = await this.teacherClassSubjectRepository.find({
+            where: { teacherId },
+            relations: ['class']
+        });
+
+        const classIds = assignments.map(a => a.classId);
+
+        const classEntity = await this.classRepository.findOne({
+            where: { id: In(classIds), name: className, term, schoolId },
+            relations: ['students']
+        });
+
+        if (!classEntity) return [];
+
+        const gradeConfig = await this.getActiveGradeConfig(schoolId);
+        const studentsWithData: any[] = [];
+
+        for (const student of classEntity.students) {
+            const subjectMap = await this.getStudentAssessmentsMap(student.id, classEntity.id);
+            const subjects = Array.from(subjectMap.values());
+            let totalScore = 0;
+            for (const subject of subjects) {
+                totalScore += this.calculateFinalScore(subject, gradeConfig);
+            }
+            const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
+
+            const attendances = await this.attendanceRepository.find({
+                where: { studentId: student.id, classId: classEntity.id }
+            });
+            const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+            const attendanceRate = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
+
+            let riskLevel = 'low';
+            if (currentMarks < gradeConfig.pass_mark - 20 || attendanceRate < 60) riskLevel = 'critical';
+            else if (currentMarks < gradeConfig.pass_mark - 10 || attendanceRate < 75) riskLevel = 'high';
+            else if (currentMarks < gradeConfig.pass_mark || attendanceRate < 85) riskLevel = 'medium';
+
+            studentsWithData.push({
+                id: student.id,
+                name: student.name,
+                examNumber: student.examNumber,
+                className: classEntity.name,
+                attendance: attendanceRate,
+                catScore: currentMarks,
+                fails: 0,
+                currentMarks: currentMarks,
+                riskLevel: riskLevel
+            });
+        }
+
+        return studentsWithData;
     }
 }
-
-
-// // src/modules/analytics/analytics.service.ts
-// import { Injectable } from '@nestjs/common';
+// // src/analytics/analytics.service.ts
+// import { Injectable, NotFoundException } from '@nestjs/common';
 // import { InjectRepository } from '@nestjs/typeorm';
-// import { Repository } from 'typeorm';
-// import { AnalyticsData } from './entities/analytics.entity';
+// import { Repository, Between, In } from 'typeorm';
 // import { Student } from '../students/entities/student.entity';
 // import { Assessment } from '../students/entities/assessment.entity';
 // import { Attendance } from '../attendance/entities/attendance.entity';
 // import { Class } from '../students/entities/class.entity';
 // import { Subject } from '../students/entities/subject.entity';
+// import { GradeConfig } from '../students/entities/grade-config.entity';
+// import { ReportCard } from '../students/entities/report-card.entity';
+// import { Archive } from '../students/entities/archive.entity';
+// import { TeacherClassSubject } from '../teachers/entities/teacher-class-subject.entity';
 
+// // ========== TYPES ==========
+// export interface KeyMetric {
+//     label: string;
+//     value: string | number;
+//     change: number;
+//     vsText: string;
+//     icon: string;
+//     color: string;
+// }
 
-// export interface AtRiskStudent {
+// export interface GradeRanking {
+//     rank: number;
+//     name: string;
+//     passRate: number;
+//     avgScore: number;
+//     attendance: number;
+//     riskStudents: number;
+//     riskChange: number;
+//     trend: number;
+// }
+
+// export interface FactorAnalysis {
+//     factor: string;
+//     correlation: number;
+//     impact: string;
+//     insight: string;
+// }
+
+// export interface RiskStudent {
 //     id: string;
 //     name: string;
 //     examNumber: string;
-//     class: string;
-//     classId: string;
-//     riskScore: number;
-//     riskLevel: string;
-//     factors: string[];
-//     predictedGrade: string;
-//     currentAverage: number;
-//     attendanceRate: number;
-//     trend: string;
+//     grade: string;
+//     attendance: number;
+//     catScore: number;
+//     fails: number;
+//     prevDrop: number;
+//     riskLevel: 'critical' | 'high' | 'medium' | 'low';
 // }
 
-// export interface ClassPerformance {
-//     classId: string;
-//     className: string;
-//     averageScore: number;
-//     passRate: number;
-//     distinctionRate: number;
-//     totalStudents: number;
-//     trend: number;
-//     topSubject: string;
-//     strugglingSubject: string;
-// }
-
-// export interface SubjectPerformance {
-//     subjectId: string;
+// export interface SubjectDifficulty {
+//     rank: number;
 //     name: string;
-//     averageScore: number;
+//     avgScore: number;
 //     passRate: number;
-//     distinctionRate: number;
-//     totalStudents: number;
-//     trend: number;
+//     correlation: number;
+//     action: string;
 // }
 
-// export interface TrendData {
-//     period: string;
-//     overall: number;
-//     subjects: Record<string, number>;
+// export interface ExamGap {
+//     grade: string;
+//     avgCAT: number;
+//     avgExam: number;
+//     gap: number;
+//     studentsDrop: number;
 // }
+
+// export interface CohortTracking {
+//     cohort: string;
+//     data: number[];
+//     labels: string[];
+//     improving: number;
+//     declining: number;
+//     currentRate: number;
+// }
+
+// export interface StudentTimeline {
+//     term: string;
+//     marks: number;
+//     attendance: number;
+// }
+
+// export interface StudentFactorBreakdown {
+//     factor: string;
+//     studentValue: string;
+//     classAvg: string;
+//     status: string;
+//     impact: string;
+// }
+
+// export interface StudentSubjectBreakdown {
+//     subject: string;
+//     marks: number;
+//     attendance: number;
+//     classAvg: number;
+//     gap: number;
+//     status: string;
+// }
+
+// export interface StudentHistorical {
+//     term: string;
+//     attendance: number;
+//     marks: number;
+//     cat: number;
+//     exam: number;
+//     fails: number;
+//     score: number;
+//     status: string;
+// }
+
+// export interface StudentDetail {
+//     id: string;
+//     name: string;
+//     examNumber: string;
+//     grade: string;
+//     status: string;
+//     classTeacher: string;
+//     currentMarks: number;
+//     currentAttendance: number;
+//     termOverTerm: number;
+//     classRank: string;
+//     timeline: StudentTimeline[];
+//     factorBreakdown: StudentFactorBreakdown[];
+//     subjectBreakdown: StudentSubjectBreakdown[];
+//     historical: StudentHistorical[];
+//     recommendations: string[];
+// }
+
+// export interface CompareDepartment {
+//     name: string;
+//     passRate1: number;
+//     passRate2: number;
+//     change: number;
+//     status: string;
+// }
+
+// export interface CompareRiskStudent {
+//     name: string;
+//     grade: string;
+//     att1: number;
+//     att2: number;
+//     marks1: number;
+//     marks2: number;
+//     drop: number;
+// }
+
+// export interface CompareData {
+//     term1: string;
+//     term2: string;
+//     overallPass1: number;
+//     overallPass2: number;
+//     avgScore1: number;
+//     avgScore2: number;
+//     avgAttendance1: number;
+//     avgAttendance2: number;
+//     departments: CompareDepartment[];
+//     newRiskStudents: CompareRiskStudent[];
+// }
+
+// export interface DashboardData {
+//     keyMetrics: KeyMetric[];
+//     gradeRanking: GradeRanking[];
+//     factorAnalysis: FactorAnalysis[];
+//     riskStudents: RiskStudent[];
+//     subjectDifficulty: SubjectDifficulty[];
+//     examGap: ExamGap[];
+//     cohortTracking: CohortTracking | null;
+// }
+
+// // Teacher Analytics Types
+// export interface TeacherKeyMetric extends KeyMetric { }
+// export interface TeacherClassRanking extends GradeRanking { }
+// export interface TeacherFactorAnalysis extends FactorAnalysis { }
+// export interface TeacherRiskStudent {
+//     id: string;
+//     name: string;
+//     examNumber: string;
+//     className: string;
+//     attendance: number;
+//     catScore: number;
+//     fails: number;
+//     prevDrop: number;
+//     riskLevel: 'critical' | 'high' | 'medium' | 'low';
+// }
+// export interface TeacherSubjectDifficulty extends SubjectDifficulty { }
+// export interface TeacherExamGap {
+//     className: string;
+//     avgCAT: number;
+//     avgExam: number;
+//     gap: number;
+//     studentsDrop: number;
+// }
+// export interface TeacherCohortTracking extends CohortTracking { }
+// export interface TeacherStudentDetail {
+//     id: string;
+//     name: string;
+//     examNumber: string;
+//     className: string;
+//     status: string;
+//     classTeacher: string;
+//     currentMarks: number;
+//     currentAttendance: number;
+//     termOverTerm: number;
+//     classRank: string;
+//     timeline: StudentTimeline[];
+//     factorBreakdown: StudentFactorBreakdown[];
+//     subjectBreakdown: StudentSubjectBreakdown[];
+//     historical: StudentHistorical[];
+//     recommendations: string[];
+// }
+// export interface TeacherCompareData extends CompareData { }
 
 // @Injectable()
 // export class AnalyticsService {
 //     constructor(
-//         @InjectRepository(AnalyticsData)
-//         private analyticsRepository: Repository<AnalyticsData>,
 //         @InjectRepository(Student)
 //         private studentRepository: Repository<Student>,
 //         @InjectRepository(Assessment)
@@ -757,418 +1335,801 @@ export class AnalyticsService {
 //         private classRepository: Repository<Class>,
 //         @InjectRepository(Subject)
 //         private subjectRepository: Repository<Subject>,
+//         @InjectRepository(GradeConfig)
+//         private gradeConfigRepository: Repository<GradeConfig>,
+//         @InjectRepository(ReportCard)
+//         private reportCardRepository: Repository<ReportCard>,
+//         @InjectRepository(Archive)
+//         private archiveRepository: Repository<Archive>,
+//         @InjectRepository(TeacherClassSubject)
+//         private teacherClassSubjectRepository: Repository<TeacherClassSubject>,
 //     ) { }
 
-//     async getAtRiskStudents(classId?: string, timeframe?: string): Promise<AtRiskStudent[]> {
-//         const students = await this.studentRepository.find({
-//             where: classId ? { class: { id: classId } } : {},
-//             relations: ['class'],
+//     private async getActiveGradeConfig(schoolId: string): Promise<GradeConfig> {
+//         const config = await this.gradeConfigRepository.findOne({
+//             where: { school_id: schoolId, is_active: true }
+//         });
+//         if (!config) {
+//             const defaultConfig = new GradeConfig();
+//             defaultConfig.pass_mark = 50;
+//             defaultConfig.calculation_method = 'average_all';
+//             defaultConfig.weight_qa1 = 33.33;
+//             defaultConfig.weight_qa2 = 33.33;
+//             defaultConfig.weight_end_of_term = 33.34;
+//             defaultConfig.school_id = schoolId;
+//             return defaultConfig;
+//         }
+//         return config;
+//     }
+
+//     private calculateFinalScore(subject: any, gradeConfig: GradeConfig): number {
+//         const qa1 = subject.qa1 || 0;
+//         const qa2 = subject.qa2 || 0;
+//         const endOfTerm = subject.endOfTerm || 0;
+//         const qa1Absent = subject.qa1_absent || false;
+//         const qa2Absent = subject.qa2_absent || false;
+//         const endOfTermAbsent = subject.endOfTerm_absent || false;
+
+//         if (endOfTermAbsent) return 0;
+
+//         switch (gradeConfig.calculation_method) {
+//             case 'average_all':
+//                 let total = 0, count = 0;
+//                 if (!qa1Absent) { total += qa1; count++; }
+//                 if (!qa2Absent) { total += qa2; count++; }
+//                 if (!endOfTermAbsent) { total += endOfTerm; count++; }
+//                 return count > 0 ? total / count : 0;
+//             case 'end_of_term_only':
+//                 return endOfTermAbsent ? 0 : endOfTerm;
+//             case 'weighted_average':
+//                 let weightedTotal = 0, weightTotal = 0;
+//                 if (!qa1Absent) {
+//                     weightedTotal += qa1 * (gradeConfig.weight_qa1 || 0);
+//                     weightTotal += gradeConfig.weight_qa1 || 0;
+//                 }
+//                 if (!qa2Absent) {
+//                     weightedTotal += qa2 * (gradeConfig.weight_qa2 || 0);
+//                     weightTotal += gradeConfig.weight_qa2 || 0;
+//                 }
+//                 if (!endOfTermAbsent) {
+//                     weightedTotal += endOfTerm * (gradeConfig.weight_end_of_term || 0);
+//                     weightTotal += gradeConfig.weight_end_of_term || 0;
+//                 }
+//                 return weightTotal > 0 ? weightedTotal / weightTotal : 0;
+//             default:
+//                 return (qa1 + qa2 + endOfTerm) / 3;
+//         }
+//     }
+
+//     private calculateGrade(score: number, gradeConfig: GradeConfig, isAbsent?: boolean, className?: string): string {
+//         if (isAbsent) return 'AB';
+//         const passMark = gradeConfig.pass_mark;
+
+//         const isForm3Or4 = className && (
+//             className.includes('Form 3') || className.includes('Form 4') ||
+//             className.includes('Form3') || className.includes('Form4')
+//         );
+
+//         if (isForm3Or4) {
+//             if (score >= 80) return '1';
+//             if (score >= 75) return '2';
+//             if (score >= 70) return '3';
+//             if (score >= 65) return '4';
+//             if (score >= 60) return '5';
+//             if (score >= 55) return '6';
+//             if (score >= 51) return '7';
+//             if (score >= passMark) return '8';
+//             return '9';
+//         }
+
+//         if (score >= 80) return 'A';
+//         if (score >= 70) return 'B';
+//         if (score >= 60) return 'C';
+//         if (score >= passMark) return 'D';
+//         return 'F';
+//     }
+
+//     private async getStudentAssessmentsMap(studentId: string, classId: string) {
+//         const assessments = await this.assessmentRepository.find({
+//             where: { student: { id: studentId }, class: { id: classId } },
+//             relations: ['subject']
 //         });
 
-//         const atRiskStudents: AtRiskStudent[] = [];
+//         const subjectMap = new Map();
+//         for (const asm of assessments) {
+//             const subjectName = asm.subject?.name || 'Unknown';
+//             if (!subjectMap.has(subjectName)) {
+//                 subjectMap.set(subjectName, {
+//                     qa1: 0, qa2: 0, endOfTerm: 0,
+//                     qa1_absent: false, qa2_absent: false, endOfTerm_absent: false
+//                 });
+//             }
+//             const subject = subjectMap.get(subjectName);
+//             if (asm.assessmentType === 'qa1') {
+//                 subject.qa1 = asm.score || 0;
+//                 subject.qa1_absent = asm.isAbsent || false;
+//             } else if (asm.assessmentType === 'qa2') {
+//                 subject.qa2 = asm.score || 0;
+//                 subject.qa2_absent = asm.isAbsent || false;
+//             } else if (asm.assessmentType === 'end_of_term') {
+//                 subject.endOfTerm = asm.score || 0;
+//                 subject.endOfTerm_absent = asm.isAbsent || false;
+//             }
+//         }
+//         return subjectMap;
+//     }
 
-//         for (const student of students) {
-//             const assessments = await this.assessmentRepository.find({
-//                 where: { student: { id: student.id } },
-//                 relations: ['subject'],
-//                 order: { createdAt: 'DESC' },
-//                 take: 10,
+//     // ========== ADMIN ANALYTICS ==========
+
+//     async getDashboardAnalytics(term: string, schoolId: string, classId?: string): Promise<DashboardData> {
+//         const gradeConfig = await this.getActiveGradeConfig(schoolId);
+
+//         // Get all classes
+//         const classes = await this.classRepository.find({
+//             where: { schoolId, term },
+//             relations: ['students']
+//         });
+
+//         const filteredClasses = classId ? classes.filter(c => c.id === classId) : classes;
+
+//         // Calculate grade ranking
+//         const gradeRanking: GradeRanking[] = [];
+//         let totalPassRate = 0;
+//         let totalAvgScore = 0;
+//         let totalAttendance = 0;
+//         let classCount = 0;
+
+//         for (const cls of filteredClasses) {
+//             let totalScore = 0;
+//             let passCount = 0;
+//             let totalAttendanceRate = 0;
+//             let studentCount = 0;
+//             let riskStudentCount = 0;
+
+//             for (const student of cls.students) {
+//                 const subjectMap = await this.getStudentAssessmentsMap(student.id, cls.id);
+//                 const subjects = Array.from(subjectMap.values());
+
+//                 if (subjects.length > 0) {
+//                     let studentTotalScore = 0;
+//                     for (const subject of subjects) {
+//                         studentTotalScore += this.calculateFinalScore(subject, gradeConfig);
+//                     }
+//                     const avgScore = studentTotalScore / subjects.length;
+//                     totalScore += avgScore;
+//                     if (avgScore >= gradeConfig.pass_mark) passCount++;
+//                     studentCount++;
+
+//                     // Get attendance rate
+//                     const attendances = await this.attendanceRepository.find({
+//                         where: { studentId: student.id, classId: cls.id }
+//                     });
+//                     const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+//                     const rate = attendances.length > 0 ? (presentCount / attendances.length) * 100 : 100;
+//                     totalAttendanceRate += rate;
+
+//                     // Check risk
+//                     if (avgScore < gradeConfig.pass_mark - 10 || rate < 75) riskStudentCount++;
+//                 }
+//             }
+
+//             const avgScore = studentCount > 0 ? totalScore / studentCount : 0;
+//             const passRate = studentCount > 0 ? (passCount / studentCount) * 100 : 0;
+//             const attendanceRate = studentCount > 0 ? totalAttendanceRate / studentCount : 0;
+
+//             totalPassRate += passRate;
+//             totalAvgScore += avgScore;
+//             totalAttendance += attendanceRate;
+//             classCount++;
+
+//             gradeRanking.push({
+//                 rank: 0,
+//                 name: cls.name,
+//                 passRate: Math.round(passRate),
+//                 avgScore: Math.round(avgScore),
+//                 attendance: Math.round(attendanceRate),
+//                 riskStudents: riskStudentCount,
+//                 riskChange: 0,
+//                 trend: 0
 //             });
+//         }
+
+//         // Sort and assign ranks
+//         gradeRanking.sort((a, b) => b.passRate - a.passRate);
+//         gradeRanking.forEach((g, i) => g.rank = i + 1);
+
+//         // Key Metrics
+//         const overallPassRate = classCount > 0 ? Math.round(totalPassRate / classCount) : 0;
+//         const overallAvgScore = classCount > 0 ? Math.round(totalAvgScore / classCount) : 0;
+//         const totalStudents = filteredClasses.reduce((sum, c) => sum + c.students.length, 0);
+
+//         const keyMetrics: KeyMetric[] = [
+//             { label: 'Overall Pass %', value: `${overallPassRate}%`, change: -3, vsText: 'vs T3', icon: 'trending-up', color: 'text-indigo-600' },
+//             { label: 'Average Score', value: `${overallAvgScore}%`, change: -2, vsText: 'vs T3', icon: 'graduation-cap', color: 'text-emerald-600' },
+//             { label: 'Total Students', value: totalStudents, change: 45, vsText: 'vs T3', icon: 'users', color: 'text-purple-600' },
+//             { label: 'Att-Perf Correlation', value: 'r = 0.73', change: 0, vsText: 'Strong Positive', icon: 'brain', color: 'text-amber-600' }
+//         ];
+
+//         // Factor Analysis (static for now - based on educational research)
+//         const factorAnalysis: FactorAnalysis[] = [
+//             { factor: 'Attendance', correlation: 0.73, impact: 'Strong +', insight: 'Key driver for all grades' },
+//             { factor: 'Previous Term Marks', correlation: 0.81, impact: 'Very Strong +', insight: 'Best predictor of success' },
+//             { factor: 'CAT/Continuous Asst', correlation: 0.76, impact: 'Strong +', insight: 'CATs strongly predict exams' },
+//             { factor: 'Subject Difficulty', correlation: -0.45, impact: 'Moderate -', insight: 'Mathematics & Science hardest' },
+//             { factor: 'Failed Subjects', correlation: -0.52, impact: 'Strong -', insight: 'Each fail = -12% avg score' },
+//             { factor: 'Homework Submission', correlation: 0.38, impact: 'Moderate +', insight: 'Regular homework = success' }
+//         ];
+
+//         // At Risk Students
+//         const riskStudents: RiskStudent[] = [];
+//         for (const cls of filteredClasses.slice(0, 3)) {
+//             for (const student of cls.students.slice(0, 5)) {
+//                 const subjectMap = await this.getStudentAssessmentsMap(student.id, cls.id);
+//                 const subjects = Array.from(subjectMap.values());
+//                 let totalScore = 0;
+//                 for (const subject of subjects) {
+//                     totalScore += this.calculateFinalScore(subject, gradeConfig);
+//                 }
+//                 const avgScore = subjects.length > 0 ? totalScore / subjects.length : 0;
+
+//                 const attendances = await this.attendanceRepository.find({
+//                     where: { studentId: student.id, classId: cls.id }
+//                 });
+//                 const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+//                 const attendanceRate = attendances.length > 0 ? (presentCount / attendances.length) * 100 : 100;
+
+//                 let riskLevel: 'critical' | 'high' | 'medium' | 'low' = 'low';
+//                 if (avgScore < gradeConfig.pass_mark - 20 || attendanceRate < 60) riskLevel = 'critical';
+//                 else if (avgScore < gradeConfig.pass_mark - 10 || attendanceRate < 75) riskLevel = 'high';
+//                 else if (avgScore < gradeConfig.pass_mark || attendanceRate < 85) riskLevel = 'medium';
+
+//                 riskStudents.push({
+//                     id: student.id,
+//                     name: student.name,
+//                     examNumber: student.examNumber,
+//                     grade: cls.name,
+//                     attendance: Math.round(attendanceRate),
+//                     catScore: Math.round(avgScore),
+//                     fails: 0,
+//                     prevDrop: -5,
+//                     riskLevel
+//                 });
+//             }
+//         }
+
+//         // Subject Difficulty
+//         const allSubjects = await this.subjectRepository.find({ where: { schoolId } });
+//         const subjectDifficulty: SubjectDifficulty[] = allSubjects.slice(0, 8).map((sub, i) => ({
+//             rank: i + 1,
+//             name: sub.name,
+//             avgScore: 55 + Math.random() * 30,
+//             passRate: 50 + Math.random() * 40,
+//             correlation: 0.3 + Math.random() * 0.5,
+//             action: i < 3 ? '⚠️ High attention' : i < 6 ? 'Review teaching' : '✅ Low intervention'
+//         }));
+
+//         // Exam Gap
+//         const examGap: ExamGap[] = filteredClasses.slice(0, 3).map(cls => ({
+//             grade: cls.name,
+//             avgCAT: 65 + Math.random() * 10,
+//             avgExam: 55 + Math.random() * 15,
+//             gap: 5 + Math.random() * 8,
+//             studentsDrop: Math.floor(Math.random() * 15)
+//         }));
+
+//         // Cohort Tracking (from archives)
+//         let cohortTracking: CohortTracking | null = null;
+//         const archives = await this.archiveRepository.find({
+//             where: { classId: classId || In(filteredClasses.map(c => c.id)), academicYear: new Date().getFullYear().toString() },
+//             order: { archivedAt: 'ASC' }
+//         });
+
+//         if (archives.length > 0) {
+//             const data: number[] = [];
+//             const labels: string[] = [];
+//             for (const archive of archives.slice(-6)) {
+//                 const overallResults = archive.results?.overall;
+//                 if (overallResults && overallResults.length > 0) {
+//                     const avgPassRate = overallResults.reduce((sum: number, s: any) => sum + (s.passRate || 0), 0) / overallResults.length;
+//                     data.push(Math.round(avgPassRate));
+//                     labels.push(archive.term);
+//                 }
+//             }
+//             cohortTracking = {
+//                 cohort: `${filteredClasses[0]?.name || 'Class'} Cohort (${totalStudents} students)`,
+//                 data: data.length > 0 ? data : [72, 74, 78, 76, 75, 78],
+//                 labels: labels.length > 0 ? labels : ['T1', 'T2', 'T3', 'T1', 'T2', 'Current'],
+//                 improving: Math.floor(totalStudents * 0.18),
+//                 declining: Math.floor(totalStudents * 0.11),
+//                 currentRate: overallPassRate
+//             };
+//         }
+
+//         return {
+//             keyMetrics,
+//             gradeRanking,
+//             factorAnalysis,
+//             riskStudents: riskStudents.slice(0, 5),
+//             subjectDifficulty,
+//             examGap,
+//             cohortTracking
+//         };
+//     }
+
+//     async getStudentDetail(studentId: string, term: string, schoolId: string): Promise<StudentDetail> {
+//         const student = await this.studentRepository.findOne({
+//             where: { id: studentId, schoolId },
+//             relations: ['class', 'class.classTeacher']
+//         });
+//         if (!student) throw new NotFoundException('Student not found');
+
+//         const gradeConfig = await this.getActiveGradeConfig(schoolId);
+//         const subjectMap = await this.getStudentAssessmentsMap(student.id, student.class?.id || '');
+//         const subjects = Array.from(subjectMap.values());
+
+//         let totalScore = 0;
+//         for (const subject of subjects) {
+//             totalScore += this.calculateFinalScore(subject, gradeConfig);
+//         }
+//         const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
+
+//         const attendances = await this.attendanceRepository.find({
+//             where: { studentId: student.id, classId: student.class?.id }
+//         });
+//         const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+//         const currentAttendance = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
+
+//         const reportCard = await this.reportCardRepository.findOne({
+//             where: { student: { id: student.id }, term }
+//         });
+
+//         // Get historical data from archives
+//         const archives = await this.archiveRepository.find({
+//             where: { classId: student.class?.id }
+//         });
+
+//         const timeline: StudentTimeline[] = [];
+//         const historical: StudentHistorical[] = [];
+
+//         for (const archive of archives.slice(-4)) {
+//             const studentResult = archive.results?.overall?.find((r: any) => r.id === student.id);
+//             if (studentResult) {
+//                 timeline.push({
+//                     term: archive.term,
+//                     marks: Math.round(studentResult.average || 0),
+//                     attendance: Math.round(studentResult.attendance || 0)
+//                 });
+//                 historical.push({
+//                     term: archive.term,
+//                     attendance: Math.round(studentResult.attendance || 0),
+//                     marks: Math.round(studentResult.average || 0),
+//                     cat: Math.round(studentResult.qa1Average || 0),
+//                     exam: Math.round(studentResult.endTermAverage || 0),
+//                     fails: 0,
+//                     score: Math.round(studentResult.average || 0) / 10,
+//                     status: (studentResult.average || 0) >= gradeConfig.pass_mark ? 'Pass' : 'Fail'
+//                 });
+//             }
+//         }
+
+//         const subjectBreakdown: StudentSubjectBreakdown[] = [];
+//         for (const [name, subject] of subjectMap) {
+//             const finalScore = this.calculateFinalScore(subject, gradeConfig);
+//             subjectBreakdown.push({
+//                 subject: name,
+//                 marks: Math.round(finalScore),
+//                 attendance: currentAttendance,
+//                 classAvg: 65,
+//                 gap: Math.round(finalScore - 65),
+//                 status: finalScore >= gradeConfig.pass_mark ? 'On track' : 'Needs support'
+//             });
+//         }
+
+//         return {
+//             id: student.id,
+//             name: student.name,
+//             examNumber: student.examNumber,
+//             grade: student.class?.name || 'N/A',
+//             status: currentMarks >= gradeConfig.pass_mark ? 'On Track' : 'At Risk',
+//             classTeacher: student.class?.classTeacher?.name || 'Not assigned',
+//             currentMarks,
+//             currentAttendance,
+//             termOverTerm: -5,
+//             classRank: reportCard?.classRank ? `${reportCard.classRank}/${reportCard.totalStudents}` : 'N/A',
+//             timeline,
+//             factorBreakdown: [],
+//             subjectBreakdown,
+//             historical,
+//             recommendations: [
+//                 currentAttendance < 80 ? 'Improve attendance rate' : 'Maintain good attendance',
+//                 currentMarks < gradeConfig.pass_mark ? 'Attend remedial classes' : 'Continue current pace',
+//                 'Regular parent-teacher communication'
+//             ]
+//         };
+//     }
+
+//     async getCompareTermsData(term1: string, term2: string, schoolId: string, classId?: string): Promise<CompareData> {
+//         // Get classIds for this school first
+//         const classes = await this.classRepository.find({
+//             where: { schoolId },
+//             select: ['id']
+//         });
+//         const classIds = classes.map(c => c.id);
+
+//         const archives = await this.archiveRepository.find({
+//             where: { classId: In(classIds), term: In([term1, term2]) }
+//         });
+
+//         const archive1 = archives.find(a => a.term === term1);
+//         const archive2 = archives.find(a => a.term === term2);
+
+//         const results1 = archive1?.results?.overall || [];
+//         const results2 = archive2?.results?.overall || [];
+
+//         const filtered1 = classId ? results1.filter((r: any) => r.classId === classId) : results1;
+//         const filtered2 = classId ? results2.filter((r: any) => r.classId === classId) : results2;
+
+//         const overallPass1 = filtered1.length > 0 ? filtered1.reduce((sum: number, r: any) => sum + (r.passRate || 0), 0) / filtered1.length : 0;
+//         const overallPass2 = filtered2.length > 0 ? filtered2.reduce((sum: number, r: any) => sum + (r.passRate || 0), 0) / filtered2.length : 0;
+//         const avgScore1 = filtered1.length > 0 ? filtered1.reduce((sum: number, r: any) => sum + (r.average || 0), 0) / filtered1.length : 0;
+//         const avgScore2 = filtered2.length > 0 ? filtered2.reduce((sum: number, r: any) => sum + (r.average || 0), 0) / filtered2.length : 0;
+
+//         const schoolClasses = await this.classRepository.find({ where: { schoolId } });
+//         const departments: CompareDepartment[] = schoolClasses.map(cls => ({
+//             name: cls.name,
+//             passRate1: 65 + Math.random() * 25,
+//             passRate2: 60 + Math.random() * 25,
+//             change: (Math.random() * 10) - 5,
+//             status: Math.random() > 0.5 ? 'Improved' : 'Declined'
+//         }));
+
+//         return {
+//             term1,
+//             term2,
+//             overallPass1: Math.round(overallPass1),
+//             overallPass2: Math.round(overallPass2),
+//             avgScore1: Math.round(avgScore1),
+//             avgScore2: Math.round(avgScore2),
+//             avgAttendance1: 74,
+//             avgAttendance2: 76,
+//             departments,
+//             newRiskStudents: []
+//         };
+//     }
+
+//     async getGradeStudents(gradeName: string, term: string, schoolId: string): Promise<any[]> {
+//         const classEntity = await this.classRepository.findOne({
+//             where: { name: gradeName, schoolId, term },
+//             relations: ['students']
+//         });
+//         if (!classEntity) return [];
+
+//         const gradeConfig = await this.getActiveGradeConfig(schoolId);
+//         const studentsWithData: any[] = [];
+
+//         for (const student of classEntity.students) {
+//             const subjectMap = await this.getStudentAssessmentsMap(student.id, classEntity.id);
+//             const subjects = Array.from(subjectMap.values());
+//             let totalScore = 0;
+//             for (const subject of subjects) {
+//                 totalScore += this.calculateFinalScore(subject, gradeConfig);
+//             }
+//             const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
 
 //             const attendances = await this.attendanceRepository.find({
-//                 where: { studentId: student.id },
-//                 order: { date: 'DESC' },
-//                 take: 30,
+//                 where: { studentId: student.id, classId: classEntity.id }
 //             });
-
-//             const validAssessments = assessments.filter(a => a.score !== null);
-
-//             const avgScore = validAssessments.length > 0
-//                 ? validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length
-//                 : 0;
-
-//             const attendanceRate = attendances.length > 0
-//                 ? (attendances.filter(a => a.status === 'present').length / attendances.length) * 100
-//                 : 100;
-
-//             let riskScore = 0;
-//             const factors: string[] = [];
-
-//             if (avgScore < 50) {
-//                 riskScore += 40;
-//                 factors.push('low academic performance');
-//             } else if (avgScore < 65) {
-//                 riskScore += 20;
-//                 factors.push('below average performance');
-//             }
-
-//             if (attendanceRate < 70) {
-//                 riskScore += 30;
-//                 factors.push('poor attendance');
-//             } else if (attendanceRate < 85) {
-//                 riskScore += 15;
-//                 factors.push('inconsistent attendance');
-//             }
-
-//             const recentAssessments = validAssessments.slice(0, 3);
-//             let trend = 'stable';
-//             if (recentAssessments.length >= 3) {
-//                 const recentAvg = recentAssessments[0].score!;
-//                 const olderAvg = recentAssessments[2].score!;
-//                 if (recentAvg > olderAvg) trend = 'improving';
-//                 else if (recentAvg < olderAvg) trend = 'declining';
-//             }
+//             const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+//             const attendanceRate = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
 
 //             let riskLevel = 'low';
-//             if (riskScore >= 60) riskLevel = 'high';
-//             else if (riskScore >= 30) riskLevel = 'medium';
+//             if (currentMarks < gradeConfig.pass_mark - 20 || attendanceRate < 60) riskLevel = 'critical';
+//             else if (currentMarks < gradeConfig.pass_mark - 10 || attendanceRate < 75) riskLevel = 'high';
+//             else if (currentMarks < gradeConfig.pass_mark || attendanceRate < 85) riskLevel = 'medium';
 
-//             const predictedGrade = this.calculatePredictedGrade(avgScore, trend);
-
-//             atRiskStudents.push({
+//             studentsWithData.push({
 //                 id: student.id,
 //                 name: student.name,
 //                 examNumber: student.examNumber,
-//                 class: student.class?.name || 'N/A',
-//                 classId: student.class?.id || '',
-//                 riskScore,
-//                 riskLevel,
-//                 factors,
-//                 predictedGrade,
-//                 currentAverage: Math.round(avgScore),
-//                 attendanceRate: Math.round(attendanceRate),
-//                 trend,
+//                 grade: gradeName,
+//                 attendance: attendanceRate,
+//                 catScore: currentMarks,
+//                 fails: 0,
+//                 currentMarks: currentMarks,
+//                 riskLevel: riskLevel
 //             });
 //         }
 
-//         return atRiskStudents.sort((a, b) => b.riskScore - a.riskScore);
+//         return studentsWithData;
 //     }
 
-//     async getClassPerformance(timeframe?: string): Promise<ClassPerformance[]> {
-//         const classes = await this.classRepository.find({ relations: ['students'] });
-//         const results: ClassPerformance[] = [];
+//     async getAvailableTerms(schoolId: string): Promise<{ value: string; label: string }[]> {
+//         // Get classes to get their classIds first
+//         const classes = await this.classRepository.find({
+//             where: { schoolId },
+//             select: ['id', 'term', 'academic_year']
+//         });
+
+//         const classIds = classes.map(c => c.id);
+
+//         // Query archives using classIds instead of schoolId
+//         const archives = await this.archiveRepository.find({
+//             where: { classId: In(classIds) },
+//             order: { archivedAt: 'DESC' }
+//         });
+
+//         const uniqueTerms = new Map<string, string>();
+//         for (const archive of archives) {
+//             const key = `${archive.term}, ${archive.academicYear}`;
+//             if (!uniqueTerms.has(key)) {
+//                 uniqueTerms.set(key, key);
+//             }
+//         }
+
+//         // Also get current classes
+//         for (const cls of classes) {
+//             const key = `${cls.term}, ${cls.academic_year}`;
+//             if (!uniqueTerms.has(key)) {
+//                 uniqueTerms.set(key, key);
+//             }
+//         }
+
+//         return Array.from(uniqueTerms.keys()).map(key => ({
+//             value: key,
+//             label: key
+//         }));
+//     }
+
+//     // ========== TEACHER ANALYTICS ==========
+
+//     async getTeacherDashboardAnalytics(teacherId: string, term: string, schoolId: string, classId?: string): Promise<any> {
+//         const assignments = await this.teacherClassSubjectRepository.find({
+//             where: { teacherId },
+//             relations: ['class']
+//         });
+
+//         let classIds = [...new Set(assignments.map(a => a.classId))];
+//         const classTeacherClasses = await this.classRepository.find({
+//             where: { classTeacherId: teacherId }
+//         });
+//         for (const cls of classTeacherClasses) {
+//             if (!classIds.includes(cls.id)) classIds.push(cls.id);
+//         }
+
+//         if (classId) {
+//             if (!classIds.includes(classId)) throw new NotFoundException('Class not found for this teacher');
+//             classIds = [classId];
+//         }
+
+//         const classes = await this.classRepository.find({
+//             where: { id: In(classIds), term },
+//             relations: ['students']
+//         });
+
+//         const gradeConfig = await this.getActiveGradeConfig(schoolId);
+//         const classRanking: TeacherClassRanking[] = [];
 
 //         for (const cls of classes) {
 //             let totalScore = 0;
-//             let totalStudents = 0;
-//             let distinctionCount = 0;
 //             let passCount = 0;
-
-//             const subjectScores: Record<string, { total: number; count: number }> = {};
+//             let studentCount = 0;
+//             let riskStudentCount = 0;
 
 //             for (const student of cls.students) {
-//                 const assessments = await this.assessmentRepository.find({
-//                     where: { student: { id: student.id } },
-//                     relations: ['subject'],
-//                     order: { createdAt: 'DESC' },
-//                     take: 10,
-//                 });
-
-//                 const validAssessments = assessments.filter(a => a.score !== null);
-
-//                 if (validAssessments.length > 0) {
-//                     const avgScore = validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length;
-//                     totalScore += avgScore;
-//                     totalStudents++;
-
-//                     if (avgScore >= 75) distinctionCount++;
-//                     if (avgScore >= 50) passCount++;
-
-//                     for (const assessment of validAssessments) {
-//                         const subjectName = assessment.subject?.name || 'General';
-//                         if (!subjectScores[subjectName]) subjectScores[subjectName] = { total: 0, count: 0 };
-//                         subjectScores[subjectName].total += assessment.score!;
-//                         subjectScores[subjectName].count++;
+//                 const subjectMap = await this.getStudentAssessmentsMap(student.id, cls.id);
+//                 const subjects = Array.from(subjectMap.values());
+//                 if (subjects.length > 0) {
+//                     let studentTotalScore = 0;
+//                     for (const subject of subjects) {
+//                         studentTotalScore += this.calculateFinalScore(subject, gradeConfig);
 //                     }
+//                     const avgScore = studentTotalScore / subjects.length;
+//                     totalScore += avgScore;
+//                     if (avgScore >= gradeConfig.pass_mark) passCount++;
+//                     studentCount++;
+//                     if (avgScore < gradeConfig.pass_mark - 10) riskStudentCount++;
 //                 }
 //             }
 
-//             const averageScore = totalStudents > 0 ? Math.round(totalScore / totalStudents) : 0;
-//             const passRate = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
-//             const distinctionRate = totalStudents > 0 ? Math.round((distinctionCount / totalStudents) * 100) : 0;
+//             const avgScore = studentCount > 0 ? totalScore / studentCount : 0;
+//             const passRate = studentCount > 0 ? (passCount / studentCount) * 100 : 0;
 
-//             let topSubject = 'N/A';
-//             let strugglingSubject = 'N/A';
-//             let highestScore = 0;
-//             let lowestScore = 100;
-
-//             for (const [subject, data] of Object.entries(subjectScores)) {
-//                 const avg = data.total / data.count;
-//                 if (avg > highestScore) {
-//                     highestScore = avg;
-//                     topSubject = subject;
-//                 }
-//                 if (avg < lowestScore) {
-//                     lowestScore = avg;
-//                     strugglingSubject = subject;
-//                 }
-//             }
-
-//             results.push({
-//                 classId: cls.id,
-//                 className: cls.name,
-//                 averageScore,
-//                 passRate,
-//                 distinctionRate,
-//                 totalStudents: totalStudents,
-//                 trend: 5,
-//                 topSubject,
-//                 strugglingSubject,
+//             classRanking.push({
+//                 rank: 0,
+//                 name: cls.name,
+//                 passRate: Math.round(passRate),
+//                 avgScore: Math.round(avgScore),
+//                 attendance: 75,
+//                 riskStudents: riskStudentCount,
+//                 riskChange: 0,
+//                 trend: 0
 //             });
 //         }
 
-//         return results;
+//         classRanking.sort((a, b) => b.passRate - a.passRate);
+//         classRanking.forEach((c, i) => c.rank = i + 1);
+
+//         const totalStudents = classes.reduce((sum, c) => sum + c.students.length, 0);
+//         const overallPassRate = classRanking.length > 0 ? classRanking.reduce((sum, c) => sum + c.passRate, 0) / classRanking.length : 0;
+
+//         const keyMetrics: TeacherKeyMetric[] = [
+//             { label: 'Overall Pass %', value: `${Math.round(overallPassRate)}%`, change: -3, vsText: 'vs T3', icon: 'trending-up', color: 'text-indigo-600' },
+//             { label: 'Average Score', value: `${Math.round(classRanking.reduce((sum, c) => sum + c.avgScore, 0) / (classRanking.length || 1))}%`, change: -2, vsText: 'vs T3', icon: 'graduation-cap', color: 'text-emerald-600' },
+//             { label: 'Total Students', value: totalStudents, change: 0, vsText: 'vs T3', icon: 'users', color: 'text-purple-600' },
+//             { label: 'Att-Perf Correlation', value: 'r = 0.73', change: 0, vsText: 'Strong Positive', icon: 'brain', color: 'text-amber-600' }
+//         ];
+
+//         const factorAnalysis: TeacherFactorAnalysis[] = [
+//             { factor: 'Attendance', correlation: 0.73, impact: 'Strong +', insight: 'Key driver for all classes' },
+//             { factor: 'Previous Term Marks', correlation: 0.81, impact: 'Very Strong +', insight: 'Best predictor of success' },
+//             { factor: 'CAT/Continuous Asst', correlation: 0.76, impact: 'Strong +', insight: 'CATs strongly predict exams' },
+//             { factor: 'Subject Difficulty', correlation: -0.45, impact: 'Moderate -', insight: 'Mathematics & Science hardest' },
+//             { factor: 'Failed Subjects', correlation: -0.52, impact: 'Strong -', insight: 'Each fail = -12% avg score' },
+//             { factor: 'Homework Submission', correlation: 0.38, impact: 'Moderate +', insight: 'Regular homework = success' }
+//         ];
+
+//         return {
+//             keyMetrics,
+//             classRanking,
+//             factorAnalysis,
+//             riskStudents: [],
+//             subjectDifficulty: [],
+//             examGap: [],
+//             cohortTracking: null
+//         };
 //     }
 
-//     async getSubjectPerformance(timeframe?: string): Promise<SubjectPerformance[]> {
-//         const assessments = await this.assessmentRepository.find({
-//             relations: ['subject', 'student'],
-//             order: { createdAt: 'DESC' },
+//     async getTeacherStudentDetail(studentId: string, term: string, schoolId: string): Promise<TeacherStudentDetail> {
+//         const student = await this.studentRepository.findOne({
+//             where: { id: studentId, schoolId },
+//             relations: ['class', 'class.classTeacher']
 //         });
+//         if (!student) throw new NotFoundException('Student not found');
 
-//         const validAssessments = assessments.filter(a => a.score !== null);
-
-//         const subjectMap = new Map<string, { total: number; count: number; passCount: number; distinctionCount: number }>();
-
-//         for (const assessment of validAssessments) {
-//             const subjectName = assessment.subject?.name || 'General';
-//             if (!subjectMap.has(subjectName)) {
-//                 subjectMap.set(subjectName, { total: 0, count: 0, passCount: 0, distinctionCount: 0 });
-//             }
-
-//             const score = assessment.score!;
-//             const data = subjectMap.get(subjectName)!;
-//             data.total += score;
-//             data.count++;
-
-//             if (score >= 50) data.passCount++;
-//             if (score >= 75) data.distinctionCount++;
-//         }
-
-//         const results: SubjectPerformance[] = [];
-//         for (const [name, data] of subjectMap.entries()) {
-//             results.push({
-//                 subjectId: name.toLowerCase().replace(/\s/g, '-'),
-//                 name,
-//                 averageScore: Math.round(data.total / data.count),
-//                 passRate: Math.round((data.passCount / data.count) * 100),
-//                 distinctionRate: Math.round((data.distinctionCount / data.count) * 100),
-//                 totalStudents: data.count,
-//                 trend: 3,
-//             });
-//         }
-
-//         return results;
-//     }
-
-//     async getTrendData(metric: string, timeframe: string, classId?: string): Promise<TrendData[]> {
-//         const trends: TrendData[] = [];
-//         const periods = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-
-//         for (const period of periods) {
-//             trends.push({
-//                 period,
-//                 overall: Math.floor(Math.random() * 30) + 65,
-//                 subjects: {
-//                     Math: Math.floor(Math.random() * 30) + 60,
-//                     English: Math.floor(Math.random() * 30) + 65,
-//                     Science: Math.floor(Math.random() * 30) + 70,
-//                 },
-//             });
-//         }
-
-//         return trends;
-//     }
-
-//     async getKeyMetrics(timeframe?: string, classId?: string): Promise<any> {
-//         const students = await this.studentRepository.find({
-//             where: classId ? { class: { id: classId } } : {},
-//             relations: ['class'],
-//         });
+//         const gradeConfig = await this.getActiveGradeConfig(schoolId);
+//         const subjectMap = await this.getStudentAssessmentsMap(student.id, student.class?.id || '');
+//         const subjects = Array.from(subjectMap.values());
 
 //         let totalScore = 0;
-//         let totalStudents = 0;
-//         let distinctionCount = 0;
-//         let onTrackCount = 0;
-
-//         for (const student of students) {
-//             const assessments = await this.assessmentRepository.find({
-//                 where: { student: { id: student.id } },
-//                 order: { createdAt: 'DESC' },
-//                 take: 10,
-//             });
-
-//             const validAssessments = assessments.filter(a => a.score !== null);
-
-//             if (validAssessments.length > 0) {
-//                 const avgScore = validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length;
-//                 totalScore += avgScore;
-//                 totalStudents++;
-
-//                 if (avgScore >= 75) distinctionCount++;
-//                 if (avgScore >= 60) onTrackCount++;
-//             }
+//         for (const subject of subjects) {
+//             totalScore += this.calculateFinalScore(subject, gradeConfig);
 //         }
+//         const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
 
-//         const overallPerformance = totalStudents > 0 ? Math.round(totalScore / totalStudents) : 0;
+//         const attendances = await this.attendanceRepository.find({
+//             where: { studentId: student.id, classId: student.class?.id }
+//         });
+//         const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+//         const currentAttendance = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
 
-//         return {
-//             overallPerformance,
-//             performanceTrend: 5,
-//             studentsOnTrack: onTrackCount,
-//             studentsOnTrackPercentage: totalStudents > 0 ? Math.round((onTrackCount / totalStudents) * 100) : 0,
-//             studentsAtRisk: totalStudents - onTrackCount,
-//             distinctions: distinctionCount,
-//             distinctionsTrend: 8,
-//             targetAchievement: Math.min(100, Math.round((overallPerformance / 75) * 100)),
-//         };
-//     }
-
-//     async getPredictionSummary(timeframe?: string): Promise<any> {
-//         const students = await this.studentRepository.find();
-//         let improving = 0;
-//         let declining = 0;
-//         let stable = 0;
-
-//         for (const student of students) {
-//             const assessments = await this.assessmentRepository.find({
-//                 where: { student: { id: student.id } },
-//                 order: { createdAt: 'DESC' },
-//                 take: 6,
-//             });
-
-//             const validAssessments = assessments.filter(a => a.score !== null);
-
-//             if (validAssessments.length >= 4) {
-//                 const recent = validAssessments.slice(0, 2).reduce((sum, a) => sum + a.score!, 0) / 2;
-//                 const older = validAssessments.slice(2, 4).reduce((sum, a) => sum + a.score!, 0) / 2;
-
-//                 if (recent > older + 5) improving++;
-//                 else if (recent < older - 5) declining++;
-//                 else stable++;
-//             }
-//         }
-
-//         const total = improving + declining + stable;
-
-//         return {
-//             predictedPassRate: 78,
-//             studentsImproving: improving,
-//             studentsImprovingPercentage: total > 0 ? Math.round((improving / total) * 100) : 0,
-//             studentsDeclining: declining,
-//             studentsDecliningPercentage: total > 0 ? Math.round((declining / total) * 100) : 0,
-//             studentsStable: stable,
-//             studentsStablePercentage: total > 0 ? Math.round((stable / total) * 100) : 0,
-//             predictedDistinctions: Math.floor(students.length * 0.15),
-//         };
-//     }
-
-//     async getInterventionSummary(): Promise<any> {
-//         const students = await this.studentRepository.find();
-//         const assessments = await this.assessmentRepository.find({
-//             relations: ['student'],
+//         const reportCard = await this.reportCardRepository.findOne({
+//             where: { student: { id: student.id }, term }
 //         });
 
-//         let needsSupport = 0;
-//         let honorRoll = 0;
-
-//         for (const student of students) {
-//             const studentAssessments = assessments.filter(a => a.student?.id === student.id && a.score !== null);
-//             const avgScore = studentAssessments.length > 0
-//                 ? studentAssessments.reduce((sum, a) => sum + a.score!, 0) / studentAssessments.length
-//                 : 0;
-
-//             if (avgScore < 50) needsSupport++;
-//             if (avgScore >= 85) honorRoll++;
+//         const subjectBreakdown: StudentSubjectBreakdown[] = [];
+//         for (const [name, subject] of subjectMap) {
+//             const finalScore = this.calculateFinalScore(subject, gradeConfig);
+//             subjectBreakdown.push({
+//                 subject: name,
+//                 marks: Math.round(finalScore),
+//                 attendance: currentAttendance,
+//                 classAvg: 65,
+//                 gap: Math.round(finalScore - 65),
+//                 status: finalScore >= gradeConfig.pass_mark ? 'On track' : 'Needs support'
+//             });
 //         }
 
 //         return {
-//             studentsNeedingSupport: needsSupport,
-//             honorRollCount: honorRoll,
-//             chronicAbsenteeism: 12,
+//             id: student.id,
+//             name: student.name,
+//             examNumber: student.examNumber,
+//             className: student.class?.name || 'N/A',
+//             status: currentMarks >= gradeConfig.pass_mark ? 'On Track' : 'At Risk',
+//             classTeacher: student.class?.classTeacher?.name || 'Not assigned',
+//             currentMarks,
+//             currentAttendance,
+//             termOverTerm: -5,
+//             classRank: reportCard?.classRank ? `${reportCard.classRank}/${reportCard.totalStudents}` : 'N/A',
+//             timeline: [],
+//             factorBreakdown: [],
+//             subjectBreakdown,
+//             historical: [],
+//             recommendations: [
+//                 currentAttendance < 80 ? 'Improve attendance rate' : 'Maintain good attendance',
+//                 currentMarks < gradeConfig.pass_mark ? 'Attend remedial classes' : 'Continue current pace'
+//             ]
 //         };
 //     }
 
-//     async generatePredictions(): Promise<any> {
-//         const students = await this.studentRepository.find({ relations: ['class'] });
+//     async getTeacherCompareTermsData(teacherId: string, term1: string, term2: string, schoolId: string, classId?: string): Promise<TeacherCompareData> {
+//         const assignments = await this.teacherClassSubjectRepository.find({
+//             where: { teacherId },
+//             relations: ['class']
+//         });
 
-//         for (const student of students) {
-//             const assessments = await this.assessmentRepository.find({
-//                 where: { student: { id: student.id } },
-//                 order: { createdAt: 'DESC' },
-//             });
-
-//             const validAssessments = assessments.filter(a => a.score !== null);
-
-//             const avgScore = validAssessments.length > 0
-//                 ? validAssessments.reduce((sum, a) => sum + a.score!, 0) / validAssessments.length
-//                 : 0;
-
-//             let riskScore = 0;
-//             const factors: string[] = [];
-
-//             if (avgScore < 50) {
-//                 riskScore += 40;
-//                 factors.push('low academic performance');
-//             } else if (avgScore < 65) {
-//                 riskScore += 20;
-//                 factors.push('below average performance');
-//             }
-
-//             let riskLevel = 'low';
-//             if (riskScore >= 60) riskLevel = 'high';
-//             else if (riskScore >= 30) riskLevel = 'medium';
-
-//             const predictedGrade = this.calculatePredictedGrade(avgScore, 'stable');
-
-//             await this.analyticsRepository.upsert(
-//                 {
-//                     studentId: student.id,
-//                     studentName: student.name,
-//                     examNumber: student.examNumber,
-//                     classId: student.class?.id,
-//                     className: student.class?.name,
-//                     academicScore: avgScore,
-//                     riskScore,
-//                     riskLevel,
-//                     riskFactors: factors,
-//                     predictedGrade,
-//                     predictionGeneratedAt: new Date(),
-//                 },
-//                 ['studentId'],
-//             );
+//         let classIds = [...new Set(assignments.map(a => a.classId))];
+//         if (classId) {
+//             if (!classIds.includes(classId)) throw new NotFoundException('Class not found for this teacher');
+//             classIds = [classId];
 //         }
 
-//         return { generatedAt: new Date(), totalStudents: students.length };
-//     }
+//         const classes = await this.classRepository.find({
+//             where: { id: In(classIds) }
+//         });
 
-//     async exportReport(format: string, timeframe?: string, classId?: string): Promise<{ buffer: Buffer; filename: string }> {
-//         const data = {
-//             atRisk: await this.getAtRiskStudents(classId, timeframe),
-//             classPerformance: await this.getClassPerformance(timeframe),
-//             subjectPerformance: await this.getSubjectPerformance(timeframe),
-//             metrics: await this.getKeyMetrics(timeframe, classId),
-//             predictions: await this.getPredictionSummary(timeframe),
-//             interventions: await this.getInterventionSummary(),
-//             generatedAt: new Date().toISOString(),
+//         const departments: CompareDepartment[] = classes.map(cls => ({
+//             name: cls.name,
+//             passRate1: 65 + Math.random() * 25,
+//             passRate2: 60 + Math.random() * 25,
+//             change: (Math.random() * 10) - 5,
+//             status: Math.random() > 0.5 ? 'Improved' : 'Declined'
+//         }));
+
+//         return {
+//             term1,
+//             term2,
+//             overallPass1: 75,
+//             overallPass2: 78,
+//             avgScore1: 72,
+//             avgScore2: 74,
+//             avgAttendance1: 74,
+//             avgAttendance2: 76,
+//             departments,
+//             newRiskStudents: []
 //         };
-
-//         const jsonString = JSON.stringify(data, null, 2);
-//         const buffer = Buffer.from(jsonString);
-//         const filename = `analytics-report-${new Date().toISOString().split('T')[0]}.json`;
-
-//         return { buffer, filename };
 //     }
 
-//     private calculatePredictedGrade(avgScore: number, trend: string): string {
-//         let predicted = avgScore;
-//         if (trend === 'improving') predicted += 5;
-//         if (trend === 'declining') predicted -= 5;
+//     async getTeacherGradeStudents(teacherId: string, className: string, term: string, schoolId: string): Promise<any[]> {
+//         const assignments = await this.teacherClassSubjectRepository.find({
+//             where: { teacherId },
+//             relations: ['class']
+//         });
 
-//         if (predicted >= 80) return 'A';
-//         if (predicted >= 70) return 'B';
-//         if (predicted >= 60) return 'C';
-//         if (predicted >= 50) return 'D';
-//         return 'E';
+//         const classIds = assignments.map(a => a.classId);
+
+//         const classEntity = await this.classRepository.findOne({
+//             where: { id: In(classIds), name: className, term, schoolId },
+//             relations: ['students']
+//         });
+
+//         if (!classEntity) return [];
+
+//         const gradeConfig = await this.getActiveGradeConfig(schoolId);
+//         const studentsWithData: any[] = [];
+
+//         for (const student of classEntity.students) {
+//             const subjectMap = await this.getStudentAssessmentsMap(student.id, classEntity.id);
+//             const subjects = Array.from(subjectMap.values());
+//             let totalScore = 0;
+//             for (const subject of subjects) {
+//                 totalScore += this.calculateFinalScore(subject, gradeConfig);
+//             }
+//             const currentMarks = subjects.length > 0 ? Math.round(totalScore / subjects.length) : 0;
+
+//             const attendances = await this.attendanceRepository.find({
+//                 where: { studentId: student.id, classId: classEntity.id }
+//             });
+//             const presentCount = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+//             const attendanceRate = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
+
+//             let riskLevel = 'low';
+//             if (currentMarks < gradeConfig.pass_mark - 20 || attendanceRate < 60) riskLevel = 'critical';
+//             else if (currentMarks < gradeConfig.pass_mark - 10 || attendanceRate < 75) riskLevel = 'high';
+//             else if (currentMarks < gradeConfig.pass_mark || attendanceRate < 85) riskLevel = 'medium';
+
+//             studentsWithData.push({
+//                 id: student.id,
+//                 name: student.name,
+//                 examNumber: student.examNumber,
+//                 className: classEntity.name,
+//                 attendance: attendanceRate,
+//                 catScore: currentMarks,
+//                 fails: 0,
+//                 currentMarks: currentMarks,
+//                 riskLevel: riskLevel
+//             });
+//         }
+
+//         return studentsWithData;
 //     }
 // }
