@@ -470,9 +470,173 @@ export class AttendanceService {
 
         return { dailyPatterns, classPerformance, peakLateTimes: [{ time: peakLateTime, count: lateTimes.length, day: 'Monday' }] };
     }
-
     async getAttendanceAnalytics(classId: string, startDate: string, endDate: string): Promise<any> {
-        return this.getAttendancePatterns(classId, startDate, endDate);
+        // Get all attendance records for this class in date range
+        const attendances = await this.attendanceRepo.find({
+            where: { classId: classId, date: Between(startDate, endDate) }
+        });
+
+        // Get all students in this class
+        const students = await this.studentRepo.find({
+            where: { class: { id: classId } }
+        });
+
+        if (students.length === 0 || attendances.length === 0) {
+            return {
+                summary: {
+                    averageAttendance: 0,
+                    totalDays: 0,
+                    totalPresent: 0,
+                    totalAbsent: 0,
+                    totalLate: 0,
+                    totalExcused: 0,
+                    perfectAttendance: 0,
+                    criticalRisk: 0
+                },
+                trends: {
+                    weekly: [0, 0, 0, 0, 0],
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'This Week']
+                },
+                topPerformers: [],
+                bottomPerformers: [],
+                dayAnalysis: [
+                    { day: 'Monday', rate: 0, absent: 0 },
+                    { day: 'Tuesday', rate: 0, absent: 0 },
+                    { day: 'Wednesday', rate: 0, absent: 0 },
+                    { day: 'Thursday', rate: 0, absent: 0 },
+                    { day: 'Friday', rate: 0, absent: 0 }
+                ],
+                alerts: { critical: [], warning: [] }
+            };
+        }
+
+        // Calculate summary
+        const totalPresent = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+        const totalAbsent = attendances.filter(a => a.status === 'absent').length;
+        const totalLate = attendances.filter(a => a.status === 'late').length;
+        const totalExcused = attendances.filter(a => a.status === 'excused').length;
+
+        const uniqueDates = [...new Set(attendances.map(a => a.date))];
+        const totalDays = uniqueDates.length;
+
+        // Calculate average attendance rate per day
+        let totalRate = 0;
+        for (const date of uniqueDates) {
+            const dayAttendances = attendances.filter(a => a.date === date);
+            const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+            const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
+            totalRate += rate;
+        }
+        const averageAttendance = uniqueDates.length > 0 ? Math.round(totalRate / uniqueDates.length) : 0;
+
+        // Calculate perfect attendance and student rates
+        let perfectAttendance = 0;
+        const studentRates: { name: string; rate: number }[] = [];
+
+        for (const student of students) {
+            const studentAttendances = attendances.filter(a => a.studentId === student.id);
+            if (studentAttendances.length > 0) {
+                const presentCount = studentAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+                const rate = (presentCount / studentAttendances.length) * 100;
+                studentRates.push({ name: student.name, rate });
+                if (rate === 100) perfectAttendance++;
+            }
+        }
+
+        const criticalRisk = studentRates.filter(s => s.rate < 50).length;
+
+        // Top and bottom performers
+        const sortedRates = [...studentRates].sort((a, b) => b.rate - a.rate);
+        const topPerformers = sortedRates.slice(0, 3).map(s => ({ name: s.name, rate: Math.round(s.rate) }));
+        const bottomPerformers = sortedRates.slice(-3).reverse().map(s => ({ name: s.name, rate: Math.round(s.rate) }));
+
+        // Day analysis
+        const dayMap = new Map<string, { total: number; absent: number; rate: number }>();
+        const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+        for (const att of attendances) {
+            const date = new Date(att.date);
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+            if (!dayMap.has(dayName)) {
+                dayMap.set(dayName, { total: 0, absent: 0, rate: 0 });
+            }
+            const dayData = dayMap.get(dayName)!;
+            dayData.total++;
+            if (att.status === 'absent') dayData.absent++;
+        }
+
+        for (const [day, data] of dayMap) {
+            data.rate = data.total > 0 ? ((data.total - data.absent) / data.total) * 100 : 0;
+        }
+
+        const dayAnalysis = daysOfWeek.map(day => ({
+            day,
+            rate: Math.round(dayMap.get(day)?.rate || 0),
+            absent: Math.round((dayMap.get(day)?.absent || 0) / (uniqueDates.length || 1))
+        }));
+
+        // Alerts
+        const critical = studentRates.filter(s => s.rate < 50).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
+        const warning = studentRates.filter(s => s.rate >= 50 && s.rate < 70).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
+
+        // Weekly trends
+        const sortedDates = [...uniqueDates].sort();
+        const weeklyRates: number[] = [];
+        const weekSize = Math.max(1, Math.ceil(sortedDates.length / 4));
+
+        for (let i = 0; i < 4; i++) {
+            const weekDates = sortedDates.slice(i * weekSize, (i + 1) * weekSize);
+            let weekTotalRate = 0;
+            for (const date of weekDates) {
+                const dayAttendances = attendances.filter(a => a.date === date);
+                const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+                const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
+                weekTotalRate += rate;
+            }
+            weeklyRates.push(weekDates.length > 0 ? Math.round(weekTotalRate / weekDates.length) : 0);
+        }
+
+        // Current week (last 7 days)
+        const today = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        const currentWeekAttendances = attendances.filter(a => new Date(a.date) >= sevenDaysAgo);
+        let currentWeekTotalRate = 0;
+        const currentWeekDates = [...new Set(currentWeekAttendances.map(a => a.date))];
+        for (const date of currentWeekDates) {
+            const dayAttendances = currentWeekAttendances.filter(a => a.date === date);
+            const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+            const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
+            currentWeekTotalRate += rate;
+        }
+        const currentWeekRate = currentWeekDates.length > 0 ? Math.round(currentWeekTotalRate / currentWeekDates.length) : 0;
+
+        const weekly = [...weeklyRates.slice(0, 4), currentWeekRate];
+        const weekLabels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'This Week'];
+
+        return {
+            summary: {
+                averageAttendance,
+                totalDays,
+                totalPresent,
+                totalAbsent,
+                totalLate,
+                totalExcused,
+                perfectAttendance,
+                criticalRisk
+            },
+            trends: {
+                weekly,
+                labels: weekLabels
+            },
+            topPerformers,
+            bottomPerformers,
+            dayAnalysis,
+            alerts: {
+                critical,
+                warning
+            }
+        };
     }
 
     // ========== STUDENT ATTENDANCE RATES ==========
@@ -550,7 +714,6 @@ export class AttendanceService {
         return this.termRepo.find({ order: { startDate: 'DESC' } });
     }
 
-
     async getClassComparisons(): Promise<any[]> {
         const classes = await this.classRepo.find({ relations: ['students'] });
         const comparisons: any[] = [];
@@ -569,12 +732,19 @@ export class AttendanceService {
 
             comparisons.push({
                 classId: cls.id,
-                className: cls.name,
-                averageRate: averageRate,
+                name: cls.name,
+                attendanceRate: averageRate,
                 totalStudents: totalStudents,
-                trend: 'stable'
+                trend: 'stable',
+                rank: 0,
+                isCurrent: false
             });
         }
+
+        // Sort by attendance rate and assign ranks
+        comparisons.sort((a, b) => b.attendanceRate - a.attendanceRate);
+        comparisons.forEach((c, i) => c.rank = i + 1);
+
         return comparisons;
     }
 
