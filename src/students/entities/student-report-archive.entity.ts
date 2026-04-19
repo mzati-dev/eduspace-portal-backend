@@ -21,6 +21,9 @@ export class StudentReportArchive {
     term!: string;
 
     @Column()
+    academicYear!: string;  // ← ADD THIS LINE
+
+    @Column()
     assessmentType!: string;
 
     @Column({ nullable: true })

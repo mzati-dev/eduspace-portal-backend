@@ -2894,22 +2894,48 @@ export class StudentsService {
       console.log(`Queued report for ${archive.studentName}`);
     }
   }
-  async getStudentReportArchives(classId?: string, term?: string, schoolId?: string) {
+  // async getStudentReportArchives(classId?: string, term?: string, schoolId?: string) {
+  //   const query = this.studentReportArchiveRepository
+  //     .createQueryBuilder('archive');
+
+  //   if (schoolId) {
+  //     // Join with the 'classes' table using the actual table name
+  //     query.innerJoin('classes', 'class', 'class.id = archive.classId')
+  //       .andWhere('class.schoolId = :schoolId', { schoolId });
+  //   }
+
+  //   if (classId) {
+  //     query.andWhere('archive.classId = :classId', { classId });
+  //   }
+
+  //   if (term) {
+  //     query.andWhere('archive.term = :term', { term });
+  //   }
+
+  //   query.orderBy('archive.archivedAt', 'DESC');
+
+  //   return query.getMany();
+  // }
+
+  async getStudentReportArchives(classId?: string, term?: string, academicYear?: string, schoolId?: string) {
     const query = this.studentReportArchiveRepository
       .createQueryBuilder('archive');
 
     if (schoolId) {
-      // Join with the 'classes' table using the actual table name
       query.innerJoin('classes', 'class', 'class.id = archive.classId')
         .andWhere('class.schoolId = :schoolId', { schoolId });
     }
 
-    if (classId) {
+    if (classId && classId !== '') {
       query.andWhere('archive.classId = :classId', { classId });
     }
 
-    if (term) {
+    if (term && term !== '') {
       query.andWhere('archive.term = :term', { term });
+    }
+
+    if (academicYear && academicYear !== '') {
+      query.andWhere('archive.academicYear = :academicYear', { academicYear });
     }
 
     query.orderBy('archive.archivedAt', 'DESC');
