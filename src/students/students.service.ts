@@ -2442,6 +2442,7 @@ export class StudentsService {
     const archive = this.archiveRepository.create({
       class: classEntity,
       classId: classId,
+      className: classEntity.name,
       term,
       academicYear,
       results: {
@@ -2472,13 +2473,32 @@ export class StudentsService {
   }
 
 
-  async getArchivedResults(classId: string, term: string, academicYear: string) {
-    const result = await this.archiveRepository.findOne({
-      where: { classId, term, academicYear }
-    });
+  // async getArchivedResults(classId: string, term: string, academicYear: string) {
+  //   const result = await this.archiveRepository.findOne({
+  //     where: { classId, term, academicYear }
+  //   });
 
-    // Return empty array if no results found
-    return result || [];
+  //   // Return empty array if no results found
+  //   return result || [];
+  // }
+
+  async getArchivedResults(classId?: string, term?: string, academicYear?: string, schoolId?: string) {
+    const query = this.archiveRepository
+      .createQueryBuilder('archive')
+      .leftJoin('archive.class', 'class')
+      .orderBy('archive.archivedAt', 'DESC');
+
+    if (schoolId) {
+      query.andWhere('class.schoolId = :schoolId', { schoolId });
+    }
+
+    if (classId && classId !== '') {
+      query.andWhere('archive.classId = :classId', { classId });
+      query.andWhere('archive.term = :term', { term });
+      query.andWhere('archive.academicYear = :academicYear', { academicYear });
+    }
+
+    return query.getMany();
   }
 
 

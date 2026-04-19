@@ -287,15 +287,26 @@ export class ClassesController {
   //   return this.studentsService.getArchivedResults(classId, term, academicYear);
   // }
 
+  // @Get('archived-results')
+  // async getArchivedResults(
+  //   @Query('classId') classId: string,
+  //   @Query('term') term: string,
+  //   @Query('academicYear') academicYear: string,
+  //   @Query('schoolId') schoolId?: string
+  // ) {
+  //   const result = await this.studentsService.getArchivedResults(classId, term, academicYear);
+  //   // Always return an array
+  //   return result || [];
+  // }
+
   @Get('archived-results')
   async getArchivedResults(
-    @Query('classId') classId: string,
-    @Query('term') term: string,
-    @Query('academicYear') academicYear: string,
+    @Query('classId') classId?: string,
+    @Query('term') term?: string,
+    @Query('academicYear') academicYear?: string,
     @Query('schoolId') schoolId?: string
   ) {
-    const result = await this.studentsService.getArchivedResults(classId, term, academicYear);
-    // Always return an array
+    const result = await this.studentsService.getArchivedResults(classId, term, academicYear, schoolId);
     return result || [];
   }
 

@@ -11,6 +11,8 @@ export class Archive {
 
     @Column()
     classId!: string;
+    @Column()
+    className!: string;  //
 
     @Column()
     term!: string;
