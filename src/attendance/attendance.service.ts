@@ -699,19 +699,57 @@ export class AttendanceService {
 
     // ========== TERMS & HOLIDAYS ==========
 
-    async getCurrentTerm(): Promise<any> {
+    async getCurrentTerm(schoolId?: string): Promise<any> {
         const today = new Date().toISOString().split('T')[0];
-        const term = await this.termRepo.findOne({
-            where: {
-                startDate: LessThanOrEqual(today),
-                endDate: MoreThanOrEqual(today)
-            }
+
+        const whereCondition: any = {
+            start_date: LessThanOrEqual(today),
+            end_date: MoreThanOrEqual(today)
+        };
+
+        if (schoolId) {
+            whereCondition.schoolId = schoolId;
+        }
+
+        const activeClass = await this.classRepo.findOne({
+            where: whereCondition
         });
-        return term || null;
+
+        if (!activeClass) return null;
+
+        return {
+            id: activeClass.id,
+            name: activeClass.term,
+            startDate: activeClass.start_date,
+            endDate: activeClass.end_date,
+            className: activeClass.name
+        };
     }
 
-    async getAllTerms(): Promise<Term[]> {
-        return this.termRepo.find({ order: { startDate: 'DESC' } });
+    async getAllTerms(schoolId?: string): Promise<any[]> {
+        const whereCondition = schoolId ? { schoolId: schoolId } : {};
+
+        const classes = await this.classRepo.find({
+            where: whereCondition,
+            order: { start_date: 'DESC' }
+        });
+
+        // Get unique terms from classes
+        const termsMap = new Map();
+        for (const cls of classes) {
+            const key = `${cls.term}-${cls.academic_year}`;
+            if (!termsMap.has(key)) {
+                termsMap.set(key, {
+                    id: cls.id,
+                    name: cls.term,
+                    academicYear: cls.academic_year,
+                    startDate: cls.start_date,
+                    endDate: cls.end_date
+                });
+            }
+        }
+
+        return Array.from(termsMap.values());
     }
 
 
@@ -791,7 +829,14 @@ export class AttendanceService {
     async getClassTerm(classId: string): Promise<any> {
         const classEntity = await this.classRepo.findOne({ where: { id: classId } });
         if (!classEntity) return null;
-        return this.termRepo.findOne({ where: { name: classEntity.term } });
+
+        return {
+            id: classEntity.id,
+            name: classEntity.term,
+            startDate: classEntity.start_date,
+            endDate: classEntity.end_date,
+            className: classEntity.name
+        };
     }
 
     async getSchoolHolidays(): Promise<SchoolHoliday[]> {

@@ -332,9 +332,9 @@ export class AttendanceController {
      * GET /attendance/current-term
      */
     @Get('current-term')
-    async getCurrentTerm() {
+    async getCurrentTerm(@Query('schoolId') schoolId?: string) {  // ← ADD THIS
         try {
-            const data = await this.attendanceService.getCurrentTerm();
+            const data = await this.attendanceService.getCurrentTerm(schoolId);  // ← PASS IT
             return { success: true, data };
         } catch (error) {
             return this.handleError(error);
@@ -346,9 +346,9 @@ export class AttendanceController {
      * GET /attendance/terms
      */
     @Get('terms')
-    async getAllTerms() {
+    async getAllTerms(@Query('schoolId') schoolId?: string) {  // ← ADD THIS
         try {
-            const data = await this.attendanceService.getAllTerms();
+            const data = await this.attendanceService.getAllTerms(schoolId);  // ← PASS IT
             return { success: true, data };
         } catch (error) {
             return this.handleError(error);
