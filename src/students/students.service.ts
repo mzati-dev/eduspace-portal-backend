@@ -2440,9 +2440,10 @@ export class StudentsService {
 
     // Create archive record with all results
     const archive = this.archiveRepository.create({
-      class: classEntity,
+
       classId: classId,
       className: classEntity.name,
+      schoolId: classEntity.schoolId,  // ← ADD THIS LINE
       term,
       academicYear,
       results: {
@@ -2482,14 +2483,33 @@ export class StudentsService {
   //   return result || [];
   // }
 
+  // async getArchivedResults(classId?: string, term?: string, academicYear?: string, schoolId?: string) {
+  //   const query = this.archiveRepository
+  //     .createQueryBuilder('archive')
+  //     .leftJoin('archive.class', 'class')
+  //     .orderBy('archive.archivedAt', 'DESC');
+
+  //   if (schoolId) {
+  //     query.andWhere('class.schoolId = :schoolId', { schoolId });
+  //   }
+
+  //   if (classId && classId !== '') {
+  //     query.andWhere('archive.classId = :classId', { classId });
+  //     query.andWhere('archive.term = :term', { term });
+  //     query.andWhere('archive.academicYear = :academicYear', { academicYear });
+  //   }
+
+  //   return query.getMany();
+  // }
+
   async getArchivedResults(classId?: string, term?: string, academicYear?: string, schoolId?: string) {
     const query = this.archiveRepository
       .createQueryBuilder('archive')
-      .leftJoin('archive.class', 'class')
       .orderBy('archive.archivedAt', 'DESC');
 
+    // Filter by schoolId if provided
     if (schoolId) {
-      query.andWhere('class.schoolId = :schoolId', { schoolId });
+      query.andWhere('archive.schoolId = :schoolId', { schoolId });
     }
 
     if (classId && classId !== '') {
@@ -2850,12 +2870,28 @@ export class StudentsService {
         where: { id: reportCard.id }
       });
 
+      // const archive = this.studentReportArchiveRepository.create({
+      //   studentId: reportCard.id,
+      //   studentName: reportCard.name,
+      //   examNumber: reportCard.examNumber,
+      //   classId,
+      //   term,
+      //   assessmentType,
+      //   parentEmail: student?.parentEmail,
+      //   parentPhone: student?.parentPhone,
+      //   whatsappNumber: student?.whatsappNumber,
+      //   reportCardData: reportCard,
+      //   archivedAt: new Date()
+      // });
+
       const archive = this.studentReportArchiveRepository.create({
         studentId: reportCard.id,
         studentName: reportCard.name,
         examNumber: reportCard.examNumber,
         classId,
+        schoolId: student?.schoolId,
         term,
+        academicYear: reportCard.academicYear,
         assessmentType,
         parentEmail: student?.parentEmail,
         parentPhone: student?.parentPhone,
@@ -2917,13 +2953,38 @@ export class StudentsService {
   //   return query.getMany();
   // }
 
+  // async getStudentReportArchives(classId?: string, term?: string, academicYear?: string, schoolId?: string) {
+  //   const query = this.studentReportArchiveRepository
+  //     .createQueryBuilder('archive');
+
+  //   if (schoolId) {
+  //     query.innerJoin('classes', 'class', 'class.id = archive.classId')
+  //       .andWhere('class.schoolId = :schoolId', { schoolId });
+  //   }
+
+  //   if (classId && classId !== '') {
+  //     query.andWhere('archive.classId = :classId', { classId });
+  //   }
+
+  //   if (term && term !== '') {
+  //     query.andWhere('archive.term = :term', { term });
+  //   }
+
+  //   if (academicYear && academicYear !== '') {
+  //     query.andWhere('archive.academicYear = :academicYear', { academicYear });
+  //   }
+
+  //   query.orderBy('archive.archivedAt', 'DESC');
+
+  //   return query.getMany();
+  // }
+
   async getStudentReportArchives(classId?: string, term?: string, academicYear?: string, schoolId?: string) {
     const query = this.studentReportArchiveRepository
       .createQueryBuilder('archive');
 
     if (schoolId) {
-      query.innerJoin('classes', 'class', 'class.id = archive.classId')
-        .andWhere('class.schoolId = :schoolId', { schoolId });
+      query.andWhere('archive.schoolId = :schoolId', { schoolId });
     }
 
     if (classId && classId !== '') {

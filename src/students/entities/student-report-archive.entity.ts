@@ -18,6 +18,9 @@ export class StudentReportArchive {
     classId!: string;
 
     @Column()
+    schoolId!: string;
+
+    @Column()
     term!: string;
 
     @Column()
