@@ -480,8 +480,38 @@ export class AttendanceService {
         const students = await this.studentRepo.find({
             where: { class: { id: classId } }
         });
-
         if (students.length === 0 || attendances.length === 0) {
+            // Get class to find term dates
+            const classEntity = await this.classRepo.findOne({ where: { id: classId } });
+
+            let weeklyRates: number[] = [];
+            let weekLabels: string[] = [];
+
+            if (classEntity && classEntity.start_date && classEntity.end_date) {
+                const termStart = new Date(classEntity.start_date);
+                const termEnd = new Date(classEntity.end_date);
+                const todayDate = new Date();
+
+                const totalDaysInTerm = Math.ceil((termEnd.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24));
+                const totalWeeksInTerm = Math.max(1, Math.ceil(totalDaysInTerm / 7));
+
+                const daysSinceStart = Math.max(0, Math.ceil((todayDate.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24)));
+                const currentWeekNumber = Math.min(totalWeeksInTerm, Math.max(1, Math.ceil(daysSinceStart / 7)));
+
+                weeklyRates = new Array(totalWeeksInTerm).fill(0);
+
+                for (let i = 1; i <= totalWeeksInTerm; i++) {
+                    if (i === currentWeekNumber) {
+                        weekLabels.push('This Week');
+                    } else {
+                        weekLabels.push(`Week ${i}`);
+                    }
+                }
+            } else {
+                weeklyRates = [0];
+                weekLabels = ['This Week'];
+            }
+
             return {
                 summary: {
                     averageAttendance: 0,
@@ -494,8 +524,8 @@ export class AttendanceService {
                     criticalRisk: 0
                 },
                 trends: {
-                    weekly: [0, 0, 0, 0, 0],
-                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'This Week']
+                    weekly: weeklyRates,
+                    labels: weekLabels
                 },
                 topPerformers: [],
                 bottomPerformers: [],
