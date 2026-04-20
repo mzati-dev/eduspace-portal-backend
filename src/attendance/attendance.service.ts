@@ -580,39 +580,66 @@ export class AttendanceService {
         const warning = studentRates.filter(s => s.rate >= 50 && s.rate < 70).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
 
         // Weekly trends
+        // Weekly trends - DYNAMIC based on term dates
         const sortedDates = [...uniqueDates].sort();
-        const weeklyRates: number[] = [];
-        const weekSize = Math.max(1, Math.ceil(sortedDates.length / 4));
 
-        for (let i = 0; i < 4; i++) {
-            const weekDates = sortedDates.slice(i * weekSize, (i + 1) * weekSize);
-            let weekTotalRate = 0;
-            for (const date of weekDates) {
-                const dayAttendances = attendances.filter(a => a.date === date);
-                const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
-                const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
-                weekTotalRate += rate;
+        // Get the class to find term dates
+        const classEntity = await this.classRepo.findOne({ where: { id: classId } });
+
+        let weeklyRates: number[] = [];
+        let weekLabels: string[] = [];
+
+        if (classEntity && classEntity.start_date && classEntity.end_date) {
+            const termStart = new Date(classEntity.start_date);
+            const termEnd = new Date(classEntity.end_date);
+            const todayDate = new Date();
+
+            // Calculate total weeks in term
+            const totalDaysInTerm = Math.ceil((termEnd.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24));
+            const totalWeeksInTerm = Math.max(1, Math.ceil(totalDaysInTerm / 7));
+
+            // Calculate current week number
+            const daysSinceStart = Math.max(0, Math.ceil((todayDate.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24)));
+            const currentWeekNumber = Math.min(totalWeeksInTerm, Math.max(1, Math.ceil(daysSinceStart / 7)));
+
+            // Build weekly rates for each week in term
+            for (let weekNum = 1; weekNum <= totalWeeksInTerm; weekNum++) {
+                const weekStart = new Date(termStart);
+                weekStart.setDate(termStart.getDate() + (weekNum - 1) * 7);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+
+                const weekAttendances = attendances.filter(a => {
+                    const attDate = new Date(a.date);
+                    return attDate >= weekStart && attDate <= weekEnd;
+                });
+
+                let weekRate = 0;
+                if (weekAttendances.length > 0) {
+                    const weekDates = [...new Set(weekAttendances.map(a => a.date))];
+                    let totalWeekRate = 0;
+                    for (const date of weekDates) {
+                        const dayAttendances = weekAttendances.filter(a => a.date === date);
+                        const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+                        const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
+                        totalWeekRate += rate;
+                    }
+                    weekRate = weekDates.length > 0 ? Math.round(totalWeekRate / weekDates.length) : 0;
+                }
+
+                weeklyRates.push(weekRate);
+
+                if (weekNum === currentWeekNumber) {
+                    weekLabels.push('This Week');
+                } else {
+                    weekLabels.push(`Week ${weekNum}`);
+                }
             }
-            weeklyRates.push(weekDates.length > 0 ? Math.round(weekTotalRate / weekDates.length) : 0);
+        } else {
+            // Fallback if no class found
+            weeklyRates = [0];
+            weekLabels = ['This Week'];
         }
-
-        // Current week (last 7 days)
-        const today = new Date();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(today.getDate() - 7);
-        const currentWeekAttendances = attendances.filter(a => new Date(a.date) >= sevenDaysAgo);
-        let currentWeekTotalRate = 0;
-        const currentWeekDates = [...new Set(currentWeekAttendances.map(a => a.date))];
-        for (const date of currentWeekDates) {
-            const dayAttendances = currentWeekAttendances.filter(a => a.date === date);
-            const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
-            const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
-            currentWeekTotalRate += rate;
-        }
-        const currentWeekRate = currentWeekDates.length > 0 ? Math.round(currentWeekTotalRate / currentWeekDates.length) : 0;
-
-        const weekly = [...weeklyRates.slice(0, 4), currentWeekRate];
-        const weekLabels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'This Week'];
 
         return {
             summary: {
@@ -626,7 +653,7 @@ export class AttendanceService {
                 criticalRisk
             },
             trends: {
-                weekly,
+                weekly: weeklyRates,
                 labels: weekLabels
             },
             topPerformers,
