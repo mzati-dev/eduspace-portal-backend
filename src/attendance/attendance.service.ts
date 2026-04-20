@@ -470,8 +470,41 @@ export class AttendanceService {
 
         return { dailyPatterns, classPerformance, peakLateTimes: [{ time: peakLateTime, count: lateTimes.length, day: 'Monday' }] };
     }
-    async getAttendanceAnalytics(classId: string, startDate: string, endDate: string): Promise<any> {
-        // Get all attendance records for this class in date range
+    async getAttendanceAnalytics(classId: string): Promise<any> {
+        // Get the class to find its term dates
+        const classEntity = await this.classRepo.findOne({ where: { id: classId } });
+
+        if (!classEntity || !classEntity.start_date || !classEntity.end_date) {
+            return {
+                summary: {
+                    averageAttendance: 0,
+                    totalDays: 0,
+                    totalPresent: 0,
+                    totalAbsent: 0,
+                    totalLate: 0,
+                    totalExcused: 0,
+                    perfectAttendance: 0,
+                    criticalRisk: 0
+                },
+                trends: { weekly: [], labels: [] },
+                topPerformers: [],
+                bottomPerformers: [],
+                dayAnalysis: [
+                    { day: 'Monday', rate: 0, absent: 0 },
+                    { day: 'Tuesday', rate: 0, absent: 0 },
+                    { day: 'Wednesday', rate: 0, absent: 0 },
+                    { day: 'Thursday', rate: 0, absent: 0 },
+                    { day: 'Friday', rate: 0, absent: 0 }
+                ],
+                alerts: { critical: [], warning: [] }
+            };
+        }
+
+        // Use class term dates for the date range
+        const startDate = classEntity.start_date;
+        const endDate = classEntity.end_date;
+
+        // Get all attendance records for this class within the term
         const attendances = await this.attendanceRepo.find({
             where: { classId: classId, date: Between(startDate, endDate) }
         });
@@ -480,36 +513,27 @@ export class AttendanceService {
         const students = await this.studentRepo.find({
             where: { class: { id: classId } }
         });
+
         if (students.length === 0 || attendances.length === 0) {
-            // Get class to find term dates
-            const classEntity = await this.classRepo.findOne({ where: { id: classId } });
+            const termStart = new Date(classEntity.start_date);
+            const termEnd = new Date(classEntity.end_date);
+            const todayDate = new Date();
 
-            let weeklyRates: number[] = [];
-            let weekLabels: string[] = [];
+            const totalDaysInTerm = Math.ceil((termEnd.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24));
+            const totalWeeksInTerm = Math.max(1, Math.ceil(totalDaysInTerm / 7));
 
-            if (classEntity && classEntity.start_date && classEntity.end_date) {
-                const termStart = new Date(classEntity.start_date);
-                const termEnd = new Date(classEntity.end_date);
-                const todayDate = new Date();
+            const daysSinceStart = Math.max(0, Math.ceil((todayDate.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24)));
+            const currentWeekNumber = Math.min(totalWeeksInTerm, Math.max(1, Math.ceil(daysSinceStart / 7)));
 
-                const totalDaysInTerm = Math.ceil((termEnd.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24));
-                const totalWeeksInTerm = Math.max(1, Math.ceil(totalDaysInTerm / 7));
+            const weeklyRates = new Array(totalWeeksInTerm).fill(0);
+            const weekLabels: string[] = [];
 
-                const daysSinceStart = Math.max(0, Math.ceil((todayDate.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24)));
-                const currentWeekNumber = Math.min(totalWeeksInTerm, Math.max(1, Math.ceil(daysSinceStart / 7)));
-
-                weeklyRates = new Array(totalWeeksInTerm).fill(0);
-
-                for (let i = 1; i <= totalWeeksInTerm; i++) {
-                    if (i === currentWeekNumber) {
-                        weekLabels.push('This Week');
-                    } else {
-                        weekLabels.push(`Week ${i}`);
-                    }
+            for (let i = 1; i <= totalWeeksInTerm; i++) {
+                if (i === currentWeekNumber) {
+                    weekLabels.push('This Week');
+                } else {
+                    weekLabels.push(`Week ${i}`);
                 }
-            } else {
-                weeklyRates = [0];
-                weekLabels = ['This Week'];
             }
 
             return {
@@ -609,66 +633,51 @@ export class AttendanceService {
         const critical = studentRates.filter(s => s.rate < 50).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
         const warning = studentRates.filter(s => s.rate >= 50 && s.rate < 70).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
 
-        // Weekly trends
         // Weekly trends - DYNAMIC based on term dates
-        const sortedDates = [...uniqueDates].sort();
+        const termStart = new Date(classEntity.start_date);
+        const termEnd = new Date(classEntity.end_date);
+        const todayDate = new Date();
 
-        // Get the class to find term dates
-        const classEntity = await this.classRepo.findOne({ where: { id: classId } });
+        const totalDaysInTerm = Math.ceil((termEnd.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24));
+        const totalWeeksInTerm = Math.max(1, Math.ceil(totalDaysInTerm / 7));
 
-        let weeklyRates: number[] = [];
-        let weekLabels: string[] = [];
+        const daysSinceStart = Math.max(0, Math.ceil((todayDate.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24)));
+        const currentWeekNumber = Math.min(totalWeeksInTerm, Math.max(1, Math.ceil(daysSinceStart / 7)));
 
-        if (classEntity && classEntity.start_date && classEntity.end_date) {
-            const termStart = new Date(classEntity.start_date);
-            const termEnd = new Date(classEntity.end_date);
-            const todayDate = new Date();
+        const weeklyRates: number[] = [];
+        const weekLabels: string[] = [];
 
-            // Calculate total weeks in term
-            const totalDaysInTerm = Math.ceil((termEnd.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24));
-            const totalWeeksInTerm = Math.max(1, Math.ceil(totalDaysInTerm / 7));
+        for (let weekNum = 1; weekNum <= totalWeeksInTerm; weekNum++) {
+            const weekStart = new Date(termStart);
+            weekStart.setDate(termStart.getDate() + (weekNum - 1) * 7);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
 
-            // Calculate current week number
-            const daysSinceStart = Math.max(0, Math.ceil((todayDate.getTime() - termStart.getTime()) / (1000 * 60 * 60 * 24)));
-            const currentWeekNumber = Math.min(totalWeeksInTerm, Math.max(1, Math.ceil(daysSinceStart / 7)));
+            const weekAttendances = attendances.filter(a => {
+                const attDate = new Date(a.date);
+                return attDate >= weekStart && attDate <= weekEnd;
+            });
 
-            // Build weekly rates for each week in term
-            for (let weekNum = 1; weekNum <= totalWeeksInTerm; weekNum++) {
-                const weekStart = new Date(termStart);
-                weekStart.setDate(termStart.getDate() + (weekNum - 1) * 7);
-                const weekEnd = new Date(weekStart);
-                weekEnd.setDate(weekStart.getDate() + 6);
-
-                const weekAttendances = attendances.filter(a => {
-                    const attDate = new Date(a.date);
-                    return attDate >= weekStart && attDate <= weekEnd;
-                });
-
-                let weekRate = 0;
-                if (weekAttendances.length > 0) {
-                    const weekDates = [...new Set(weekAttendances.map(a => a.date))];
-                    let totalWeekRate = 0;
-                    for (const date of weekDates) {
-                        const dayAttendances = weekAttendances.filter(a => a.date === date);
-                        const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
-                        const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
-                        totalWeekRate += rate;
-                    }
-                    weekRate = weekDates.length > 0 ? Math.round(totalWeekRate / weekDates.length) : 0;
+            let weekRate = 0;
+            if (weekAttendances.length > 0) {
+                const weekDates = [...new Set(weekAttendances.map(a => a.date))];
+                let totalWeekRate = 0;
+                for (const date of weekDates) {
+                    const dayAttendances = weekAttendances.filter(a => a.date === date);
+                    const presentCount = dayAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+                    const rate = dayAttendances.length > 0 ? (presentCount / dayAttendances.length) * 100 : 0;
+                    totalWeekRate += rate;
                 }
-
-                weeklyRates.push(weekRate);
-
-                if (weekNum === currentWeekNumber) {
-                    weekLabels.push('This Week');
-                } else {
-                    weekLabels.push(`Week ${weekNum}`);
-                }
+                weekRate = weekDates.length > 0 ? Math.round(totalWeekRate / weekDates.length) : 0;
             }
-        } else {
-            // Fallback if no class found
-            weeklyRates = [0];
-            weekLabels = ['This Week'];
+
+            weeklyRates.push(weekRate);
+
+            if (weekNum === currentWeekNumber) {
+                weekLabels.push('This Week');
+            } else {
+                weekLabels.push(`Week ${weekNum}`);
+            }
         }
 
         return {

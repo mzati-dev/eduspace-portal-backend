@@ -217,14 +217,11 @@ export class AttendanceController {
      * Get attendance analytics for a class
      * GET /attendance/analytics/class/:classId?startDate=2024-03-01&endDate=2024-03-31
      */
+
     @Get('analytics/class/:classId')
-    async getAttendanceAnalytics(
-        @Param('classId') classId: string,
-        @Query('startDate') startDate: string,
-        @Query('endDate') endDate: string
-    ) {
+    async getAttendanceAnalytics(@Param('classId') classId: string) {
         try {
-            const data = await this.attendanceService.getAttendanceAnalytics(classId, startDate, endDate);
+            const data = await this.attendanceService.getAttendanceAnalytics(classId);
             return { success: true, data };
         } catch (error) {
             return this.handleError(error);
