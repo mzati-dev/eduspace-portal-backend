@@ -600,9 +600,20 @@ export class AttendanceService {
         const criticalRisk = studentRates.filter(s => s.rate < 50).length;
 
         // Top and bottom performers
+        // const sortedRates = [...studentRates].sort((a, b) => b.rate - a.rate);
+        // const topPerformers = sortedRates.slice(0, 3).map(s => ({ name: s.name, rate: Math.round(s.rate) }));
+
+        // const bottomPerformers = sortedRates.slice(-3).reverse().map(s => ({ name: s.name, rate: Math.round(s.rate) }));
+
+        // Top and bottom performers - SHOW EVERYONE WHO QUALIFIES
         const sortedRates = [...studentRates].sort((a, b) => b.rate - a.rate);
-        const topPerformers = sortedRates.slice(0, 3).map(s => ({ name: s.name, rate: Math.round(s.rate) }));
-        const bottomPerformers = sortedRates.slice(-3).reverse().map(s => ({ name: s.name, rate: Math.round(s.rate) }));
+        const topPerformers = sortedRates
+            .filter(s => s.rate >= 90)  // All students with 90%+ attendance
+            .map(s => ({ name: s.name, rate: Math.round(s.rate) }));
+
+        const bottomPerformers = sortedRates
+            .filter(s => s.rate > 0 && s.rate < 70)  // All students below 70%
+            .map(s => ({ name: s.name, rate: Math.round(s.rate) }));
 
         // Day analysis
         const dayMap = new Map<string, { total: number; absent: number; rate: number }>();
@@ -630,9 +641,15 @@ export class AttendanceService {
         }));
 
         // Alerts
-        const critical = studentRates.filter(s => s.rate < 50).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
-        const warning = studentRates.filter(s => s.rate >= 50 && s.rate < 70).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
+        // const critical = studentRates.filter(s => s.rate < 50).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
+        // const warning = studentRates.filter(s => s.rate >= 50 && s.rate < 70).slice(0, 5).map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
+        const critical = studentRates
+            .filter(s => s.rate < 50)
+            .map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
 
+        const warning = studentRates
+            .filter(s => s.rate >= 50 && s.rate < 70)
+            .map(s => ({ name: s.name, attendanceRate: Math.round(s.rate) }));
         // Weekly trends - DYNAMIC based on term dates
         const termStart = new Date(classEntity.start_date);
         const termEnd = new Date(classEntity.end_date);
