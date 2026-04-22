@@ -463,6 +463,18 @@ export class AnalyticsService {
     async getDashboardAnalytics(term: string, schoolId: string, classId?: string): Promise<DashboardData> {
         const gradeConfig = await this.getActiveGradeConfig(schoolId);
 
+        // Check if this term exists in archives
+        const archives = await this.archiveRepository.find({
+            where: { schoolId, term },
+            order: { archivedAt: 'DESC' }
+        });
+
+        // If archives exist, use archived data
+        if (archives.length > 0) {
+            return this.getDashboardAnalyticsFromArchives(archives, term, schoolId, classId, gradeConfig);
+        }
+
+        // Otherwise use current classes data
         const classes = await this.classRepository.find({
             where: { schoolId, term },
             relations: ['students']
@@ -585,17 +597,18 @@ export class AnalyticsService {
         }
 
         // Cohort Tracking from archives
+        // Cohort Tracking from archives
         let cohortTracking: CohortTracking | null = null;
         const targetClassIds = classId ? [classId] : filteredClasses.map(c => c.id);
-        const archives = await this.archiveRepository.find({
+        const cohortArchives = await this.archiveRepository.find({
             where: { classId: In(targetClassIds) },
             order: { archivedAt: 'ASC' }
         });
 
-        if (archives.length > 0) {
+        if (cohortArchives.length > 0) {
             const data: number[] = [];
             const labels: string[] = [];
-            for (const archive of archives.slice(-6)) {
+            for (const archive of cohortArchives.slice(-6)) {
                 const overallResults = archive.results?.overall;
                 if (overallResults && overallResults.length > 0) {
                     const avgPassRate = overallResults.reduce((sum: number, s: any) => sum + (s.passRate || 0), 0) / overallResults.length;
@@ -625,6 +638,79 @@ export class AnalyticsService {
             cohortTracking
         };
     }
+
+    private async getDashboardAnalyticsFromArchives(
+        archives: Archive[],
+        term: string,
+        schoolId: string,
+        classId: string | undefined,
+        gradeConfig: GradeConfig
+    ): Promise<DashboardData> {
+        let filteredArchives = archives;
+        if (classId) {
+            filteredArchives = archives.filter(a => a.classId === classId);
+        }
+
+        const gradeRanking: GradeRanking[] = [];
+        let totalPassRate = 0;
+        let totalAvgScore = 0;
+        let classCount = 0;
+        let totalStudents = 0;
+
+        for (const archive of filteredArchives) {
+            const overallResults = archive.results?.overall || [];
+
+            let passRate = 0;
+            let avgScore = 0;
+            let riskStudents = 0;
+
+            if (overallResults.length > 0) {
+                passRate = overallResults.reduce((sum: number, r: any) => sum + (r.passRate || 0), 0) / overallResults.length;
+                avgScore = overallResults.reduce((sum: number, r: any) => sum + (r.average || 0), 0) / overallResults.length;
+                riskStudents = overallResults.filter((r: any) => (r.average || 0) < gradeConfig.pass_mark).length;
+            }
+
+            gradeRanking.push({
+                rank: 0,
+                name: archive.className,
+                passRate: Math.round(passRate),
+                avgScore: Math.round(avgScore),
+                attendance: 0,
+                riskStudents: riskStudents,
+                riskChange: 0,
+                trend: 0
+            });
+
+            totalPassRate += passRate;
+            totalAvgScore += avgScore;
+            classCount++;
+            totalStudents += archive.results?.metadata?.totalStudents || 0;
+        }
+
+        gradeRanking.sort((a, b) => b.passRate - a.passRate);
+        gradeRanking.forEach((g, i) => g.rank = i + 1);
+
+        const overallPassRate = classCount > 0 ? Math.round(totalPassRate / classCount) : 0;
+        const overallAvgScore = classCount > 0 ? Math.round(totalAvgScore / classCount) : 0;
+
+        const keyMetrics: KeyMetric[] = [
+            { label: 'Overall Pass %', value: `${overallPassRate}%`, change: 0, vsText: '', icon: 'trending-up', color: 'text-indigo-600' },
+            { label: 'Average Score', value: `${overallAvgScore}%`, change: 0, vsText: '', icon: 'graduation-cap', color: 'text-emerald-600' },
+            { label: 'Total Students', value: totalStudents, change: 0, vsText: '', icon: 'users', color: 'text-purple-600' },
+            { label: 'Att-Perf Correlation', value: 'N/A', change: 0, vsText: '', icon: 'brain', color: 'text-amber-600' }
+        ];
+
+        return {
+            keyMetrics,
+            gradeRanking,
+            factorAnalysis: [],
+            riskStudents: [],
+            subjectDifficulty: [],
+            examGap: [],
+            cohortTracking: null
+        };
+    }
+
 
     async getStudentDetail(studentId: string, term: string, schoolId: string): Promise<StudentDetail> {
         const student = await this.studentRepository.findOne({
