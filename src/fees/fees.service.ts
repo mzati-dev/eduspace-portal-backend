@@ -136,83 +136,6 @@ export class FeesService {
         return fees;
     }
 
-    // async getFeeSummary(schoolId: string, term?: string, classId?: string): Promise<any> {
-    //     const students = await this.studentRepository.find({
-    //         where: { schoolId: schoolId },
-    //         relations: ['class'],
-    //     });
-
-    //     let filteredStudents = students;
-
-    //     if (classId) {
-    //         filteredStudents = students.filter(s => s.class?.id === classId);
-    //     }
-
-    //     const studentIds = filteredStudents.map(s => s.id);
-
-    //     // Get all payments for these students
-    //     const payments = await this.paymentRepository.find({
-    //         where: { studentId: In(studentIds), status: 'completed' },
-    //         order: { date: 'DESC' }
-    //     });
-
-    //     // Get all student fees
-    //     const studentFees = await this.studentFeeRepository.find({
-    //         where: { studentId: In(studentIds) }
-    //     });
-
-    //     const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
-    //     const expectedRevenue = studentFees.reduce((sum, sf) => sum + (sf.feeStructure?.total || 0), 0);
-
-    //     const today = new Date().toISOString().split('T')[0];
-    //     const todayPayments = payments.filter(p => p.date === today);
-    //     const paidToday = todayPayments.reduce((sum, p) => sum + p.amount, 0);
-
-    //     // Get payments this month
-    //     const thisMonth = new Date().getMonth();
-    //     const thisMonthPayments = payments.filter(p => new Date(p.date).getMonth() === thisMonth);
-    //     const paidThisMonth = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-
-    //     // Get payments this term
-    //     let paidThisTerm = 0;
-    //     if (term) {
-    //         const termPayments = await this.paymentRepository.find({
-    //             where: { studentId: In(studentIds), status: 'completed' },
-    //             order: { date: 'DESC' }
-    //         });
-    //         paidThisTerm = termPayments.reduce((sum, p) => sum + p.amount, 0);
-    //     }
-
-    //     const overdue = studentFees.filter(sf => sf.status === 'overdue').length;
-
-    //     // FIX: Calculate pendingThisWeek based on due dates within next 7 days
-    //     const todayDate = new Date();
-    //     todayDate.setHours(0, 0, 0, 0);
-    //     const nextWeekDate = new Date(todayDate);
-    //     nextWeekDate.setDate(todayDate.getDate() + 7);
-
-    //     const pendingThisWeek = studentFees.filter(sf => {
-    //         if (!sf.feeStructure?.dueDate) return false;
-    //         if (sf.status === 'paid') return false;
-
-    //         const dueDate = new Date(sf.feeStructure.dueDate);
-    //         dueDate.setHours(0, 0, 0, 0);
-
-    //         // Check if due date is between today and next 7 days (inclusive)
-    //         return dueDate >= todayDate && dueDate <= nextWeekDate;
-    //     }).reduce((sum, sf) => sum + sf.balance, 0);
-
-    //     return {
-    //         totalCollected,
-    //         expectedRevenue,
-    //         collectionRate: expectedRevenue > 0 ? (totalCollected / expectedRevenue) * 100 : 0,
-    //         overdue,
-    //         paidToday,
-    //         pendingThisWeek,
-    //         paidThisMonth,
-    //         paidThisTerm: paidThisTerm || 0,
-    //     };
-    // }
 
     async getFeeSummary(schoolId: string, term?: string, classId?: string): Promise<any> {
         const students = await this.studentRepository.find({
@@ -278,76 +201,6 @@ export class FeesService {
             paidThisTerm: totalCollected,
         };
     }
-
-    // async getFeeSummary(schoolId: string, term?: string, classId?: string): Promise<any> {
-    //     const students = await this.studentRepository.find({
-    //         where: { schoolId: schoolId },
-    //         relations: ['class'],
-    //     });
-
-    //     let filteredStudents = students;
-
-    //     if (classId) {
-    //         filteredStudents = students.filter(s => s.class?.id === classId);
-    //     }
-
-    //     const studentIds = filteredStudents.map(s => s.id);
-
-    //     // Get all payments for these students
-    //     const payments = await this.paymentRepository.find({
-    //         where: { studentId: In(studentIds), status: 'completed' },
-    //         order: { date: 'DESC' }
-    //     });
-
-    //     // Get all student fees
-    //     const studentFees = await this.studentFeeRepository.find({
-    //         where: { studentId: In(studentIds) }
-    //     });
-
-    //     const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
-    //     const expectedRevenue = studentFees.reduce((sum, sf) => sum + (sf.feeStructure?.total || 0), 0);
-
-    //     const today = new Date().toISOString().split('T')[0];
-    //     const todayPayments = payments.filter(p => p.date === today);
-    //     const paidToday = todayPayments.reduce((sum, p) => sum + p.amount, 0);
-
-    //     // Get payments this month
-    //     const thisMonth = new Date().getMonth();
-    //     const thisMonthPayments = payments.filter(p => new Date(p.date).getMonth() === thisMonth);
-    //     const paidThisMonth = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-
-    //     // Get payments this term (simplified - based on term filter)
-    //     let paidThisTerm = 0;
-    //     if (term) {
-    //         const termPayments = await this.paymentRepository.find({
-    //             where: { studentId: In(studentIds), status: 'completed' },
-    //             order: { date: 'DESC' }
-    //         });
-    //         // In a real implementation, you'd filter by term dates
-    //         paidThisTerm = termPayments.reduce((sum, p) => sum + p.amount, 0);
-    //     }
-
-    //     const overdue = studentFees.filter(sf => sf.status === 'overdue').length;
-    //     const pendingThisWeek = studentFees.filter(sf => {
-    //         const dueDate = sf.feeStructure?.dueDate;
-    //         if (!dueDate) return false;
-    //         const due = new Date(dueDate);
-    //         const now = new Date();
-    //         const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    //         return diffDays <= 7 && diffDays >= 0 && sf.status !== 'paid';
-    //     }).reduce((sum, sf) => sum + sf.balance, 0);
-
-    //     return {
-    //         totalCollected,
-    //         expectedRevenue,
-    //         collectionRate: expectedRevenue > 0 ? (totalCollected / expectedRevenue) * 100 : 0,
-    //         overdue,
-    //         paidToday,
-    //         pendingThisWeek,
-    //         paidThisMonth,
-    //         paidThisTerm: paidThisTerm || 0,
-    //     };
-    // }
 
     // Add this method to fees.service.ts
     async syncStudentFees(schoolId: string, term?: string): Promise<{ created: number }> {
@@ -429,33 +282,6 @@ export class FeesService {
         return { created };
     }
 
-    // async createFeeStructure(schoolId: string, data: any): Promise<FeeStructure> {
-    //     const classes = await this.classRepository.find({
-    //         where: { schoolId: schoolId }
-    //     });
-
-    //     // 1. Intercept the 'any' type here by casting to Partial<FeeStructure>
-    //     // This forces TypeORM to recognize we are working with a single object
-    //     const feeData: Partial<FeeStructure> = {
-    //         ...data,
-    //         total: data.tuition + data.development + data.sports + data.library + data.transport,
-    //         isActive: true,
-    //         classId: data.classId || null,
-    //         className: data.classId ? classes.find(c => c.id === data.classId)?.name : null
-    //     };
-
-    //     // 2. Pass the strictly typed object into create()
-    //     const feeStructure = this.feeStructureRepository.create(feeData);
-
-    //     // 3. Now TypeORM correctly saves and returns a single FeeStructure
-    //     const saved = await this.feeStructureRepository.save(feeStructure);
-
-    //     // Auto-create student fees for this structure
-    //     await this.syncStudentFees(schoolId, data.term);
-
-    //     return saved;
-    // }
-
     async createFeeStructure(schoolId: string, data: any): Promise<FeeStructure> {
         const classes = await this.classRepository.find({
             where: { schoolId: schoolId }
@@ -489,31 +315,6 @@ export class FeesService {
 
         return saved;
     }
-
-    // async updateFeeStructure(schoolId: string, id: string, data: any): Promise<FeeStructure> {
-    //     const feeStructure = await this.feeStructureRepository.findOne({
-    //         where: { id, isActive: true }
-    //     });
-
-    //     if (!feeStructure) {
-    //         throw new NotFoundException('Fee structure not found');
-    //     }
-
-    //     const updated = await this.feeStructureRepository.save({
-    //         ...feeStructure,
-    //         ...data,
-    //         total: (data.tuition || feeStructure.tuition) +
-    //             (data.development || feeStructure.development) +
-    //             (data.sports || feeStructure.sports) +
-    //             (data.library || feeStructure.library) +
-    //             (data.transport || feeStructure.transport)
-    //     });
-
-    //     // Update student fees with new amounts
-    //     await this.syncStudentFees(schoolId, updated.term);
-
-    //     return updated;
-    // }
 
     async updateFeeStructure(schoolId: string, id: string, data: any): Promise<FeeStructure> {
         const feeStructure = await this.feeStructureRepository.findOne({
@@ -752,5 +553,17 @@ export class FeesService {
         const filename = `fees-report-${new Date().toISOString().split('T')[0]}.json`;
 
         return { buffer, filename };
+    }
+
+    // ✅ ADD THIS METHOD HERE - at the very end, before the closing }
+    async getUniqueTerms(schoolId: string): Promise<string[]> {
+        const result = await this.classRepository
+            .createQueryBuilder('class')
+            .select('DISTINCT class.term', 'term')
+            .where('class.schoolId = :schoolId', { schoolId })
+            .orderBy('class.term', 'ASC')
+            .getRawMany();
+
+        return result.map(r => r.term);
     }
 }

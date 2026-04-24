@@ -185,4 +185,12 @@ export class FeesController {
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(buffer);
     }
+
+    // ✅ ADD THIS NEW ENDPOINT HERE
+    @Get('terms')
+    async getUniqueTerms(@Req() req) {
+        const schoolId = req.user?.schoolId;
+        const data = await this.feesService.getUniqueTerms(schoolId);
+        return { success: true, data };
+    }
 }

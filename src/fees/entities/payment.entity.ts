@@ -4,45 +4,45 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 @Entity('payments')
 export class Payment {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    studentId: string;
+    studentId!: string;
 
     @Column({ type: 'decimal', precision: 10, scale: 2 })
-    amount: number;
+    amount!: number;
 
     @Column({
         type: 'enum',
         enum: ['cash', 'card', 'bank', 'mobile']
     })
-    method: 'cash' | 'card' | 'bank' | 'mobile';
+    method!: 'cash' | 'card' | 'bank' | 'mobile';
 
     @Column({ nullable: true })
-    reference: string;
+    reference!: string;
 
     @Column({ unique: true })
-    receiptNumber: string;
+    receiptNumber!: string;
 
     @Column({
         type: 'enum',
         enum: ['completed', 'pending', 'failed'],
         default: 'completed'
     })
-    status: 'completed' | 'pending' | 'failed';
+    status!: 'completed' | 'pending' | 'failed';
 
     @Column({ nullable: true })
-    recordedBy: string;
+    recordedBy!: string;
 
     @Column({ nullable: true, type: 'text' })
-    notes: string;
+    notes!: string;
 
     @Column({ type: 'date' })
-    date: string;
+    date!: string;
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 }

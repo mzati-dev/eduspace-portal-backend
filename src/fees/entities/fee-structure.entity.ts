@@ -4,55 +4,55 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 @Entity('fee_structures')
 export class FeeStructure {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    term: string;
+    term!: string;
 
     @Column()
-    academicYear: string;
+    academicYear!: string;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    tuition: number;
+    tuition!: number;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    development: number;
+    development!: number;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    sports: number;
+    sports!: number;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    library: number;
+    library!: number;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    transport: number;
+    transport!: number;
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    meal: number;
+    meal!: number;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    exam: number;
+    exam!: number;
 
     @Column({ type: 'jsonb', nullable: true })
-    customFees: { id: string; name: string; amount: number }[];
+    customFees!: { id: string; name: string; amount: number }[];
 
     @Column({ type: 'decimal', precision: 10, scale: 2 })
-    total: number;
+    total!: number;
 
     @Column()
-    dueDate: string;
+    dueDate!: string;
 
     @Column({ nullable: true })
-    classId: string;
+    classId!: string;
 
     @Column({ nullable: true })
-    className: string;
+    className!: string;
 
     @Column({ default: true })
-    isActive: boolean;
+    isActive!: boolean;
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 }

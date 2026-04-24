@@ -4,50 +4,50 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 @Entity('student_fees')
 export class StudentFee {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    studentId: string;
+    studentId!: string;
 
     @Column()
-    studentName: string;
+    studentName!: string;
 
     @Column()
-    examNumber: string;
+    examNumber!: string;
 
     @Column()
-    class: string;
+    class!: string;
 
     @Column()
-    classId: string;
+    classId!: string;
 
     @Column({ nullable: true })
-    parentPhone: string;
+    parentPhone!: string;
 
     @Column({ nullable: true })
-    parentEmail: string;
+    parentEmail!: string;
 
     @Column({ nullable: true })
-    parentId: string;
+    parentId!: string;
 
     @Column()
-    feeStructureId: string;
+    feeStructureId!: string;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    paid: number;
+    paid!: number;
 
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-    balance: number;
+    balance!: number;
 
     @Column({
         type: 'enum',
         enum: ['paid', 'partial', 'unpaid', 'overdue'],
         default: 'unpaid'
     })
-    status: 'paid' | 'partial' | 'unpaid' | 'overdue';
+    status!: 'paid' | 'partial' | 'unpaid' | 'overdue';
 
     @Column({ type: 'jsonb', nullable: true })
-    lastPayment: {
+    lastPayment!: {
         date: string;
         amount: number;
         method: string;
@@ -55,7 +55,7 @@ export class StudentFee {
     };
 
     @Column({ type: 'jsonb', nullable: true })
-    feeStructure: {
+    feeStructure!: {
         id: string;
         term: string;
         academicYear: string;
@@ -74,8 +74,8 @@ export class StudentFee {
     };
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 }

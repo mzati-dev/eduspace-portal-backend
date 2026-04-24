@@ -4,39 +4,39 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 @Entity('reminders')
 export class Reminder {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    studentId: string;
+    studentId!: string;
 
     @Column({
         type: 'enum',
         enum: ['sms', 'email', 'push']
     })
-    type: 'sms' | 'email' | 'push';
+    type!: 'sms' | 'email' | 'push';
 
     @Column({ type: 'timestamp' })
-    sentAt: Date;
+    sentAt!: Date;
 
     @Column({
         type: 'enum',
         enum: ['sent', 'failed', 'pending'],
         default: 'pending'
     })
-    status: 'sent' | 'failed' | 'pending';
+    status!: 'sent' | 'failed' | 'pending';
 
     @Column({ type: 'text' })
-    message: string;
+    message!: string;
 
     @Column({ nullable: true })
-    recipientCount: number;
+    recipientCount!: number;
 
     @Column({ nullable: true })
-    sentBy: string;
+    sentBy!: string;
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 }
