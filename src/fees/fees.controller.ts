@@ -113,15 +113,29 @@ export class FeesController {
         return { success: true, data };
     }
 
+    // @Get('payments/history')
+    // async getPaymentHistory(
+    //     @Req() req,
+    //     @Query('studentId') studentId?: string,
+    //     @Query('fromDate') fromDate?: string,
+    //     @Query('toDate') toDate?: string,
+    // ) {
+    //     const schoolId = req.user?.schoolId;
+    //     const data = await this.feesService.getPaymentHistory(schoolId, studentId, fromDate, toDate);
+    //     return { success: true, data };
+    // }
+
     @Get('payments/history')
     async getPaymentHistory(
         @Req() req,
         @Query('studentId') studentId?: string,
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Query('term') term?: string,
+        @Query('classId') classId?: string,
     ) {
         const schoolId = req.user?.schoolId;
-        const data = await this.feesService.getPaymentHistory(schoolId, studentId, fromDate, toDate);
+        const data = await this.feesService.getPaymentHistory(schoolId, studentId, fromDate, toDate, term, classId);
         return { success: true, data };
     }
 

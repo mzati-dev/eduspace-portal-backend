@@ -468,12 +468,88 @@ export class FeesService {
     //     });
     // }
 
-    async getPaymentHistory(schoolId: string, studentId?: string, fromDate?: string, toDate?: string): Promise<any[]> {
+    // async getPaymentHistory(schoolId: string, studentId?: string, fromDate?: string, toDate?: string): Promise<any[]> {
+    //     const students = await this.studentRepository.find({
+    //         where: { schoolId: schoolId }
+    //     });
+
+    //     const studentIds = students.map(s => s.id);
+
+    //     const where: any = { studentId: In(studentIds) };
+
+    //     if (studentId) {
+    //         where.studentId = studentId;
+    //     }
+
+    //     if (fromDate && toDate) {
+    //         where.date = Between(fromDate, toDate);
+    //     } else if (fromDate) {
+    //         where.date = Between(fromDate, fromDate);
+    //     }
+
+    //     const payments = await this.paymentRepository.find({
+    //         where,
+    //         order: { date: 'DESC' }
+    //     });
+
+    //     // Add student details to each payment
+    //     // const paymentsWithStudents = await Promise.all(payments.map(async (payment) => {
+    //     //     const student = await this.studentRepository.findOne({
+    //     //         where: { id: payment.studentId }
+    //     //     });
+    //     //     return {
+    //     //         ...payment,
+    //     //         studentName: student?.name || 'Unknown',
+    //     //         examNumber: student?.examNumber || 'Unknown'
+    //     //     };
+    //     // }));
+    //     const paymentsWithStudents = await Promise.all(payments.map(async (payment) => {
+    //         const student = await this.studentRepository.findOne({
+    //             where: { id: payment.studentId },
+    //             relations: ['class']
+    //         });
+    //         return {
+    //             ...payment,
+    //             studentName: student?.name || 'Unknown',
+    //             examNumber: student?.examNumber || 'Unknown',
+    //             className: student?.class?.name || 'Unknown'
+    //         };
+    //     }));
+
+    //     return paymentsWithStudents;
+    // }
+
+    async getPaymentHistory(
+        schoolId: string,
+        studentId?: string,
+        fromDate?: string,
+        toDate?: string,
+        term?: string,
+        classId?: string
+    ): Promise<any[]> {
+        // Get all students in this school with their class
         const students = await this.studentRepository.find({
-            where: { schoolId: schoolId }
+            where: { schoolId: schoolId },
+            relations: ['class'],
         });
 
-        const studentIds = students.map(s => s.id);
+        let filteredStudents = students;
+
+        // Filter by class if provided
+        if (classId) {
+            filteredStudents = filteredStudents.filter(s => s.class?.id === classId);
+        }
+
+        // Filter by term if provided
+        if (term) {
+            filteredStudents = filteredStudents.filter(s => s.class?.term === term);
+        }
+
+        const studentIds = filteredStudents.map(s => s.id);
+
+        if (studentIds.length === 0) {
+            return [];
+        }
 
         const where: any = { studentId: In(studentIds) };
 
@@ -492,17 +568,6 @@ export class FeesService {
             order: { date: 'DESC' }
         });
 
-        // Add student details to each payment
-        // const paymentsWithStudents = await Promise.all(payments.map(async (payment) => {
-        //     const student = await this.studentRepository.findOne({
-        //         where: { id: payment.studentId }
-        //     });
-        //     return {
-        //         ...payment,
-        //         studentName: student?.name || 'Unknown',
-        //         examNumber: student?.examNumber || 'Unknown'
-        //     };
-        // }));
         const paymentsWithStudents = await Promise.all(payments.map(async (payment) => {
             const student = await this.studentRepository.findOne({
                 where: { id: payment.studentId },
