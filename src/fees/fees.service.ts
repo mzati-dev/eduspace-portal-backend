@@ -46,8 +46,32 @@ export class FeesService {
     //     return this.feeStructureRepository.find({ where, order: { term: 'ASC' } });
     // }
 
+    // async getFeeStructures(schoolId: string, term?: string, academicYear?: string): Promise<FeeStructure[]> {
+    //     const where: any = { isActive: true };
+
+    //     if (term) where.term = term;
+    //     if (academicYear) where.academicYear = academicYear;
+
+    //     // Get all classes for this school
+    //     const classes = await this.classRepository.find({
+    //         where: { schoolId: schoolId }
+    //     });
+
+    //     const classIds = classes.map(c => c.id);
+
+    //     if (classIds.length > 0) {
+    //         // Include fee structures that are for specific classes OR for all classes (classId is null)
+    //         where.classId = In([...classIds, null]);
+    //     }
+
+    //     return this.feeStructureRepository.find({ where, order: { term: 'ASC' } });
+    // }
+
     async getFeeStructures(schoolId: string, term?: string, academicYear?: string): Promise<FeeStructure[]> {
-        const where: any = { isActive: true };
+        const where: any = {
+            isActive: true,
+            schoolId: schoolId  // ← ADD THIS LINE
+        };
 
         if (term) where.term = term;
         if (academicYear) where.academicYear = academicYear;
@@ -60,7 +84,6 @@ export class FeesService {
         const classIds = classes.map(c => c.id);
 
         if (classIds.length > 0) {
-            // Include fee structures that are for specific classes OR for all classes (classId is null)
             where.classId = In([...classIds, null]);
         }
 

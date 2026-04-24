@@ -46,6 +46,8 @@ export class FeeStructure {
 
     @Column({ nullable: true })
     className!: string;
+    @Column()
+    schoolId!: string;  // ← ADD THIS LINE
 
     @Column({ default: true })
     isActive!: boolean;
