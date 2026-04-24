@@ -137,7 +137,6 @@ export class FeesService {
     // }
 
     async getStudentFees(schoolId: string, filters: any): Promise<StudentFee[]> {
-        // Get all students in this school
         const students = await this.studentRepository.find({
             where: { schoolId: schoolId },
             relations: ['class'],
@@ -157,14 +156,12 @@ export class FeesService {
         }
 
         if (filters.term) {
-            // Get fee structures for this term
             const feeStructures = await this.feeStructureRepository.find({
                 where: { term: filters.term }
             });
             const feeStructureIds = feeStructures.map(fs => fs.id);
 
             if (feeStructureIds.length > 0) {
-                // Direct query without sync
                 const fees = await this.studentFeeRepository.find({
                     where: {
                         studentId: where.studentId,
@@ -434,18 +431,39 @@ export class FeesService {
         const savedPayment = await this.paymentRepository.save(payment);
 
         // Update student fee record
+        // const studentFee = await this.studentFeeRepository.findOne({
+        //     where: { studentId: data.studentId }
+        // });
+
+        // if (studentFee) {
+        //     studentFee.paid += data.amount;
+        //     studentFee.balance -= data.amount;
+        //     studentFee.status = studentFee.balance <= 0 ? 'paid' : 'partial';
+
+        //     studentFee.lastPayment = {
+        //         date: paymentDate,
+        //         amount: data.amount,
+        //         method: data.method,
+        //         reference: data.reference || '',
+        //     };
+
+        //     await this.studentFeeRepository.save(studentFee);
+        // }
+
+        // Update student fee record
         const studentFee = await this.studentFeeRepository.findOne({
             where: { studentId: data.studentId }
         });
 
         if (studentFee) {
-            studentFee.paid += data.amount;
-            studentFee.balance -= data.amount;
+            const amount = Number(data.amount);
+            studentFee.paid = Number(studentFee.paid) + amount;
+            studentFee.balance = Number(studentFee.balance) - amount;
             studentFee.status = studentFee.balance <= 0 ? 'paid' : 'partial';
 
             studentFee.lastPayment = {
                 date: paymentDate,
-                amount: data.amount,
+                amount: amount,
                 method: data.method,
                 reference: data.reference || '',
             };
