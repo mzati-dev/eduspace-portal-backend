@@ -344,11 +344,20 @@ export class FeesService {
         const customTotal = (data.customFees || []).reduce((sum: number, fee: any) => sum + (fee.amount || 0), 0);
         const total = standardTotal + customTotal;
 
+        // const feeData: Partial<FeeStructure> = {
+        //     ...data,
+        //     total: total,
+        //     isActive: true,
+        //     // classId: data.classId || null,
+        //     classId: data.classId && data.classId !== '' ? data.classId : null,
+        //     className: data.classId ? classes.find(c => c.id === data.classId)?.name : null
+        // };
+
         const feeData: Partial<FeeStructure> = {
             ...data,
             total: total,
             isActive: true,
-            classId: data.classId || null,
+            classId: data.classId && data.classId !== '' ? data.classId : null,
             className: data.classId ? classes.find(c => c.id === data.classId)?.name : null
         };
 
