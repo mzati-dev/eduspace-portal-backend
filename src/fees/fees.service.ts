@@ -99,17 +99,17 @@ export class FeesService {
         if (term) where.term = term;
         if (academicYear) where.academicYear = academicYear;
 
-        const classes = await this.classRepository.find({
-            where: { schoolId: schoolId }
-        });
+        // TEMPORARILY REMOVE the classId filter to see if data shows
+        // const classes = await this.classRepository.find({
+        //     where: { schoolId: schoolId }
+        // });
+        // const classIds = classes.map(c => c.id);
 
-        const classIds = classes.map(c => c.id);
-
-        if (classIds.length > 0) {
-            where.classId = In([...classIds, null]);
-        } else {
-            where.classId = null;
-        }
+        // if (classIds.length > 0) {
+        //     where.classId = In([...classIds, null]);
+        // } else {
+        //     where.classId = null;
+        // }
 
         return this.feeStructureRepository.find({ where, order: { term: 'ASC' } });
     }
