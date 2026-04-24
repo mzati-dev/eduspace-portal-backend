@@ -443,7 +443,32 @@ export class FeesService {
         return { success: true, sent, failed };
     }
 
-    async getPaymentHistory(schoolId: string, studentId?: string, fromDate?: string, toDate?: string): Promise<Payment[]> {
+    // async getPaymentHistory(schoolId: string, studentId?: string, fromDate?: string, toDate?: string): Promise<Payment[]> {
+    //     const students = await this.studentRepository.find({
+    //         where: { schoolId: schoolId }
+    //     });
+
+    //     const studentIds = students.map(s => s.id);
+
+    //     const where: any = { studentId: In(studentIds) };
+
+    //     if (studentId) {
+    //         where.studentId = studentId;
+    //     }
+
+    //     if (fromDate && toDate) {
+    //         where.date = Between(fromDate, toDate);
+    //     } else if (fromDate) {
+    //         where.date = Between(fromDate, fromDate);
+    //     }
+
+    //     return this.paymentRepository.find({
+    //         where,
+    //         order: { date: 'DESC' }
+    //     });
+    // }
+
+    async getPaymentHistory(schoolId: string, studentId?: string, fromDate?: string, toDate?: string): Promise<any[]> {
         const students = await this.studentRepository.find({
             where: { schoolId: schoolId }
         });
@@ -462,10 +487,24 @@ export class FeesService {
             where.date = Between(fromDate, fromDate);
         }
 
-        return this.paymentRepository.find({
+        const payments = await this.paymentRepository.find({
             where,
             order: { date: 'DESC' }
         });
+
+        // Add student details to each payment
+        const paymentsWithStudents = await Promise.all(payments.map(async (payment) => {
+            const student = await this.studentRepository.findOne({
+                where: { id: payment.studentId }
+            });
+            return {
+                ...payment,
+                studentName: student?.name || 'Unknown',
+                examNumber: student?.examNumber || 'Unknown'
+            };
+        }));
+
+        return paymentsWithStudents;
     }
 
     async getReminderHistory(schoolId: string, studentId?: string): Promise<Reminder[]> {
