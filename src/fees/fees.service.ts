@@ -493,14 +493,26 @@ export class FeesService {
         });
 
         // Add student details to each payment
+        // const paymentsWithStudents = await Promise.all(payments.map(async (payment) => {
+        //     const student = await this.studentRepository.findOne({
+        //         where: { id: payment.studentId }
+        //     });
+        //     return {
+        //         ...payment,
+        //         studentName: student?.name || 'Unknown',
+        //         examNumber: student?.examNumber || 'Unknown'
+        //     };
+        // }));
         const paymentsWithStudents = await Promise.all(payments.map(async (payment) => {
             const student = await this.studentRepository.findOne({
-                where: { id: payment.studentId }
+                where: { id: payment.studentId },
+                relations: ['class']
             });
             return {
                 ...payment,
                 studentName: student?.name || 'Unknown',
-                examNumber: student?.examNumber || 'Unknown'
+                examNumber: student?.examNumber || 'Unknown',
+                className: student?.class?.name || 'Unknown'
             };
         }));
 
