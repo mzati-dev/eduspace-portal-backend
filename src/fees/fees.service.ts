@@ -74,37 +74,51 @@ export class FeesService {
             relations: ['class'],
         });
 
-        const studentIds = students.map(s => s.id);
-
-        if (studentIds.length === 0) {
+        if (students.length === 0) {
             return [];
         }
 
-        let where: any = { studentId: In(studentIds) };
+        // Apply class filter first to get filtered student IDs
+        let filteredStudentIds = students.map(s => s.id);
 
         if (filters.classId) {
             const classStudents = students.filter(s => s.class?.id === filters.classId);
-            where.studentId = In(classStudents.map(s => s.id));
+            filteredStudentIds = classStudents.map(s => s.id);
         }
+
+        if (filteredStudentIds.length === 0) {
+            return [];
+        }
+
+        let where: any = { studentId: In(filteredStudentIds) };
 
         if (filters.term) {
             // Get fee structures for this term
             const feeStructures = await this.feeStructureRepository.find({
-                where: { term: filters.term, classId: filters.classId || undefined }
+                where: { term: filters.term }
             });
             const feeStructureIds = feeStructures.map(fs => fs.id);
+
             if (feeStructureIds.length > 0) {
-                // This requires a more complex query - for now, filter in memory
-                let fees = await this.studentFeeRepository.find({ where });
+                let fees = await this.studentFeeRepository.find({
+                    where: {
+                        studentId: In(filteredStudentIds),
+                        feeStructureId: In(feeStructureIds)
+                    }
+                });
 
-                // If no fees found, sync first
-                if (fees.length === 0) {
+                if (fees.length === 0 && filteredStudentIds.length > 0) {
                     await this.syncStudentFees(schoolId, filters.term);
-                    fees = await this.studentFeeRepository.find({ where });
+                    fees = await this.studentFeeRepository.find({
+                        where: {
+                            studentId: In(filteredStudentIds),
+                            feeStructureId: In(feeStructureIds)
+                        }
+                    });
                 }
-
-                return fees.filter(f => feeStructureIds.includes(f.feeStructureId));
+                return fees;
             }
+            return [];
         }
 
         if (filters.status) {
@@ -117,20 +131,6 @@ export class FeesService {
         if (fees.length === 0 && filters.term) {
             await this.syncStudentFees(schoolId, filters.term);
             fees = await this.studentFeeRepository.find({ where });
-        }
-
-        // Apply date filters if needed
-        if (filters.fromDate || filters.toDate) {
-            const payments = await this.paymentRepository.find({
-                where: {
-                    studentId: In(studentIds),
-                    ...(filters.fromDate && { date: Between(filters.fromDate, filters.toDate || filters.fromDate) })
-                }
-            });
-
-            // Filter fees that have payments in the date range
-            const studentIdsWithPayments = [...new Set(payments.map(p => p.studentId))];
-            return fees.filter(f => studentIdsWithPayments.includes(f.studentId));
         }
 
         return fees;
