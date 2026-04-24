@@ -376,10 +376,19 @@ export class FeesService {
         //     className: data.classId ? classes.find(c => c.id === data.classId)?.name : null
         // };
 
+        // const feeData: Partial<FeeStructure> = {
+        //     ...data,
+        //     total: total,
+        //     isActive: true,
+        //     classId: data.classId && data.classId !== '' ? data.classId : null,
+        //     className: data.classId ? classes.find(c => c.id === data.classId)?.name : null
+        // };
+
         const feeData: Partial<FeeStructure> = {
             ...data,
             total: total,
             isActive: true,
+            schoolId: schoolId,  // ← ADD THIS LINE
             classId: data.classId && data.classId !== '' ? data.classId : null,
             className: data.classId ? classes.find(c => c.id === data.classId)?.name : null
         };
