@@ -67,16 +67,38 @@ export class FeesService {
     //     return this.feeStructureRepository.find({ where, order: { term: 'ASC' } });
     // }
 
+    // async getFeeStructures(schoolId: string, term?: string, academicYear?: string): Promise<FeeStructure[]> {
+    //     const where: any = {
+    //         isActive: true,
+    //         schoolId: schoolId  // ← ADD THIS LINE
+    //     };
+
+    //     if (term) where.term = term;
+    //     if (academicYear) where.academicYear = academicYear;
+
+    //     // Get all classes for this school
+    //     const classes = await this.classRepository.find({
+    //         where: { schoolId: schoolId }
+    //     });
+
+    //     const classIds = classes.map(c => c.id);
+
+    //     if (classIds.length > 0) {
+    //         where.classId = In([...classIds, null]);
+    //     }
+
+    //     return this.feeStructureRepository.find({ where, order: { term: 'ASC' } });
+    // }
+
     async getFeeStructures(schoolId: string, term?: string, academicYear?: string): Promise<FeeStructure[]> {
         const where: any = {
             isActive: true,
-            schoolId: schoolId  // ← ADD THIS LINE
+            schoolId: schoolId
         };
 
         if (term) where.term = term;
         if (academicYear) where.academicYear = academicYear;
 
-        // Get all classes for this school
         const classes = await this.classRepository.find({
             where: { schoolId: schoolId }
         });
@@ -85,6 +107,8 @@ export class FeesService {
 
         if (classIds.length > 0) {
             where.classId = In([...classIds, null]);
+        } else {
+            where.classId = null;
         }
 
         return this.feeStructureRepository.find({ where, order: { term: 'ASC' } });
