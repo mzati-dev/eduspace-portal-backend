@@ -444,6 +444,7 @@ export class StudentsService {
         present: activeReport.daysPresent || 0,
         absent: activeReport.daysAbsent || 0,
         late: activeReport.daysLate || 0,
+        total: activeReport.totalSchoolDays || 0,
       },
       classRank: activeReport.classRank || 0,
       qa1Rank: activeReport.qa1Rank || 0,
@@ -1081,6 +1082,7 @@ export class StudentsService {
       daysPresent: reportCardData.days_present || reportCardData.daysPresent || 0,
       daysAbsent: reportCardData.days_absent || reportCardData.daysAbsent || 0,
       daysLate: reportCardData.days_late || reportCardData.daysLate || 0,
+      totalSchoolDays: reportCardData.total_school_days || reportCardData.totalSchoolDays || 0,  // ← ADD THIS
       teacherRemarks: reportCardData.teacher_remarks || reportCardData.teacherRemarks || '',
     };
 

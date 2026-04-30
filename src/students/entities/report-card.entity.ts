@@ -32,6 +32,9 @@ export class ReportCard {
     @Column({ default: 0 })
     daysLate!: number;
 
+    @Column({ default: 0 })
+    totalSchoolDays!: number;
+
     @Column({ type: 'text', nullable: true })
     teacherRemarks!: string;
 
