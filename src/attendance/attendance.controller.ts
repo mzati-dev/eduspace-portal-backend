@@ -322,6 +322,32 @@ export class AttendanceController {
         }
     }
 
+    // ✅ ADD THIS NEW ENDPOINT HERE:
+    /**
+     * Get attendance summary for a student for report card
+     * GET /attendance/student/:studentId/summary?startDate=2024-01-01&endDate=2024-03-31
+     */
+    @Get('student/:studentId/summary')
+    async getStudentAttendanceSummary(
+        @Param('studentId') studentId: string,
+        @Query('startDate') startDate: string,
+        @Query('endDate') endDate: string
+    ) {
+        try {
+            const summary = await this.attendanceService.getStudentAttendanceSummaryForReportCard(
+                studentId,
+                startDate,
+                endDate
+            );
+            return {
+                success: true,
+                data: summary
+            };
+        } catch (error) {
+            return this.handleError(error);
+        }
+    }
+
     // ========== TERMS & HOLIDAYS ==========
 
     /**

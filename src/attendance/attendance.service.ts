@@ -968,4 +968,38 @@ export class AttendanceService {
         const days = Math.floor((date.getTime() - startDate.getTime()) / 86400000);
         return Math.ceil((days + startDate.getDay() + 1) / 7);
     }
+
+    // ========== REPORT CARD ATTENDANCE SUMMARY ==========
+
+    async getStudentAttendanceSummaryForReportCard(
+        studentId: string,
+        startDate: string,
+        endDate: string
+    ): Promise<{ present: number; absent: number; late: number; total: number; attendanceRate: number }> {
+        // Get all attendance records for this student within the date range
+        const attendances = await this.attendanceRepo.find({
+            where: {
+                studentId: studentId,
+                date: Between(startDate, endDate)
+            }
+        });
+
+        // Calculate counts
+        const present = attendances.filter(a => a.status === 'present').length;
+        const absent = attendances.filter(a => a.status === 'absent').length;
+        const late = attendances.filter(a => a.status === 'late').length;
+        const total = attendances.length;
+
+        // Attendance rate: present + late are considered "attended"
+        const attended = present + late;
+        const attendanceRate = total > 0 ? Number(((attended / total) * 100).toFixed(1)) : 0;
+
+        return {
+            present,
+            absent,
+            late,
+            total,
+            attendanceRate
+        };
+    }
 }
