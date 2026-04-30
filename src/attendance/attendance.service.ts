@@ -970,13 +970,12 @@ export class AttendanceService {
     }
 
     // ========== REPORT CARD ATTENDANCE SUMMARY ==========
-
     async getStudentAttendanceSummaryForReportCard(
         studentId: string,
         startDate: string,
         endDate: string
     ): Promise<{ present: number; absent: number; late: number; total: number; attendanceRate: number }> {
-        // Get all attendance records for this student within the date range
+        // Get attendance records
         const attendances = await this.attendanceRepo.find({
             where: {
                 studentId: studentId,
@@ -984,21 +983,43 @@ export class AttendanceService {
             }
         });
 
+        // Get holidays
+        const publicHolidays = await this.publicHolidayRepo.find();
+        const schoolHolidays = await this.schoolHolidayRepo.find();
+        const allHolidays = new Set([
+            ...publicHolidays.map(h => h.date),
+            ...schoolHolidays.map(h => h.date)
+        ]);
+
+        // Calculate total school days in term (Mon-Fri, excluding holidays)
+        let totalSchoolDays = 0;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        let current = new Date(start);
+
+        while (current <= end) {
+            const dayOfWeek = current.getDay();
+            const dateStr = current.toISOString().split('T')[0];
+
+            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                totalSchoolDays++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+
         // Calculate counts
         const present = attendances.filter(a => a.status === 'present').length;
         const absent = attendances.filter(a => a.status === 'absent').length;
         const late = attendances.filter(a => a.status === 'late').length;
-        const total = attendances.length;
 
-        // Attendance rate: present + late are considered "attended"
         const attended = present + late;
-        const attendanceRate = total > 0 ? Number(((attended / total) * 100).toFixed(1)) : 0;
+        const attendanceRate = totalSchoolDays > 0 ? Number(((attended / totalSchoolDays) * 100).toFixed(1)) : 0;
 
         return {
             present,
             absent,
             late,
-            total,
+            total: totalSchoolDays,
             attendanceRate
         };
     }
