@@ -16,6 +16,7 @@ import { TimetableModule } from './timetable/timetable.module';
 import { SettingsModule } from './settings/settings.module';
 import { TimetableTeacherModule } from './timetable-teacher/timetable-teacher.module';
 import { ReportsModule } from './reports/reports.module';
+import { RemindersModule } from './reminders/reminders.module';
 
 @Module({
   imports: [
@@ -109,6 +110,8 @@ import { ReportsModule } from './reports/reports.module';
     TimetableTeacherModule,
 
     ReportsModule,
+
+    RemindersModule,
 
 
 

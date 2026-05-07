@@ -804,6 +804,7 @@ export class TeachersService {
             daysPresent: reportCardData.days_present !== undefined ? reportCardData.days_present : 0,
             daysAbsent: reportCardData.days_absent !== undefined ? reportCardData.days_absent : 0,
             daysLate: reportCardData.days_late !== undefined ? reportCardData.days_late : 0,
+            totalSchoolDays: reportCardData.total_school_days !== undefined ? reportCardData.total_school_days : 0,
             teacherRemarks: reportCardData.teacher_remarks || reportCardData.teacherRemarks || '',
         };
 
