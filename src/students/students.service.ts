@@ -2309,30 +2309,67 @@ export class StudentsService {
   // locked_by_admin: boolean default false
 
   async publishAssessment(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm', publish: boolean) {
-    // First, get all students in this class
+    // Get all students in this class
     const students = await this.studentRepository.find({
       where: { class: { id: classId } }
     });
 
-    const studentIds = students.map(s => s.id);
-
-    if (studentIds.length === 0) {
+    if (students.length === 0) {
       return { message: 'No students found in this class' };
     }
 
-    // Then update report cards for these students
-    await this.reportCardRepository.update(
-      {
-        student: { id: In(studentIds) },
-        term: term
-      },
-      {
-        [`${assessmentType}_published`]: publish
+    // Update or create report cards for each student
+    for (const student of students) {
+      let reportCard = await this.reportCardRepository.findOne({
+        where: {
+          student: { id: student.id },
+          term: term
+        }
+      });
+
+      if (!reportCard) {
+        // Create new report card if it doesn't exist
+        reportCard = this.reportCardRepository.create({
+          student: student,
+          term: term,
+          [`${assessmentType}_published`]: publish
+        });
+      } else {
+        // Update existing report card
+        reportCard[`${assessmentType}_published`] = publish;
       }
-    );
+
+      await this.reportCardRepository.save(reportCard);
+    }
 
     return { message: `Assessment ${publish ? 'published' : 'unpublished'} successfully` };
-  }
+}
+
+  // async publishAssessment(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm', publish: boolean) {
+  //   // First, get all students in this class
+  //   const students = await this.studentRepository.find({
+  //     where: { class: { id: classId } }
+  //   });
+
+  //   const studentIds = students.map(s => s.id);
+
+  //   if (studentIds.length === 0) {
+  //     return { message: 'No students found in this class' };
+  //   }
+
+  //   // Then update report cards for these students
+  //   await this.reportCardRepository.update(
+  //     {
+  //       student: { id: In(studentIds) },
+  //       term: term
+  //     },
+  //     {
+  //       [`${assessmentType}_published`]: publish
+  //     }
+  //   );
+
+  //   return { message: `Assessment ${publish ? 'published' : 'unpublished'} successfully` };
+  // }
 
 
   // async lockResults(
