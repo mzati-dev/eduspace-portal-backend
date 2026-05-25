@@ -3302,6 +3302,74 @@ export class StudentsService {
     return students;
   }
 
+  async getSubjectPerformance(schoolId?: string) {
+    // Get active grade config for pass mark
+    const gradeConfig = await this.getActiveGradeConfiguration(schoolId);
+    const passMark = gradeConfig.pass_mark;
+
+    // Get all assessments for all three types
+    const assessments = await this.assessmentRepository
+      .createQueryBuilder('assessment')
+      .leftJoinAndSelect('assessment.subject', 'subject')
+      .leftJoinAndSelect('assessment.student', 'student')
+      .where('assessment.assessmentType IN (:...types)', {
+        types: ['qa1', 'qa2', 'end_of_term']
+      })
+      .andWhere('assessment.score IS NOT NULL');
+
+    if (schoolId) {
+      assessments.andWhere('student.schoolId = :schoolId', { schoolId });
+    }
+
+    const results = await assessments.getMany();
+
+    // Initialize stats for each assessment type
+    const subjectStats = new Map();
+
+    results.forEach(assessment => {
+      const subjectName = assessment.subject.name;
+      const assessmentType = assessment.assessmentType;
+      const score = assessment.score;
+      // score is not null because of IS NOT NULL in query
+      const passed = score !== null && score >= passMark;
+      const key = `${subjectName}_${assessmentType}`;
+
+      if (!subjectStats.has(key)) {
+        subjectStats.set(key, {
+          subjectName,
+          assessmentType,
+          total: 0,
+          passed: 0
+        });
+      }
+
+      const stats = subjectStats.get(key);
+      stats.total++;
+      if (passed) stats.passed++;
+    });
+
+    // Group by assessment type
+    const result = {
+      qa1: [] as { subjectName: string; passRate: number }[],
+      qa2: [] as { subjectName: string; passRate: number }[],
+      endOfTerm: [] as { subjectName: string; passRate: number }[]
+    };
+
+    subjectStats.forEach(stat => {
+      const passRate = stat.total > 0 ? Math.round((stat.passed / stat.total) * 100) : 0;
+
+      if (stat.assessmentType === 'qa1') {
+        result.qa1.push({ subjectName: stat.subjectName, passRate });
+      } else if (stat.assessmentType === 'qa2') {
+        result.qa2.push({ subjectName: stat.subjectName, passRate });
+      } else if (stat.assessmentType === 'end_of_term') {
+        result.endOfTerm.push({ subjectName: stat.subjectName, passRate });
+      }
+    });
+
+    return result;
+  }
+
   // private async parseStudentFile(file: any): Promise<{ name: string }[]> {
   //   const students: { name: string }[] = [];
 

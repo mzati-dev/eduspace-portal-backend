@@ -146,6 +146,11 @@ export class SubjectsController {
   ) {
     return this.studentsService.deleteSubject(id, schoolId);
   }
+
+  @Get('performance')
+  async getSubjectPerformance(@Query('schoolId') schoolId?: string) {
+    return this.studentsService.getSubjectPerformance(schoolId);
+  }
 }
 
 // Grade Configurations Controller
