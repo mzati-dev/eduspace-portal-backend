@@ -18,6 +18,15 @@ export class Student {
     @Column()
     name!: string;
 
+    // 👇 ADD GENDER HERE (after name, before parentEmail)
+    @Column({
+        type: 'varchar',
+        length: 10,
+        nullable: true,
+        enum: ['Male', 'Female', 'Other']
+    })
+    gender?: string;
+
     // 👇 ADD THESE THREE FIELDS HERE
     @Column({ nullable: true })
     parentEmail?: string;

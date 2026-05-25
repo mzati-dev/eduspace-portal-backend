@@ -680,6 +680,7 @@ export class StudentsService {
       class: classEntity,
       photoUrl: studentData.photo_url,
       schoolId: schoolId,
+      gender: studentData.gender,
 
       // NEW FIELDS FROM FRONTEND FORM
       emisCode: studentData.emis_code,
@@ -767,6 +768,7 @@ export class StudentsService {
     // Map form fields to entity fields - USE THIS APPROACH, not allowedUpdates.forEach
     const fieldMapping = {
       name: 'name',
+      gender: 'gender',
       photo_url: 'photoUrl',
       emis_code: 'emisCode',
       parent_name: 'parentName',
@@ -2343,7 +2345,7 @@ export class StudentsService {
     }
 
     return { message: `Assessment ${publish ? 'published' : 'unpublished'} successfully` };
-}
+  }
 
   // async publishAssessment(classId: string, term: string, assessmentType: 'qa1' | 'qa2' | 'endOfTerm', publish: boolean) {
   //   // First, get all students in this class
