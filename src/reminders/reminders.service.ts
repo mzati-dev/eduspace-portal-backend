@@ -1,7 +1,9 @@
+// src/modules/reminders/reminders.service.ts
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Reminder } from './entities/reminder.entity';
 import { Repository } from 'typeorm';
+import { Reminder } from './entities/reminder.entity';
 
 @Injectable()
 export class RemindersService {
@@ -10,49 +12,40 @@ export class RemindersService {
     private reminderRepository: Repository<Reminder>,
   ) { }
 
-  async findAll(schoolId?: string) {
-    const query = this.reminderRepository
-      .createQueryBuilder('reminder')
-      .where('reminder.is_active = true')
-      .orderBy('reminder.reminder_date', 'ASC');
-
-    if (schoolId) {
-      query.andWhere('reminder.schoolId = :schoolId', { schoolId });
-    }
-
-    return query.getMany();
-  }
-
-  async create(data: any, schoolId?: string) {
+  async create(data: any, userId: string, userRole: string, schoolId: string): Promise<Reminder> {
     const reminder = this.reminderRepository.create({
       message: data.message,
       type: data.type,
-      reminder_date: data.reminder_date,
-      is_active: true,
+      audience: data.audience,
+      reminderDate: new Date(data.reminder_date),
       schoolId: schoolId,
+      createdBy: userId,
+      createdByRole: userRole,
     });
-    return this.reminderRepository.save(reminder);
+    return await this.reminderRepository.save(reminder);
   }
 
-  async update(id: string, updates: any, schoolId?: string) {
-    const reminder = await this.reminderRepository.findOne({
-      where: { id, schoolId: schoolId }
+  async findAll(schoolId: string): Promise<Reminder[]> {
+    return await this.reminderRepository.find({
+      where: { schoolId },
+      order: { reminderDate: 'ASC', createdAt: 'DESC' },
     });
-    if (!reminder) throw new NotFoundException('Reminder not found');
-
-    if (updates.message) reminder.message = updates.message;
-    if (updates.type) reminder.type = updates.type;
-    if (updates.reminder_date) reminder.reminder_date = updates.reminder_date;
-    if (updates.is_active !== undefined) reminder.is_active = updates.is_active;
-
-    return this.reminderRepository.save(reminder);
   }
 
-  async delete(id: string, schoolId?: string) {
+  async findOne(id: string, schoolId: string): Promise<Reminder> {
     const reminder = await this.reminderRepository.findOne({
-      where: { id, schoolId: schoolId }
+      where: { id, schoolId }
     });
-    if (!reminder) throw new NotFoundException('Reminder not found');
-    return this.reminderRepository.remove(reminder);
+    if (!reminder) {
+      throw new NotFoundException('Reminder not found');
+    }
+    return reminder;
+  }
+
+  async remove(id: string, schoolId: string): Promise<void> {
+    const result = await this.reminderRepository.delete({ id, schoolId });
+    if (result.affected === 0) {
+      throw new NotFoundException('Reminder not found');
+    }
   }
 }

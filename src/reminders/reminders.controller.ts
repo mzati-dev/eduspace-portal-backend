@@ -1,27 +1,29 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+// src/modules/reminders/reminders.controller.ts
+
+import { Controller, Get, Post, Body, Delete, Param, Request } from '@nestjs/common';
 import { RemindersService } from './reminders.service';
 
-@Controller('api/reminders')
+@Controller('reminders')
 export class RemindersController {
   constructor(private readonly remindersService: RemindersService) { }
 
-  @Get()
-  async findAll(@Query('schoolId') schoolId?: string) {
-    return this.remindersService.findAll(schoolId);
-  }
-
   @Post()
-  async create(@Body() data: any, @Query('schoolId') schoolId?: string) {
-    return this.remindersService.create(data, schoolId);
+  create(@Body() body: any, @Request() req) {
+    return this.remindersService.create(
+      body,
+      req.user.id,
+      req.user.role,
+      req.user.schoolId,
+    );
   }
 
-  @Patch(':id')
-  async update(@Param('id') id: string, @Body() updates: any, @Query('schoolId') schoolId?: string) {
-    return this.remindersService.update(id, updates, schoolId);
+  @Get()
+  findAll(@Request() req) {
+    return this.remindersService.findAll(req.user.schoolId);
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: string, @Query('schoolId') schoolId?: string) {
-    return this.remindersService.delete(id, schoolId);
+  remove(@Param('id') id: string, @Request() req) {
+    return this.remindersService.remove(id, req.user.schoolId);
   }
 }

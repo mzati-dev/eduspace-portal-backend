@@ -8,8 +8,6 @@ import { SchoolsModule } from './schools/schools.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { ParentsModule } from './parents/parents.module';
 import { AttendanceModule } from './attendance/attendance.module';
-import { MessagingModule } from './messaging/messaging.module';
-import { TeacherMessagesModule } from './teacher-messages/teacher-messages.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FeesModule } from './fees/fees.module';
 import { TimetableModule } from './timetable/timetable.module';
@@ -17,6 +15,8 @@ import { SettingsModule } from './settings/settings.module';
 import { TimetableTeacherModule } from './timetable-teacher/timetable-teacher.module';
 import { ReportsModule } from './reports/reports.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { MessagesModule } from './messages/messages.module';
 
 @Module({
   imports: [
@@ -95,9 +95,7 @@ import { RemindersModule } from './reminders/reminders.module';
 
     AttendanceModule,
 
-    MessagingModule,
-
-    TeacherMessagesModule,
+    MessagesModule,
 
     AnalyticsModule,
 
@@ -112,6 +110,8 @@ import { RemindersModule } from './reminders/reminders.module';
     ReportsModule,
 
     RemindersModule,
+
+    AnnouncementsModule,
 
 
 

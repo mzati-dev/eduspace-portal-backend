@@ -1,28 +1,42 @@
+// src/modules/reminders/entities/reminder.entity.ts
+
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('general_reminders')
+@Entity('reminders')
 export class Reminder {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
 
-    @Column({ nullable: true })
-    schoolId!: string;
-
-    @Column()
+    @Column({ type: 'text' })
     message!: string;
 
     @Column({ type: 'varchar', length: 20 })
-    type!: 'urgent' | 'warning' | 'info';
+    type!: string; // 'info', 'warning', 'urgent'
 
-    @Column({ type: 'date' })
-    reminder_date!: Date;
+    @Column({ type: 'varchar', length: 20 })
+    audience!: string; // 'teachers', 'parents', 'both'
 
-    @Column({ default: true })
-    is_active!: boolean;
+    @Column({ type: 'date', name: 'reminder_date' })
+    reminderDate!: Date;
 
-    @CreateDateColumn()
-    created_at!: Date;
+    @Column({ name: 'school_id', type: 'uuid', nullable: true })
+    schoolId!: string;
 
-    @UpdateDateColumn()
-    updated_at!: Date;
+    @Column({ name: 'created_by', type: 'uuid' })
+    createdBy!: string;
+
+    @Column({ name: 'created_by_role', type: 'varchar', length: 20 })
+    createdByRole!: string;
+
+    @Column({ name: 'is_sent', type: 'boolean', default: false })
+    isSent!: boolean;
+
+    @Column({ name: 'sent_at', type: 'timestamp', nullable: true })
+    sentAt!: Date;
+
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt!: Date;
+
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt!: Date;
 }
