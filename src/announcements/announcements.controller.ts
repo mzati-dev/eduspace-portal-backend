@@ -1,54 +1,73 @@
 // src/modules/announcements/announcements.controller.ts
 
-import { Controller, Get, Post, Body, Patch, Delete, Param, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Delete, Param, Query, Headers, BadRequestException } from '@nestjs/common';
 import { AnnouncementsService } from './announcements.service';
 
-@Controller('announcements')
+@Controller('api/announcements')
 export class AnnouncementsController {
     constructor(private readonly announcementsService: AnnouncementsService) { }
 
     @Post()
-    create(@Body() body: any, @Request() req) {
-        return this.announcementsService.create(
-            body,
-            req.user.id,
-            req.user.role,
-            req.user.schoolId,
-        );
+    async create(
+        @Body() body: any,
+        @Headers('x-user-id') userId?: string,
+        @Headers('x-user-role') userRole?: string,
+        @Query('schoolId') schoolId?: string
+    ) {
+        if (!userId || !userRole) {
+            throw new BadRequestException('User ID and Role are required');
+        }
+        return this.announcementsService.create(body, userId, userRole, schoolId);
     }
 
     @Get()
-    findAll(@Request() req) {
-        return this.announcementsService.findAll(req.user.schoolId);
+    async findAll(@Query('schoolId') schoolId?: string) {
+        return this.announcementsService.findAll(schoolId);
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string, @Request() req) {
-        return this.announcementsService.findOne(id, req.user.schoolId);
+    async findOne(
+        @Param('id') id: string,
+        @Query('schoolId') schoolId?: string
+    ) {
+        return this.announcementsService.findOne(id, schoolId);
     }
 
     @Patch(':id')
-    update(@Param('id') id: string, @Body() body: any, @Request() req) {
-        return this.announcementsService.update(id, body, req.user.schoolId);
+    async update(
+        @Param('id') id: string,
+        @Body() body: any,
+        @Query('schoolId') schoolId?: string
+    ) {
+        return this.announcementsService.update(id, body, schoolId);
     }
 
     @Delete(':id')
-    remove(@Param('id') id: string, @Request() req) {
-        return this.announcementsService.remove(id, req.user.schoolId);
+    async remove(
+        @Param('id') id: string,
+        @Query('schoolId') schoolId?: string
+    ) {
+        return this.announcementsService.remove(id, schoolId);
     }
 
     @Post(':id/read')
-    markAsRead(@Param('id') id: string, @Request() req) {
-        return this.announcementsService.markAsRead(
-            id,
-            req.user.id,
-            req.user.role,
-            req.user.schoolId,
-        );
+    async markAsRead(
+        @Param('id') id: string,
+        @Headers('x-user-id') userId?: string,
+        @Headers('x-user-role') userRole?: string,
+        @Query('schoolId') schoolId?: string
+    ) {
+        if (!userId || !userRole) {
+            throw new BadRequestException('User ID and Role are required');
+        }
+        return this.announcementsService.markAsRead(id, userId, userRole, schoolId);
     }
 
     @Get(':id/read/count')
-    getReadCount(@Param('id') id: string, @Request() req) {
-        return this.announcementsService.getReadCount(id, req.user.schoolId);
+    async getReadCount(
+        @Param('id') id: string,
+        @Query('schoolId') schoolId?: string
+    ) {
+        return this.announcementsService.getReadCount(id, schoolId);
     }
 }

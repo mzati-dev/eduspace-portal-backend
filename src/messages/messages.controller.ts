@@ -1,54 +1,69 @@
 // src/modules/messages/messages.controller.ts
 
-import { Controller, Get, Post, Body, Delete, Param, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Delete, Param, Query, Headers, BadRequestException } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 
-@Controller('messages')
+@Controller('api/messages')
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) { }
 
   @Post()
-  sendMessage(@Body() body: any, @Request() req) {
-    return this.messagesService.sendMessage(
-      body,
-      req.user.id,
-      req.user.role,
-      req.user.schoolId,
-    );
+  async sendMessage(
+    @Body() body: any,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-user-role') userRole?: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    if (!userId || !userRole) {
+      throw new BadRequestException('User ID and Role are required');
+    }
+    return this.messagesService.sendMessage(body, userId, userRole, schoolId);
   }
 
   @Get('conversations')
-  getConversations(@Request() req) {
-    return this.messagesService.getConversations(
-      req.user.id,
-      req.user.role,
-      req.user.schoolId,
-    );
+  async getConversations(
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-user-role') userRole?: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    if (!userId || !userRole) {
+      throw new BadRequestException('User ID and Role are required');
+    }
+    return this.messagesService.getConversations(userId, userRole, schoolId);
   }
 
   @Get('conversations/:id')
-  getConversationMessages(@Param('id') id: string, @Request() req) {
-    return this.messagesService.getConversationMessages(
-      id,
-      req.user.id,
-      req.user.schoolId,
-    );
+  async getConversationMessages(
+    @Param('id') id: string,
+    @Headers('x-user-id') userId?: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+    return this.messagesService.getConversationMessages(id, userId, schoolId);
   }
 
   @Get('unread/count')
-  getUnreadCount(@Request() req) {
-    return this.messagesService.getUnreadCount(
-      req.user.id,
-      req.user.schoolId,
-    );
+  async getUnreadCount(
+    @Headers('x-user-id') userId?: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+    return this.messagesService.getUnreadCount(userId, schoolId);
   }
 
   @Delete(':id')
-  deleteMessage(@Param('id') id: string, @Request() req) {
-    return this.messagesService.deleteMessage(
-      id,
-      req.user.id,
-      req.user.schoolId,
-    );
+  async deleteMessage(
+    @Param('id') id: string,
+    @Headers('x-user-id') userId?: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+    return this.messagesService.deleteMessage(id, userId, schoolId);
   }
 }

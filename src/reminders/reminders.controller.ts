@@ -1,29 +1,35 @@
 // src/modules/reminders/reminders.controller.ts
 
-import { Controller, Get, Post, Body, Delete, Param, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Delete, Param, Query, Headers, BadRequestException } from '@nestjs/common';
 import { RemindersService } from './reminders.service';
 
-@Controller('reminders')
+@Controller('api/reminders')
 export class RemindersController {
   constructor(private readonly remindersService: RemindersService) { }
 
   @Post()
-  create(@Body() body: any, @Request() req) {
-    return this.remindersService.create(
-      body,
-      req.user.id,
-      req.user.role,
-      req.user.schoolId,
-    );
+  async create(
+    @Body() body: any,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-user-role') userRole?: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    if (!userId || !userRole) {
+      throw new BadRequestException('User ID and Role are required');
+    }
+    return this.remindersService.create(body, userId, userRole, schoolId);
   }
 
   @Get()
-  findAll(@Request() req) {
-    return this.remindersService.findAll(req.user.schoolId);
+  async findAll(@Query('schoolId') schoolId?: string) {
+    return this.remindersService.findAll(schoolId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
-    return this.remindersService.remove(id, req.user.schoolId);
+  async remove(
+    @Param('id') id: string,
+    @Query('schoolId') schoolId?: string
+  ) {
+    return this.remindersService.remove(id, schoolId);
   }
 }

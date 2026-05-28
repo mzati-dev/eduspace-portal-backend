@@ -26,7 +26,7 @@ export class MessagesService {
     return allowed[senderRole]?.includes(recipientRole) || false;
   }
 
-  async sendMessage(data: any, senderId: string, senderRole: string, schoolId: string): Promise<Message> {
+  async sendMessage(data: any, senderId: string, senderRole: string, schoolId?: string): Promise<Message> {
     // Validate role permission
     if (!this.canMessage(senderRole, data.recipientRole)) {
       throw new ForbiddenException(`${senderRole} cannot message ${data.recipientRole}`);
@@ -87,14 +87,17 @@ export class MessagesService {
     return savedMessage;
   }
 
-  async getConversations(userId: string, userRole: string, schoolId: string): Promise<any[]> {
-    const conversations = await this.conversationRepository.find({
-      where: [
-        { participantOneId: userId, schoolId: schoolId },
-        { participantTwoId: userId, schoolId: schoolId },
-      ],
-      order: { lastMessageAt: 'DESC' },
-    });
+  async getConversations(userId: string, userRole: string, schoolId?: string): Promise<any[]> {
+    const query = this.conversationRepository.createQueryBuilder('conversation')
+      .where('conversation.participantOneId = :userId', { userId })
+      .orWhere('conversation.participantTwoId = :userId', { userId })
+      .orderBy('conversation.lastMessageAt', 'DESC');
+
+    if (schoolId) {
+      query.andWhere('conversation.schoolId = :schoolId', { schoolId });
+    }
+
+    const conversations = await query.getMany();
 
     // Return conversations with recipient info
     return conversations.map(conv => {
@@ -112,10 +115,15 @@ export class MessagesService {
     });
   }
 
-  async getConversationMessages(conversationId: string, userId: string, schoolId: string): Promise<Message[]> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId, schoolId: schoolId },
-    });
+  async getConversationMessages(conversationId: string, userId: string, schoolId?: string): Promise<Message[]> {
+    const query = this.conversationRepository.createQueryBuilder('conversation')
+      .where('conversation.id = :conversationId', { conversationId });
+
+    if (schoolId) {
+      query.andWhere('conversation.schoolId = :schoolId', { schoolId });
+    }
+
+    const conversation = await query.getOne();
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -127,14 +135,17 @@ export class MessagesService {
     }
 
     // Mark messages as read for this user
-    await this.messageRepository.update(
-      {
-        recipientId: userId,
-        read: false,
-        schoolId: schoolId,
-      },
-      { read: true, readAt: new Date() }
-    );
+    const updateQuery = this.messageRepository.createQueryBuilder()
+      .update(Message)
+      .set({ read: true, readAt: new Date() })
+      .where('recipientId = :userId', { userId })
+      .andWhere('read = false');
+
+    if (schoolId) {
+      updateQuery.andWhere('schoolId = :schoolId', { schoolId });
+    }
+
+    await updateQuery.execute();
 
     // Reset unread count for this user
     if (conversation.participantOneId === userId) {
@@ -145,37 +156,44 @@ export class MessagesService {
     await this.conversationRepository.save(conversation);
 
     // Get all messages between the two participants
-    return await this.messageRepository.find({
-      where: [
+    const messagesQuery = this.messageRepository.createQueryBuilder('message')
+      .where(
+        '(message.senderId = :participantOneId AND message.recipientId = :participantTwoId) OR (message.senderId = :participantTwoId AND message.recipientId = :participantOneId)',
         {
-          senderId: conversation.participantOneId,
-          recipientId: conversation.participantTwoId,
-          schoolId: schoolId,
-        },
-        {
-          senderId: conversation.participantTwoId,
-          recipientId: conversation.participantOneId,
-          schoolId: schoolId,
-        },
-      ],
-      order: { createdAt: 'ASC' },
-    });
+          participantOneId: conversation.participantOneId,
+          participantTwoId: conversation.participantTwoId,
+        }
+      )
+      .orderBy('message.createdAt', 'ASC');
+
+    if (schoolId) {
+      messagesQuery.andWhere('message.schoolId = :schoolId', { schoolId });
+    }
+
+    return await messagesQuery.getMany();
   }
 
-  async getUnreadCount(userId: string, schoolId: string): Promise<number> {
-    return await this.messageRepository.count({
-      where: {
-        recipientId: userId,
-        read: false,
-        schoolId: schoolId,
-      },
-    });
+  async getUnreadCount(userId: string, schoolId?: string): Promise<number> {
+    const query = this.messageRepository.createQueryBuilder('message')
+      .where('message.recipientId = :userId', { userId })
+      .andWhere('message.read = false');
+
+    if (schoolId) {
+      query.andWhere('message.schoolId = :schoolId', { schoolId });
+    }
+
+    return await query.getCount();
   }
 
-  async deleteMessage(messageId: string, userId: string, schoolId: string): Promise<void> {
-    const message = await this.messageRepository.findOne({
-      where: { id: messageId, schoolId: schoolId },
-    });
+  async deleteMessage(messageId: string, userId: string, schoolId?: string): Promise<void> {
+    const query = this.messageRepository.createQueryBuilder('message')
+      .where('message.id = :messageId', { messageId });
+
+    if (schoolId) {
+      query.andWhere('message.schoolId = :schoolId', { schoolId });
+    }
+
+    const message = await query.getOne();
 
     if (!message) {
       throw new NotFoundException('Message not found');
@@ -186,162 +204,14 @@ export class MessagesService {
       throw new NotFoundException('Message not found');
     }
 
-    await this.messageRepository.delete({ id: messageId, schoolId: schoolId });
+    const deleteQuery = this.messageRepository.createQueryBuilder()
+      .delete()
+      .where('id = :messageId', { messageId });
+
+    if (schoolId) {
+      deleteQuery.andWhere('schoolId = :schoolId', { schoolId });
+    }
+
+    await deleteQuery.execute();
   }
 }
-
-// // src/modules/messages/messages.service.ts
-
-// import { Injectable, NotFoundException } from '@nestjs/common';
-// import { InjectRepository } from '@nestjs/typeorm';
-// import { Repository } from 'typeorm';
-// import { Message } from './entities/message.entity';
-// import { Conversation } from './entities/conversation.entity';
-
-// @Injectable()
-// export class MessagesService {
-//   constructor(
-//     @InjectRepository(Message)
-//     private messageRepository: Repository<Message>,
-//     @InjectRepository(Conversation)
-//     private conversationRepository: Repository<Conversation>,
-//   ) { }
-
-//   async sendMessage(data: any, senderId: string, senderRole: string, schoolId: string): Promise<Message> {
-//     // Create the message
-//     const message = this.messageRepository.create({
-//       senderId: senderId,
-//       senderRole: senderRole,
-//       recipientId: data.recipientId,
-//       recipientRole: data.recipientRole,
-//       subject: data.subject || null,
-//       content: data.content,
-//       type: data.type || 'sms',
-//       schoolId: schoolId,
-//     });
-
-//     const savedMessage = await this.messageRepository.save(message);
-
-//     // Update or create conversation
-//     let conversation = await this.conversationRepository.findOne({
-//       where: [
-//         {
-//           participantOneId: senderId,
-//           participantTwoId: data.recipientId,
-//           schoolId: schoolId,
-//         },
-//         {
-//           participantOneId: data.recipientId,
-//           participantTwoId: senderId,
-//           schoolId: schoolId,
-//         },
-//       ],
-//     });
-
-//     if (!conversation) {
-//       conversation = this.conversationRepository.create({
-//         participantOneId: senderId,
-//         participantOneRole: senderRole,
-//         participantTwoId: data.recipientId,
-//         participantTwoRole: data.recipientRole,
-//         schoolId: schoolId,
-//       });
-//     }
-
-//     conversation.lastMessage = data.content;
-//     conversation.lastMessageAt = new Date();
-
-//     // Increment unread count for recipient
-//     if (conversation.participantOneId === data.recipientId) {
-//       conversation.unreadCountP1 += 1;
-//     } else {
-//       conversation.unreadCountP2 += 1;
-//     }
-
-//     await this.conversationRepository.save(conversation);
-
-//     return savedMessage;
-//   }
-
-//   async getConversations(userId: string, schoolId: string): Promise<Conversation[]> {
-//     return await this.conversationRepository.find({
-//       where: [
-//         { participantOneId: userId, schoolId: schoolId },
-//         { participantTwoId: userId, schoolId: schoolId },
-//       ],
-//       order: { lastMessageAt: 'DESC' },
-//     });
-//   }
-
-//   async getConversationMessages(conversationId: string, userId: string, schoolId: string): Promise<Message[]> {
-//     const conversation = await this.conversationRepository.findOne({
-//       where: { id: conversationId, schoolId: schoolId },
-//     });
-
-//     if (!conversation) {
-//       throw new NotFoundException('Conversation not found');
-//     }
-
-//     // Mark messages as read
-//     await this.messageRepository.update(
-//       {
-//         recipientId: userId,
-//         read: false,
-//         schoolId: schoolId,
-//       },
-//       { read: true, readAt: new Date() }
-//     );
-
-//     // Reset unread count for this user
-//     if (conversation.participantOneId === userId) {
-//       conversation.unreadCountP1 = 0;
-//     } else {
-//       conversation.unreadCountP2 = 0;
-//     }
-//     await this.conversationRepository.save(conversation);
-
-//     // Get all messages between the two participants
-//     return await this.messageRepository.find({
-//       where: [
-//         {
-//           senderId: conversation.participantOneId,
-//           recipientId: conversation.participantTwoId,
-//           schoolId: schoolId,
-//         },
-//         {
-//           senderId: conversation.participantTwoId,
-//           recipientId: conversation.participantOneId,
-//           schoolId: schoolId,
-//         },
-//       ],
-//       order: { createdAt: 'ASC' },
-//     });
-//   }
-
-//   async getUnreadCount(userId: string, schoolId: string): Promise<number> {
-//     return await this.messageRepository.count({
-//       where: {
-//         recipientId: userId,
-//         read: false,
-//         schoolId: schoolId,
-//       },
-//     });
-//   }
-
-//   async deleteMessage(messageId: string, userId: string, schoolId: string): Promise<void> {
-//     const message = await this.messageRepository.findOne({
-//       where: { id: messageId, schoolId: schoolId },
-//     });
-
-//     if (!message) {
-//       throw new NotFoundException('Message not found');
-//     }
-
-//     // Only sender or recipient can delete
-//     if (message.senderId !== userId && message.recipientId !== userId) {
-//       throw new NotFoundException('Message not found');
-//     }
-
-//     await this.messageRepository.delete({ id: messageId, schoolId: schoolId });
-//   }
-// }

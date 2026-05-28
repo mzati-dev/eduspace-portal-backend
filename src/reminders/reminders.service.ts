@@ -12,7 +12,7 @@ export class RemindersService {
     private reminderRepository: Repository<Reminder>,
   ) { }
 
-  async create(data: any, userId: string, userRole: string, schoolId: string): Promise<Reminder> {
+  async create(data: any, userId: string, userRole: string, schoolId?: string): Promise<Reminder> {
     const reminder = this.reminderRepository.create({
       message: data.message,
       type: data.type,
@@ -25,25 +25,32 @@ export class RemindersService {
     return await this.reminderRepository.save(reminder);
   }
 
-  async findAll(schoolId: string): Promise<Reminder[]> {
-    return await this.reminderRepository.find({
-      where: { schoolId },
-      order: { reminderDate: 'ASC', createdAt: 'DESC' },
-    });
+  async findAll(schoolId?: string): Promise<Reminder[]> {
+    const query = this.reminderRepository.createQueryBuilder('reminder');
+    if (schoolId) {
+      query.where('reminder.schoolId = :schoolId', { schoolId });
+    }
+    return query.orderBy('reminder.reminderDate', 'ASC').addOrderBy('reminder.createdAt', 'DESC').getMany();
   }
 
-  async findOne(id: string, schoolId: string): Promise<Reminder> {
-    const reminder = await this.reminderRepository.findOne({
-      where: { id, schoolId }
-    });
+  async findOne(id: string, schoolId?: string): Promise<Reminder> {
+    const query = this.reminderRepository.createQueryBuilder('reminder').where('reminder.id = :id', { id });
+    if (schoolId) {
+      query.andWhere('reminder.schoolId = :schoolId', { schoolId });
+    }
+    const reminder = await query.getOne();
     if (!reminder) {
       throw new NotFoundException('Reminder not found');
     }
     return reminder;
   }
 
-  async remove(id: string, schoolId: string): Promise<void> {
-    const result = await this.reminderRepository.delete({ id, schoolId });
+  async remove(id: string, schoolId?: string): Promise<void> {
+    const query = this.reminderRepository.createQueryBuilder('reminder').delete().where('id = :id', { id });
+    if (schoolId) {
+      query.andWhere('schoolId = :schoolId', { schoolId });
+    }
+    const result = await query.execute();
     if (result.affected === 0) {
       throw new NotFoundException('Reminder not found');
     }

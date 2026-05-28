@@ -15,7 +15,7 @@ export class AnnouncementsService {
         private announcementReadRepository: Repository<AnnouncementRead>,
     ) { }
 
-    async create(data: any, userId: string, userRole: string, schoolId: string): Promise<Announcement> {
+    async create(data: any, userId: string, userRole: string, schoolId?: string): Promise<Announcement> {
         const announcementData: Partial<Announcement> = {
             title: data.title,
             content: data.content,
@@ -37,24 +37,27 @@ export class AnnouncementsService {
         return await this.announcementRepository.save(announcement);
     }
 
-    async findAll(schoolId: string): Promise<Announcement[]> {
-        return await this.announcementRepository.find({
-            where: { schoolId },
-            order: { isPinned: 'DESC', publishDate: 'DESC' },
-        });
+    async findAll(schoolId?: string): Promise<Announcement[]> {
+        const query = this.announcementRepository.createQueryBuilder('announcement');
+        if (schoolId) {
+            query.where('announcement.schoolId = :schoolId', { schoolId });
+        }
+        return query.orderBy('announcement.isPinned', 'DESC').addOrderBy('announcement.publishDate', 'DESC').getMany();
     }
 
-    async findOne(id: string, schoolId: string): Promise<Announcement> {
-        const announcement = await this.announcementRepository.findOne({
-            where: { id, schoolId }
-        });
+    async findOne(id: string, schoolId?: string): Promise<Announcement> {
+        const query = this.announcementRepository.createQueryBuilder('announcement').where('announcement.id = :id', { id });
+        if (schoolId) {
+            query.andWhere('announcement.schoolId = :schoolId', { schoolId });
+        }
+        const announcement = await query.getOne();
         if (!announcement) {
             throw new NotFoundException('Announcement not found');
         }
         return announcement;
     }
 
-    async update(id: string, data: any, schoolId: string): Promise<Announcement> {
+    async update(id: string, data: any, schoolId?: string): Promise<Announcement> {
         const announcement = await this.findOne(id, schoolId);
 
         if (data.title !== undefined) announcement.title = data.title;
@@ -71,22 +74,28 @@ export class AnnouncementsService {
         return await this.announcementRepository.save(announcement);
     }
 
-    async remove(id: string, schoolId: string): Promise<void> {
-        const result = await this.announcementRepository.delete({ id, schoolId });
+    async remove(id: string, schoolId?: string): Promise<void> {
+        const query = this.announcementRepository.createQueryBuilder('announcement').delete().where('id = :id', { id });
+        if (schoolId) {
+            query.andWhere('schoolId = :schoolId', { schoolId });
+        }
+        const result = await query.execute();
         if (result.affected === 0) {
             throw new NotFoundException('Announcement not found');
         }
     }
 
-    async markAsRead(announcementId: string, userId: string, userRole: string, schoolId: string): Promise<void> {
-        const existing = await this.announcementReadRepository.findOne({
-            where: {
-                announcementId,
-                userId,
-                userRole,
-                schoolId
-            }
-        });
+    async markAsRead(announcementId: string, userId: string, userRole: string, schoolId?: string): Promise<void> {
+        const query = this.announcementReadRepository.createQueryBuilder('read')
+            .where('read.announcementId = :announcementId', { announcementId })
+            .andWhere('read.userId = :userId', { userId })
+            .andWhere('read.userRole = :userRole', { userRole });
+
+        if (schoolId) {
+            query.andWhere('read.schoolId = :schoolId', { schoolId });
+        }
+
+        const existing = await query.getOne();
 
         if (!existing) {
             const readData: Partial<AnnouncementRead> = {
@@ -100,23 +109,27 @@ export class AnnouncementsService {
         }
     }
 
-    async hasRead(announcementId: string, userId: string, schoolId: string): Promise<boolean> {
-        const read = await this.announcementReadRepository.findOne({
-            where: {
-                announcementId,
-                userId,
-                schoolId
-            }
-        });
+    async hasRead(announcementId: string, userId: string, schoolId?: string): Promise<boolean> {
+        const query = this.announcementReadRepository.createQueryBuilder('read')
+            .where('read.announcementId = :announcementId', { announcementId })
+            .andWhere('read.userId = :userId', { userId });
+
+        if (schoolId) {
+            query.andWhere('read.schoolId = :schoolId', { schoolId });
+        }
+
+        const read = await query.getOne();
         return !!read;
     }
 
-    async getReadCount(announcementId: string, schoolId: string): Promise<number> {
-        return await this.announcementReadRepository.count({
-            where: {
-                announcementId,
-                schoolId
-            }
-        });
+    async getReadCount(announcementId: string, schoolId?: string): Promise<number> {
+        const query = this.announcementReadRepository.createQueryBuilder('read')
+            .where('read.announcementId = :announcementId', { announcementId });
+
+        if (schoolId) {
+            query.andWhere('read.schoolId = :schoolId', { schoolId });
+        }
+
+        return await query.getCount();
     }
 }
