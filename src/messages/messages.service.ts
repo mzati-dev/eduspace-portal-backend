@@ -19,12 +19,22 @@ export class MessagesService {
   private canMessage(senderRole: string, recipientRole: string): boolean {
     const allowed: Record<string, string[]> = {
       admin: ['teacher', 'parent'],
-      teacher: ['admin', 'parent'],
-      parent: ['teacher', 'admin'],
+      school_admin: ['teacher', 'parent'],
+      teacher: ['admin', 'parent', 'school_admin'],
+      parent: ['teacher', 'admin', 'school_admin'],
     };
 
     return allowed[senderRole]?.includes(recipientRole) || false;
   }
+  // private canMessage(senderRole: string, recipientRole: string): boolean {
+  //   const allowed: Record<string, string[]> = {
+  //     admin: ['teacher', 'parent'],
+  //     teacher: ['admin', 'parent'],
+  //     parent: ['teacher', 'admin'],
+  //   };
+
+  //   return allowed[senderRole]?.includes(recipientRole) || false;
+  // }
 
   async sendMessage(data: any, senderId: string, senderRole: string, schoolId?: string): Promise<Message> {
     // Validate role permission
