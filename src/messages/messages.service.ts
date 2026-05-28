@@ -79,6 +79,8 @@ export class MessagesService {
         participantTwoId: data.recipientId,
         participantTwoRole: data.recipientRole,
         schoolId: schoolId,
+        unreadCountP1: 0,
+        unreadCountP2: 0,
       });
     }
 
@@ -86,10 +88,11 @@ export class MessagesService {
     conversation.lastMessageAt = new Date();
 
     // Increment unread count for recipient
+    // Increment unread count for recipient
     if (conversation.participantOneId === data.recipientId) {
-      conversation.unreadCountP1 += 1;
+      conversation.unreadCountP1 = (conversation.unreadCountP1 || 0) + 1;
     } else {
-      conversation.unreadCountP2 += 1;
+      conversation.unreadCountP2 = (conversation.unreadCountP2 || 0) + 1;
     }
 
     await this.conversationRepository.save(conversation);
