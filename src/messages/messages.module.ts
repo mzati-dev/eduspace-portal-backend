@@ -8,11 +8,11 @@ import { Message } from './entities/message.entity';
 import { Conversation } from './entities/conversation.entity';
 import { Student } from '../students/entities/student.entity';
 import { Teacher } from '../teachers/entities/teacher.entity';
+import { School } from '../schools/entities/school.entity';
 import { SchoolsModule } from '../schools/schools.module';
 
-
 @Module({
-  imports: [TypeOrmModule.forFeature([Message, Conversation, Student, Teacher]),
+  imports: [TypeOrmModule.forFeature([Message, Conversation, Student, Teacher, School]),
     SchoolsModule,
   ],
   controllers: [MessagesController],
