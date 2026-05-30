@@ -19,23 +19,23 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Entity('schools')
 export class School {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    name: string;
+    name!: string;
 
     @Column({ unique: true })
-    email: string;
+    email!: string;
 
     // Add these 3 new fields:
     @Column({ unique: true, nullable: true })
-    adminEmail: string;           // School admin's login email
+    adminEmail!: string;           // School admin's login email
 
     @Column({ nullable: true })
-    adminPassword: string;        // Hashed password for login
+    adminPassword!: string;        // Hashed password for login
 
     @Column({ nullable: true })
-    adminName: string;            // Admin's full name
+    adminName!: string;            // Admin's full name
 
     @Column({ nullable: true })
     phone?: string;
@@ -44,31 +44,31 @@ export class School {
     address?: string;
 
     @Column({ default: true })
-    isActive: boolean;
+    isActive!: boolean;
 
     // Add this role field for school admin
     @Column({ default: 'school_admin' })
-    role: string;
+    role!: string;
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 
     // Relations
     @OneToMany(() => User, user => user.school)
-    users: User[];
+    users!: User[];
 
     @OneToMany(() => Class, classEntity => classEntity.school)
-    classes: Class[];
+    classes!: Class[];
 
     @OneToMany(() => Student, student => student.school)
-    students: Student[];
+    students!: Student[];
 
     @OneToMany(() => Subject, subject => subject.school)
-    subjects: Subject[];
+    subjects!: Subject[];
 
     @OneToMany(() => GradeConfig, gradeConfig => gradeConfig.school)
-    gradeConfigs: GradeConfig[];
+    gradeConfigs!: GradeConfig[];
 }

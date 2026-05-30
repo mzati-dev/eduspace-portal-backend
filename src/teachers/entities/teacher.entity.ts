@@ -5,16 +5,16 @@ import { School } from '../../schools/entities/school.entity';
 @Entity('teachers')
 export class Teacher {
     @PrimaryGeneratedColumn('uuid')
-    id: string;
+    id!: string;
 
     @Column()
-    name: string;
+    name!: string;
 
     @Column({ unique: true })
-    email: string;
+    email!: string;
 
     @Column()
-    password: string;
+    password!: string;
 
     // 👇 ADD THESE NEW PROFILE FIELDS
     @Column({ nullable: true })
@@ -51,21 +51,21 @@ export class Teacher {
 
     @ManyToOne(() => School, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'school_id' })
-    school: School;
+    school!: School;
 
     @Column()
-    school_id: string;
+    school_id!: string;
 
     @Column({ default: true })
-    is_active: boolean;
+    is_active!: boolean;
 
     // ADD THIS - The relationship to the link table
     @OneToMany(() => TeacherClassSubject, teacherClassSubject => teacherClassSubject.teacher,)
-    classSubjects: TeacherClassSubject[];
+    classSubjects!: TeacherClassSubject[];
 
     @CreateDateColumn()
-    created_at: Date;
+    created_at!: Date;
 
     @UpdateDateColumn()
-    updated_at: Date;
+    updated_at!: Date;
 }
