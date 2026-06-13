@@ -9,6 +9,7 @@ import {
     Param,
     UseGuards,
     ParseUUIDPipe,
+    Res,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -85,4 +86,42 @@ export class SchoolsController {
     async permanentDelete(@Param('id', ParseUUIDPipe) id: string) {
         return this.schoolService.permanentlyDelete(id);
     }
+    @Get('sitemap')
+async generateSitemap(@Res() res) {
+    const schools = await this.schoolService.getAllSchools();
+    
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+    
+    // Main portal
+    xml += `
+  <url>
+    <loc>https://portal.eduspace.mzatinova.com/</loc>
+    <priority>1.0</priority>
+  </url>`;
+    
+    // School subdomains
+    schools.forEach(school => {
+        if (school.subdomain) {
+            xml += `
+  <url>
+    <loc>https://${school.subdomain}.eduspace.mzatinova.com/</loc>
+    <priority>0.8</priority>
+  </url>`;
+        }
+        if (school.custom_domain) {
+            xml += `
+  <url>
+    <loc>https://${school.custom_domain}/</loc>
+    <priority>0.8</priority>
+  </url>`;
+        }
+    });
+    
+    xml += `
+</urlset>`;
+    
+    res.setHeader('Content-Type', 'text/xml');
+    res.send(xml);
+}
 }
