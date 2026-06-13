@@ -259,6 +259,11 @@ export class StudentsService {
       .leftJoinAndSelect('student.class', 'class')
       .where('student.examNumber = :examNumber', { examNumber: examNumber })
 
+    // ✅ ADD THIS LINE
+    if (schoolId) {
+      query.andWhere('student.schoolId = :schoolId', { schoolId });
+    }
+
     const student = await query.getOne();
 
     if (!student) {
