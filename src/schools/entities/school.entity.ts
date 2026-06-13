@@ -1,9 +1,4 @@
-// src/entities/school.entity.ts
-// import { Class } from 'src/students/entities/class.entity';
-// import { GradeConfig } from 'src/students/entities/grade-config.entity';
-// import { Student } from 'src/students/entities/student.entity';
-// import { Subject } from 'src/students/entities/subject.entity';
-// import { User } from 'src/users/user.entity';
+
 import { Class } from '../../students/entities/class.entity';
 import { GradeConfig } from '../../students/entities/grade-config.entity';
 import { Student } from '../../students/entities/student.entity';
@@ -36,6 +31,14 @@ export class School {
 
     @Column({ nullable: true })
     adminName!: string;            // Admin's full name
+    @Column({ nullable: true, unique: true })
+    subdomain!: string;
+
+    @Column({ nullable: true })
+    logo_url!: string;
+
+    @Column({ nullable: true })
+    slogan!: string;
 
     @Column({ nullable: true })
     phone?: string;

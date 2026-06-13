@@ -38,6 +38,13 @@ export class SchoolsController {
         return this.schoolService.getAllSchools();
     }
 
+    @Get('by-subdomain/:subdomain')
+    @ApiOperation({ summary: 'Get school by subdomain' })
+    @ApiResponse({ status: 200, description: 'School details', type: School })
+    async findBySubdomain(@Param('subdomain') subdomain: string) {
+        return this.schoolService.findBySubdomain(subdomain);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get school by ID' })
     @ApiResponse({ status: 200, description: 'School details', type: School })

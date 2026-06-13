@@ -65,13 +65,16 @@ export class SchoolsService {
     adminEmail?: string;
     adminPassword?: string;
     adminName?: string;
+    subdomain?: string;
+    logo_url?: string;
+    slogan?: string;
   }) {
     console.log('=== DEBUG START ===');
     console.log('Full data received:', JSON.stringify(data, null, 2));
     console.log('Admin password exists?', !!data.adminPassword);
     console.log('Admin password:', data.adminPassword);
 
-    // ... your existing validation code ...
+ 
 
     const school = this.schoolRepository.create(data);
     console.log('School object after create (before hash):', {
@@ -168,68 +171,7 @@ export class SchoolsService {
     // It tells the database: "Delete this school AND everything linked to it."
     return this.schoolRepository.remove(school);
   }
+  async findBySubdomain(subdomain: string) {
+  return this.schoolRepository.findOne({ where: { subdomain } });
 }
-
-// // src/schools/school.service.ts
-// import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-// import { InjectRepository } from '@nestjs/typeorm';
-// import { Repository } from 'typeorm';
-// import { School } from './entities/school.entity';
-
-
-// @Injectable()
-// export class SchoolsService {
-//   constructor(
-//     @InjectRepository(School)
-//     private schoolRepository: Repository<School>,
-//   ) { }
-
-//   async createSchool(data: {
-//     name: string;
-//     email: string;
-//     phone?: string;
-//     address?: string;
-//   }) {
-//     // Check if email already exists
-//     const existing = await this.schoolRepository.findOne({ where: { email: data.email } });
-//     if (existing) {
-//       throw new BadRequestException('School with this email already exists');
-//     }
-
-//     const school = this.schoolRepository.create(data);
-//     return this.schoolRepository.save(school);
-//   }
-
-//   async getAllSchools() {
-//     return this.schoolRepository.find({
-//       order: { createdAt: 'DESC' },
-//     });
-//   }
-
-//   async getSchoolById(id: string) {
-//     const school = await this.schoolRepository.findOne({ where: { id } });
-//     if (!school) {
-//       throw new NotFoundException('School not found');
-//     }
-//     return school;
-//   }
-
-//   async updateSchool(id: string, data: Partial<School>) {
-//     const school = await this.getSchoolById(id);
-//     Object.assign(school, data);
-//     return this.schoolRepository.save(school);
-//   }
-
-//   async deleteSchool(id: string) {
-//     const school = await this.getSchoolById(id);
-//     // Soft delete - mark as inactive
-//     school.isActive = false;
-//     return this.schoolRepository.save(school);
-//   }
-
-//   async restoreSchool(id: string) {
-//     const school = await this.getSchoolById(id);
-//     school.isActive = true;
-//     return this.schoolRepository.save(school);
-//   }
-// }
+}
