@@ -44,6 +44,12 @@ export class SchoolsController {
     async findBySubdomain(@Param('subdomain') subdomain: string) {
         return this.schoolService.findBySubdomain(subdomain);
     }
+    @Get('by-domain/:domain')
+    @ApiOperation({ summary: 'Get school by custom domain' })
+    @ApiResponse({ status: 200, description: 'School details', type: School })
+    async findByDomain(@Param('domain') domain: string) {
+        return this.schoolService.findByCustomDomain(domain);
+    }
 
     @Get(':id')
     @ApiOperation({ summary: 'Get school by ID' })

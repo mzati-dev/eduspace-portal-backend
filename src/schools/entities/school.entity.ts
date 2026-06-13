@@ -40,6 +40,9 @@ export class School {
     @Column({ nullable: true })
     slogan!: string;
 
+    @Column({ nullable: true, unique: true })
+    custom_domain!: string;
+
     @Column({ nullable: true })
     phone?: string;
 

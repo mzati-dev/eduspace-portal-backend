@@ -68,6 +68,7 @@ export class SchoolsService {
     subdomain?: string;
     logo_url?: string;
     slogan?: string;
+     custom_domain?: string;
   }) {
     console.log('=== DEBUG START ===');
     console.log('Full data received:', JSON.stringify(data, null, 2));
@@ -173,5 +174,8 @@ export class SchoolsService {
   }
   async findBySubdomain(subdomain: string) {
   return this.schoolRepository.findOne({ where: { subdomain } });
+}
+async findByCustomDomain(customDomain: string) {
+  return this.schoolRepository.findOne({ where: { custom_domain: customDomain } });
 }
 }
