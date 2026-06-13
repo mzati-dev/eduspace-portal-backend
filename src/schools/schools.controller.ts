@@ -45,11 +45,51 @@ export class SchoolsController {
     async findBySubdomain(@Param('subdomain') subdomain: string) {
         return this.schoolService.findBySubdomain(subdomain);
     }
+
     @Get('by-domain/:domain')
     @ApiOperation({ summary: 'Get school by custom domain' })
     @ApiResponse({ status: 200, description: 'School details', type: School })
     async findByDomain(@Param('domain') domain: string) {
         return this.schoolService.findByCustomDomain(domain);
+    }
+
+    @Get('sitemap')
+    async generateSitemap(@Res() res) {
+        const schools = await this.schoolService.getAllSchools();
+        
+        let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+        
+        // Main portal
+        xml += `
+  <url>
+    <loc>https://portal.eduspace.mzatinova.com/</loc>
+    <priority>1.0</priority>
+  </url>`;
+        
+        // School subdomains
+        schools.forEach(school => {
+            if (school.subdomain) {
+                xml += `
+  <url>
+    <loc>https://${school.subdomain}.eduspace.mzatinova.com/</loc>
+    <priority>0.8</priority>
+  </url>`;
+            }
+            if (school.custom_domain) {
+                xml += `
+  <url>
+    <loc>https://${school.custom_domain}/</loc>
+    <priority>0.8</priority>
+  </url>`;
+            }
+        });
+        
+        xml += `
+</urlset>`;
+        
+        res.setHeader('Content-Type', 'text/xml');
+        res.send(xml);
     }
 
     @Get(':id')
@@ -86,42 +126,131 @@ export class SchoolsController {
     async permanentDelete(@Param('id', ParseUUIDPipe) id: string) {
         return this.schoolService.permanentlyDelete(id);
     }
-    @Get('sitemap')
-async generateSitemap(@Res() res) {
-    const schools = await this.schoolService.getAllSchools();
-    
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
-    
-    // Main portal
-    xml += `
-  <url>
-    <loc>https://portal.eduspace.mzatinova.com/</loc>
-    <priority>1.0</priority>
-  </url>`;
-    
-    // School subdomains
-    schools.forEach(school => {
-        if (school.subdomain) {
-            xml += `
-  <url>
-    <loc>https://${school.subdomain}.eduspace.mzatinova.com/</loc>
-    <priority>0.8</priority>
-  </url>`;
-        }
-        if (school.custom_domain) {
-            xml += `
-  <url>
-    <loc>https://${school.custom_domain}/</loc>
-    <priority>0.8</priority>
-  </url>`;
-        }
-    });
-    
-    xml += `
-</urlset>`;
-    
-    res.setHeader('Content-Type', 'text/xml');
-    res.send(xml);
 }
-}
+// // src/schools/school.controller.ts
+// import {
+//     Controller,
+//     Get,
+//     Post,
+//     Put,
+//     Delete,
+//     Body,
+//     Param,
+//     UseGuards,
+//     ParseUUIDPipe,
+//     Res,
+// } from '@nestjs/common';
+// import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+
+// import { AuthGuard } from '@nestjs/passport';
+// import { SchoolsService } from './schools.service';
+// import { School } from './entities/school.entity';
+
+
+// @ApiTags('schools')
+// @Controller('schools')
+// // @UseGuards(AuthGuard('jwt'), AdminGuard) // Only super admin can access
+// @ApiBearerAuth()
+// export class SchoolsController {
+//     constructor(private readonly schoolService: SchoolsService) { }
+
+//     @Post()
+//     @ApiOperation({ summary: 'Create a new school' })
+//     @ApiResponse({ status: 201, description: 'School created successfully', type: School })
+//     async create(@Body() data: any) {
+//         return this.schoolService.createSchool(data);
+//     }
+
+//     @Get()
+//     @ApiOperation({ summary: 'Get all schools' })
+//     @ApiResponse({ status: 200, description: 'List of schools', type: [School] })
+//     async findAll() {
+//         return this.schoolService.getAllSchools();
+//     }
+
+//     @Get('by-subdomain/:subdomain')
+//     @ApiOperation({ summary: 'Get school by subdomain' })
+//     @ApiResponse({ status: 200, description: 'School details', type: School })
+//     async findBySubdomain(@Param('subdomain') subdomain: string) {
+//         return this.schoolService.findBySubdomain(subdomain);
+//     }
+//     @Get('by-domain/:domain')
+//     @ApiOperation({ summary: 'Get school by custom domain' })
+//     @ApiResponse({ status: 200, description: 'School details', type: School })
+//     async findByDomain(@Param('domain') domain: string) {
+//         return this.schoolService.findByCustomDomain(domain);
+//     }
+
+//     @Get(':id')
+//     @ApiOperation({ summary: 'Get school by ID' })
+//     @ApiResponse({ status: 200, description: 'School details', type: School })
+//     async findOne(@Param('id', ParseUUIDPipe) id: string) {
+//         return this.schoolService.getSchoolById(id);
+//     }
+
+//     @Put(':id')
+//     @ApiOperation({ summary: 'Update school' })
+//     @ApiResponse({ status: 200, description: 'School updated successfully', type: School })
+//     async update(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+//         return this.schoolService.updateSchool(id, data);
+//     }
+
+//     @Delete(':id')
+//     @ApiOperation({ summary: 'Delete (deactivate) school' })
+//     @ApiResponse({ status: 200, description: 'School deactivated' })
+//     async delete(@Param('id', ParseUUIDPipe) id: string) {
+//         return this.schoolService.deleteSchool(id);
+//     }
+
+//     @Post(':id/restore')
+//     @ApiOperation({ summary: 'Restore school' })
+//     @ApiResponse({ status: 200, description: 'School restored' })
+//     async restore(@Param('id', ParseUUIDPipe) id: string) {
+//         return this.schoolService.restoreSchool(id);
+//     }
+
+//     @Delete(':id/permanent')
+//     @ApiOperation({ summary: 'Permanently delete school and all related data (CASCADE)' })
+//     @ApiResponse({ status: 200, description: 'School and all related data wiped successfully' })
+//     async permanentDelete(@Param('id', ParseUUIDPipe) id: string) {
+//         return this.schoolService.permanentlyDelete(id);
+//     }
+//     @Get('sitemap')
+// async generateSitemap(@Res() res) {
+//     const schools = await this.schoolService.getAllSchools();
+    
+//     let xml = `<?xml version="1.0" encoding="UTF-8"?>
+// <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+    
+//     // Main portal
+//     xml += `
+//   <url>
+//     <loc>https://portal.eduspace.mzatinova.com/</loc>
+//     <priority>1.0</priority>
+//   </url>`;
+    
+//     // School subdomains
+//     schools.forEach(school => {
+//         if (school.subdomain) {
+//             xml += `
+//   <url>
+//     <loc>https://${school.subdomain}.eduspace.mzatinova.com/</loc>
+//     <priority>0.8</priority>
+//   </url>`;
+//         }
+//         if (school.custom_domain) {
+//             xml += `
+//   <url>
+//     <loc>https://${school.custom_domain}/</loc>
+//     <priority>0.8</priority>
+//   </url>`;
+//         }
+//     });
+    
+//     xml += `
+// </urlset>`;
+    
+//     res.setHeader('Content-Type', 'text/xml');
+//     res.send(xml);
+// }
+// }
